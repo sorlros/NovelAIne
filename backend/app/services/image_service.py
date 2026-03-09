@@ -1,43 +1,72 @@
 import os
-import asyncio
-from huggingface_hub import AsyncInferenceClient
+import io
+import httpx
 from app.services.supabase_client import get_supabase_client
 from typing import Optional
 
 class ImageService:
     def __init__(self):
-        # Use HuggingFace Inference API (Free tier supports basic generation)
-        # Recommended Model: stabilityai/stable-diffusion-xl-base-1.0 or appropriate fast model
         self.api_key = os.getenv("HF_TOKEN")
-        self.client = AsyncInferenceClient(token=self.api_key)
+        # Use Animagine XL 3.1 for anime style illustration
+        self.model_id = "cagliostrolab/animagine-xl-3.1"
+        self.api_url = f"https://api-inference.huggingface.co/models/{self.model_id}"
+        self.headers = {"Authorization": f"Bearer {self.api_key}"}
+        
         self.supabase = get_supabase_client()
-        # SDXL is large, might hit timeouts on free tier. 
-        # 'runwayml/stable-diffusion-v1-5' or 'stabilityai/stable-diffusion-2-1' might be safer for free inference.
-        # Let's try SD-2-1 for better quality than v1.5
-        self.model_id = "stabilityai/stable-diffusion-2-1" 
-
-    async def generate_scene_image(self, prompt: str, scene_id: str) -> Optional[str]:
+        
+    async def generate_anime_image(self, prompt: str, scene_type: str, message_id: str, character_appearance: Optional[str] = None) -> Optional[str]:
         """
-        Generates an image for a scene and uploads it to Supabase Storage (bucket).
-        Returns the public URL of the generated image.
+        Generates an anime-style image depending on the scene_type ('dialogue'=1:1, 'event'=16:9).
+        Uploads to Supabase and returns the public URL.
         """
+        # Define dimensions
+        width = 832
+        height = 832
+        
+        if scene_type == 'event':
+            width = 1024
+            height = 576  # 16:9ish
+            
+        # Refine prompt for anime quality
+        quality_tags = "masterpiece, best quality, very aesthetic, absurdres"
+        negative_prompt = "lowres, (bad), text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, jpeg artifacts, signature, watermark, username, blurry"
+        
+        char_tags = ""
+        if character_appearance:
+            char_tags = f"1boy/1girl, {character_appearance}, "
+            
+        full_prompt = f"{char_tags}{prompt}, {quality_tags}"
+        
+        payload = {
+            "inputs": full_prompt,
+            "parameters": {
+                "negative_prompt": negative_prompt,
+                "width": width,
+                "height": height,
+                "num_inference_steps": 25,
+                "guidance_scale": 7.0
+            }
+        }
+        
         try:
-            # 1. Generate Image
-            # The API returns a PIL Image object
-            image = await self.client.text_to_image(prompt, model=self.model_id)
+            print(f"[ImageService] Requesting generation for {scene_type} ({width}x{height})...")
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    self.api_url, 
+                    headers=self.headers, 
+                    json=payload,
+                    timeout=120.0
+                )
+                
+            if response.status_code != 200:
+                print(f"[ImageService] API Error {response.status_code}: {response.text}")
+                return None
+                
+            image_bytes = response.content
             
-            # 2. Save to temporary buffer
-            import io
-            buffer = io.BytesIO()
-            image.save(buffer, format="PNG")
-            image_bytes = buffer.getvalue()
-
             # 3. Upload to Cloud Storage (Supabase Storage)
-            # Define file path: scenes/{scene_id}_{timestamp}.png
-            filename = f"scenes/{scene_id}_{os.urandom(4).hex()}.png"
+            filename = f"images/{message_id}_{os.urandom(4).hex()}.png"
             
-            # Upload
-            # Note: You need to create a bucket named 'images' in Supabase beforehand
             try:
                 self.supabase.storage.from_("images").upload(
                     path=filename,
@@ -46,16 +75,14 @@ class ImageService:
                 )
                 
                 # Get Public URL
-                public_url_response = self.supabase.storage.from_("images").get_public_url(filename)
-                # supabase-py v2 returns a string directly or a response? 
-                # According to recent docs, get_public_url returns a string URL.
-                return public_url_response
+                public_url = self.supabase.storage.from_("images").get_public_url(filename)
+                print(f"[ImageService] Successfully generated and uploaded image: {public_url}")
+                return public_url
 
             except Exception as e:
-                print(f"Storage upload failed: {e}")
-                # Fallback: Can't return URL if storage fails.
+                print(f"[ImageService] Storage upload failed: {e}")
                 return None
 
         except Exception as e:
-            print(f"Image generation failed: {e}")
+            print(f"[ImageService] Image generation HTTP request failed: {e}")
             return None
