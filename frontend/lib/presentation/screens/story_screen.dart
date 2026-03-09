@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../data/services/api_service.dart';
 import 'character_sheet_widget.dart';
 import '../../data/models/story_model.dart';
@@ -294,13 +295,15 @@ class _UserNarrative extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(
-              "> $content",
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: const Color(0xFF7C3AED),
-                fontStyle: FontStyle.italic,
+            MarkdownBody(
+              data: "> $content",
+              styleSheet: MarkdownStyleSheet(
+                p: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: const Color(0xFF7C3AED),
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: WrapAlignment.end,
               ),
-              textAlign: TextAlign.right,
             ),
           ],
         ),
@@ -349,12 +352,14 @@ class _AINarrative extends StatelessWidget {
               const SizedBox(width: 16),
             ],
             Expanded(
-              child: Text(
-                content,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.white.withOpacity(0.9),
-                  height: 1.6,
-                  letterSpacing: 0.2,
+              child: MarkdownBody(
+                data: content,
+                styleSheet: MarkdownStyleSheet(
+                  p: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.white.withOpacity(0.9),
+                    height: 1.6,
+                    letterSpacing: 0.2,
+                  ),
                 ),
               ),
             ),
