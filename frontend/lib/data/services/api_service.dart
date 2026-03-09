@@ -256,6 +256,24 @@ class ApiService {
     }
   }
 
+  // Fetch Scenes for a Story
+  Future<List<dynamic>> fetchScenes(String storyId) async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/stories/$storyId/scenes'),
+    );
+
+    if (response.statusCode == 200) {
+      final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
+      if (jsonResponse['success'] == true) {
+        return jsonResponse['data'];
+      } else {
+        throw Exception('Failed to fetch scenes: ${jsonResponse['error']}');
+      }
+    } else {
+      throw Exception('Failed to load scenes: ${response.statusCode}');
+    }
+  }
+
   // Chat APIe Scene
   // This is a simplified version, in reality we might need full Story/Scene models
   Future<Map<String, dynamic>> createScene(

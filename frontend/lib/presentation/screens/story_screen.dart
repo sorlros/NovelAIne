@@ -25,6 +25,64 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   final ScrollController _scrollController = ScrollController();
   final ApiService _apiService = ApiService();
   final AudioPlayer _audioPlayer = AudioPlayer(); // BGM Player
+  bool _isInitLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Defer loading so we can use ref safely after init
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadInitialScenes();
+    });
+  }
+
+  Future<void> _loadInitialScenes() async {
+    if (widget.initialStory == null || _isInitLoaded) return;
+
+    ref.read(isLoadingProvider.notifier).state = true;
+    try {
+      final scenes = await _apiService.fetchScenes(widget.initialStory!.id);
+
+      if (scenes.isNotEmpty && mounted) {
+        final messages = scenes.map((scene) {
+          return {
+            'id':
+                scene['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+            'role':
+                scene['role'] ??
+                'ai', // Assuming fetched scenes are from AI/Narrator
+            'content': scene['content'],
+            'imageUrl': scene['image_url'], // Support if backend returns image
+            'bgmUrl': scene['bgm_url'],
+            'sceneType': scene['scene_type'] ?? 'narrative',
+          };
+        }).toList();
+
+        ref.read(messageProvider.notifier).state = messages;
+        _isInitLoaded = true;
+
+        // Play BGM of the last scene if available
+        final lastBgm = messages.lastWhere(
+          (m) => m['bgmUrl'] != null,
+          orElse: () => {'bgmUrl': null},
+        )['bgmUrl'];
+        if (lastBgm != null) {
+          try {
+            await _audioPlayer.play(UrlSource(lastBgm));
+          } catch (e) {
+            debugPrint("BGM Load Error: $e");
+          }
+        }
+        _scrollToBottom();
+      }
+    } catch (e) {
+      debugPrint("Failed to load initial scenes: $e");
+    } finally {
+      if (mounted) {
+        ref.read(isLoadingProvider.notifier).state = false;
+      }
+    }
+  }
 
   @override
   void dispose() {
