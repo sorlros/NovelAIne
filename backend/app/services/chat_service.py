@@ -88,6 +88,7 @@ class ChatService:
             "1. MUST use rich, literary prose with sensory details (Show, don't just Tell).\n"
             "2. MUST include realistic and engaging dialogues between characters using double quotes (\"\").\n"
             "3. DO NOT act like a chatbot or a game master. NEVER ask '무엇을 하시겠습니까?' (What do you want to do?). End the scene naturally like a paragraph in a novel.\n"
+            "4. FORMATTING: You MUST separate every paragraph and every spoken dialogue with a double newline (`\\n\\n`). Do NOT output a single wall of text.\n"
         )
         
         if rag_context:
