@@ -61,7 +61,7 @@ class ApiService {
   }
 
   // Chat API
-  Future<String> chat(String message) async {
+  Future<Map<String, dynamic>> chat(String message) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/chat'),
       headers: {'Content-Type': 'application/json'},
@@ -70,7 +70,10 @@ class ApiService {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(utf8.decode(response.bodyBytes));
-      return data['response'];
+      return {
+        'response': data['response'] as String,
+        'bgmUrl': data['bgmUrl'] as String?,
+      };
     } else {
       throw Exception('Failed to load chat response');
     }
@@ -178,13 +181,27 @@ class ApiService {
     }
   }
 
+  // Helper to map UI labels to backend ENUM
+  String _mapGenreToBackend(String? label) {
+    if (label == null) return "fantasy";
+    if (label.contains('Fantasy')) return "fantasy";
+    if (label.contains('Sci-Fi')) return "scifi";
+    if (label.contains('Mystery')) return "mystery";
+    if (label.contains('Romance')) return "romance";
+    if (label.contains('Wuxia')) return "wuxia";
+    if (label.contains('Horror')) return "horror";
+    if (label.contains('Cyberpunk')) return "cyberpunk";
+    if (label.contains('Apocalypse')) return "apocalypse";
+    return "other";
+  }
+
   // Create Story (Wizard)
   Future<StoryModel> createStory(CreationConfig config) async {
     final url = Uri.parse('$_baseUrl/stories');
 
     // Map Config to Backend Request
     final Map<String, dynamic> body = {
-      "genre": config.genreLabel ?? "fantasy", // Fallback
+      "genre": _mapGenreToBackend(config.genreLabel),
       "tone": config.toneLabel,
       "protagonist_name": config.userName,
       "protagonist_traits": config.personalityTraits,

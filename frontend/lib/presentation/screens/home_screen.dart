@@ -125,7 +125,7 @@ class _HorizontalStoryList extends ConsumerWidget {
 
         return SizedBox(
           height:
-              420, // Height for the horizontal cards increased to prevent overflow
+              440, // Height for the horizontal cards increased to prevent overflow
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -262,7 +262,7 @@ class _StoryCard extends StatelessWidget {
             ),
             // Content Area
             Expanded(
-              flex: 4,
+              flex: 5,
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
                 child: Column(

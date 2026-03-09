@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../../data/services/api_service.dart';
 import 'character_sheet_widget.dart';
 import '../../data/models/story_model.dart';
@@ -22,11 +23,13 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final ApiService _apiService = ApiService();
+  final AudioPlayer _audioPlayer = AudioPlayer(); // BGM Player
 
   @override
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    _audioPlayer.dispose(); // Release resources
     super.dispose();
   }
 
@@ -58,11 +61,23 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
 
     try {
       // Call API
-      final response = await _apiService.chat(text);
+      final responseMap = await _apiService.chat(text);
+      final aiText = responseMap['response'] as String;
+      final bgmUrl = responseMap['bgmUrl'] as String?;
       final aiMessageId = DateTime.now().millisecondsSinceEpoch.toString();
 
+      // Play BGM if valid
+      if (bgmUrl != null && bgmUrl.isNotEmpty) {
+        try {
+          // Attempt to play the new BGM, sweeping out the old one
+          await _audioPlayer.play(UrlSource(bgmUrl));
+        } catch (e) {
+          debugPrint("BGM Play Error: $e");
+        }
+      }
+
       // Determine scene type heuristically for demo
-      final isDialogue = response.contains('"') || response.contains('「');
+      final isDialogue = aiText.contains('"') || aiText.contains('「');
       final sceneType = isDialogue ? 'dialogue' : 'event';
 
       // Add AI response
@@ -74,8 +89,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
               {
                 'id': aiMessageId,
                 'role': 'ai',
-                'content': response,
+                'content': aiText,
                 'imageUrl': null,
+                'bgmUrl': bgmUrl,
                 'sceneType': sceneType,
               },
             ],

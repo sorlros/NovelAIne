@@ -27,21 +27,31 @@ class ChatNotifier extends StateNotifier<ChatState> {
   Future<void> sendMessage(String text) async {
     // Add user message
     state = state.copyWith(
-      messages: [...state.messages, {'role': 'user', 'content': text}],
+      messages: [
+        ...state.messages,
+        {'role': 'user', 'content': text},
+      ],
       isLoading: true,
     );
 
     try {
-      final response = await _apiService.chat(text);
-      
+      final responseMap = await _apiService.chat(text);
+      final aiText = responseMap['response'] as String;
+
       // Add AI response
       state = state.copyWith(
-        messages: [...state.messages, {'role': 'ai', 'content': response}],
+        messages: [
+          ...state.messages,
+          {'role': 'ai', 'content': aiText},
+        ],
         isLoading: false,
       );
     } catch (e) {
       state = state.copyWith(
-        messages: [...state.messages, {'role': 'system', 'content': 'Error: $e'}],
+        messages: [
+          ...state.messages,
+          {'role': 'system', 'content': 'Error: $e'},
+        ],
         isLoading: false,
       );
     }

@@ -50,3 +50,8 @@ An AI-powered **interactive story creation and automated imaging service**. By c
 
 ## 🚀 Getting Started
 For detailed installation and execution instructions, please refer to the `run_server.sh` script or check the Wiki.
+
+---
+
+## 📅 Changelog
+You can always check the latest updates, bug fixes, and UI/UX design improvements in the [CHANGELOG.md](./CHANGELOG.md) file!

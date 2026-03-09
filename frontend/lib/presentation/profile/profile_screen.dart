@@ -60,51 +60,85 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // 1. User Information Header
-          const UserHeaderWidget(),
-
-          const SizedBox(height: 24),
-
-          // 2. Tab Bar
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 24.0),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E1E1E), // Slightly lighter background
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white10),
-            ),
-            child: TabBar(
-              controller: _tabController,
-              indicator: BoxDecoration(
-                color: const Color(0xFF7C3AED), // Vibrant purple
-                borderRadius: BorderRadius.circular(16),
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) {
+          return [
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  // 1. User Information Header
+                  const UserHeaderWidget(),
+                  const SizedBox(height: 24),
+                ],
               ),
-              indicatorSize: TabBarIndicatorSize.tab,
-              labelColor: Colors.white,
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-              unselectedLabelColor: Colors.white54,
-              dividerColor: Colors.transparent,
-              overlayColor: WidgetStateProperty.all(Colors.transparent),
-              tabs: const [
-                Tab(text: "내 서재"),
-                Tab(text: "나의 창작물"),
-              ],
             ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // 3. Tab Views
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: const [MyLibraryTab(), MyCreationsTab()],
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _SliverAppBarDelegate(
+                TabBar(
+                  controller: _tabController,
+                  indicator: BoxDecoration(
+                    color: const Color(0xFF7C3AED), // Vibrant purple
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  labelColor: Colors.white,
+                  labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+                  unselectedLabelColor: Colors.white54,
+                  dividerColor: Colors.transparent,
+                  overlayColor: WidgetStateProperty.all(Colors.transparent),
+                  tabs: const [
+                    Tab(text: "내 서재"),
+                    Tab(text: "나의 창작물"),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ],
+          ];
+        },
+        body: TabBarView(
+          controller: _tabController,
+          children: const [MyLibraryTab(), MyCreationsTab()],
+        ),
       ),
     );
+  }
+}
+
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar tabBar;
+
+  _SliverAppBarDelegate(this.tabBar);
+
+  @override
+  double get minExtent => tabBar.preferredSize.height + 32; // Add padding
+  @override
+  double get maxExtent => tabBar.preferredSize.height + 32;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      color: const Color(
+        0xFF121212,
+      ), // Match background to obscure content scrolling underneath
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1E1E),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white10),
+        ),
+        child: tabBar,
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return false;
   }
 }

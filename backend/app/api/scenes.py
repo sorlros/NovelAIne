@@ -68,19 +68,26 @@ async def create_scene(story_id: UUID, scene: SceneCreate):
         created_scene = scene_response.data[0]
         scene_id = created_scene["id"]
         
-        # 4. Trigger Image Generation (Async)
-        # Note: In production, use Celery/BackgroundTasks. 
-        # Here we just fire and forget or await (for simplicity awaiting, which might slow response)
-        if scores["should_generate_image"]:
-            # Warning: Creating service instance here. Dependency Injection is better.
-            from app.services.image_service import ImageService
-            image_service = ImageService()
-            
-            # Use BackgroundTasks in real app. For now, await it to ensure it works.
-            # prompt: use first 100 chars of content as prompt
-            prompt = scene.content[:200]
-            await image_service.generate_scene_image(prompt, scene_id)
+        # 4. Trigger Media Generation (Async)
+        if scores["should_generate_image"] or scores["should_generate_bgm"]:
+            # Fetch story to get character traits
+            story_res = client.table("stories").select("protagonist_traits").eq("id", str(story_id)).execute()
+            traits = ""
+            if story_res.data and "protagonist_traits" in story_res.data[0]:
+                traits_data = story_res.data[0]["protagonist_traits"]
+                traits = ", ".join(traits_data) if isinstance(traits_data, list) else str(traits_data)
 
+            if scores["should_generate_image"]:
+                from app.services.image_service import ImageService
+                image_service = ImageService()
+                prompt = scene.content[:200]
+                await image_service.generate_anime_image(prompt, "event", scene_id, character_appearance=traits)
+                
+            if scores["should_generate_bgm"]:
+                from app.services.audio_service import AudioService
+                audio_service = AudioService()
+                prompt = "epic, cinematic, emotion, instrumental, " + scene.content[:100]
+                await audio_service.generate_scene_bgm(prompt, scene_id)
 
         created_scene = scene_response.data[0]
         scene_id = created_scene["id"]

@@ -1,7 +1,6 @@
 import os
 import io
 import httpx
-from aiocache import cached, Cache
 from app.services.supabase_client import get_supabase_client
 from typing import Optional
 
@@ -15,7 +14,7 @@ class ImageService:
         
         self.supabase = get_supabase_client()
         
-    async def generate_anime_image(self, prompt: str, scene_type: str, message_id: str) -> Optional[str]:
+    async def generate_anime_image(self, prompt: str, scene_type: str, message_id: str, character_appearance: Optional[str] = None) -> Optional[str]:
         """
         Generates an anime-style image depending on the scene_type ('dialogue'=1:1, 'event'=16:9).
         Uploads to Supabase and returns the public URL.
@@ -31,7 +30,12 @@ class ImageService:
         # Refine prompt for anime quality
         quality_tags = "masterpiece, best quality, very aesthetic, absurdres"
         negative_prompt = "lowres, (bad), text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, jpeg artifacts, signature, watermark, username, blurry"
-        full_prompt = f"{prompt}, {quality_tags}"
+        
+        char_tags = ""
+        if character_appearance:
+            char_tags = f"1boy/1girl, {character_appearance}, "
+            
+        full_prompt = f"{char_tags}{prompt}, {quality_tags}"
         
         payload = {
             "inputs": full_prompt,

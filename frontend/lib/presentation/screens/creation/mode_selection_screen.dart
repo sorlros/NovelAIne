@@ -8,17 +8,17 @@ class CreationModeSelectionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("새로운 모험"),
-      ),
-      body: Padding(
+      appBar: AppBar(title: const Text("새로운 모험")),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               "어떻게 시작할까요?",
-              style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 28),
+              style: Theme.of(
+                context,
+              ).textTheme.displayLarge?.copyWith(fontSize: 28),
             ).animate().fadeIn().slideY(),
             const SizedBox(height: 8),
             Text(
@@ -39,7 +39,8 @@ class CreationModeSelectionScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const WizardScreen(isQuickStart: true),
+                    builder: (context) =>
+                        const WizardScreen(isQuickStart: true),
                   ),
                 );
               },
@@ -57,7 +58,8 @@ class CreationModeSelectionScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const WizardScreen(isQuickStart: false),
+                    builder: (context) =>
+                        const WizardScreen(isQuickStart: false),
                   ),
                 );
               },

@@ -179,7 +179,6 @@ async def create_story(story: StoryCreate):
                 "name": protagonist_name,
                 "description": bio,
                 "personality_traits": story.protagonist_traits,
-                "personality_traits": story.protagonist_traits,
                 "user_id": created_story["user_id"] # Inherit user_id
             }
             
@@ -215,7 +214,6 @@ async def create_story(story: StoryCreate):
             ]
             client.table("story_characters").insert(character_links).execute()
 
-        return ApiResponse.ok(data=created_story)
         return ApiResponse.ok(data=created_story)
     except Exception as e:
         import traceback

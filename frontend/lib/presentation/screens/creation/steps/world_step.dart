@@ -23,8 +23,7 @@ class _WorldStepState extends State<WorldStep> {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: ListView(
         children: [
           Text("세계관 및 컨셉", style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 8),
@@ -82,7 +81,7 @@ class _WorldStepState extends State<WorldStep> {
             },
           ),
 
-          const Spacer(),
+          const SizedBox(height: 32),
 
           SizedBox(
             width: double.infinity,

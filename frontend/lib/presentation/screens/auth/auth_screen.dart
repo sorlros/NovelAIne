@@ -80,7 +80,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     return Scaffold(
       backgroundColor: const Color(0xFF121212), // StoryForge Dark background
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -123,8 +123,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
               const SizedBox(height: 32),
 
               // Form
-              SizedBox(
-                height: 420, // Fixed height to handle scroll inside column
+              Expanded(
                 child: TabBarView(
                   controller: _tabController,
                   children: [

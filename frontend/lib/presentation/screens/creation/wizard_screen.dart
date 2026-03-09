@@ -72,35 +72,53 @@ class _WizardScreenState extends State<WizardScreen> {
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context); // Dismiss loading
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("생성 실패: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("생성 실패: $e")));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.isQuickStart ? "빠른 시작" : "상세 설정 모드"),
-      ),
-      body: Column(
-        children: [
-          // Custom Stepper Header
-          _StepIndicator(currentStep: _currentStep, totalSteps: 3),
-          
-          Expanded(
-            child: PageView(
-              physics: const NeverScrollableScrollPhysics(),
-              controller: PageController(initialPage: _currentStep), // Just to sync state, logic uses rebuilt widgets usually
-              children: [
-                if (_currentStep == 0) WorldStep(config: _config, onNext: _nextStep, isQuickStart: widget.isQuickStart),
-                if (_currentStep == 1) CharacterStep(config: _config, onNext: _nextStep, onPrev: _prevStep),
-                if (_currentStep == 2) ReviewStep(config: _config, onSubmit: _finishCreation, onPrev: _prevStep),
-              ],
+      resizeToAvoidBottomInset: true, // Crucial for character/world input steps
+      appBar: AppBar(title: Text(widget.isQuickStart ? "빠른 시작" : "상세 설정 모드")),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Custom Stepper Header
+            _StepIndicator(currentStep: _currentStep, totalSteps: 3),
+
+            Expanded(
+              child: PageView(
+                physics: const NeverScrollableScrollPhysics(),
+                controller: PageController(
+                  initialPage: _currentStep,
+                ), // Just to sync state, logic uses rebuilt widgets usually
+                children: [
+                  if (_currentStep == 0)
+                    WorldStep(
+                      config: _config,
+                      onNext: _nextStep,
+                      isQuickStart: widget.isQuickStart,
+                    ),
+                  if (_currentStep == 1)
+                    CharacterStep(
+                      config: _config,
+                      onNext: _nextStep,
+                      onPrev: _prevStep,
+                    ),
+                  if (_currentStep == 2)
+                    ReviewStep(
+                      config: _config,
+                      onSubmit: _finishCreation,
+                      onPrev: _prevStep,
+                    ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -120,7 +138,7 @@ class _StepIndicator extends StatelessWidget {
         children: List.generate(totalSteps, (index) {
           final isActive = index <= currentStep;
           final isLast = index == totalSteps - 1;
-          
+
           return Expanded(
             child: Row(
               children: [
@@ -129,7 +147,9 @@ class _StepIndicator extends StatelessWidget {
                   width: 30,
                   height: 30,
                   decoration: BoxDecoration(
-                    color: isActive ? Theme.of(context).primaryColor : Colors.white10,
+                    color: isActive
+                        ? Theme.of(context).primaryColor
+                        : Colors.white10,
                     shape: BoxShape.circle,
                   ),
                   child: Center(
@@ -147,7 +167,9 @@ class _StepIndicator extends StatelessWidget {
                   Expanded(
                     child: Container(
                       height: 2,
-                      color: index < currentStep ? Theme.of(context).primaryColor : Colors.white10,
+                      color: index < currentStep
+                          ? Theme.of(context).primaryColor
+                          : Colors.white10,
                     ),
                   ),
               ],

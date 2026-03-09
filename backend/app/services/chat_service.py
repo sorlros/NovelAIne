@@ -20,6 +20,48 @@ class ChatService:
         self.rag_service = RagService()
         self.memory_service = MemoryService(max_buffer_size=10)
 
+    async def _compress_to_english_keywords(self, user_message: str) -> str:
+        """
+        Compresses the user's natural language input (Korean) into English keywords.
+        Saves tokens by only sending essential actions/nouns to the main story generation.
+        """
+        system_prompt = (
+            "You are a summarization AI. Extract only the crucial actions, objects, and emotions "
+            "from the user's input. Translate them into concise English keywords separated by commas. "
+            "Do not write full sentences. Example: '주인공이 검을 뽑아서 드래곤에게 달려간다' -> "
+            "'protagonist draws sword, charges at dragon'"
+        )
+        
+        data = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
+            ],
+            "temperature": 0.3, # Low temperature for accurate extraction
+            "max_tokens": 100
+        }
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    self.base_url, 
+                    headers=self.headers, 
+                    json=data,
+                    timeout=30.0
+                )
+                
+                if response.status_code == 200:
+                    compressed = self._extract_response_text(response.json())
+                    print(f"[DEBUG] Original input: {user_message}")
+                    print(f"[DEBUG] Compressed to keywords: {compressed}")
+                    return compressed
+                else:
+                    return user_message # Fallback to original if API fails
+        except Exception as e:
+            print(f"Compression Error: {e}")
+            return user_message # Fallback
+
     async def generate_response(self, user_message: str, history: List[Dict[str, str]] = []) -> str:
         """
         RAG와 Memory가 결합된 최종 응답 생성 로직
@@ -32,29 +74,30 @@ class ChatService:
         except Exception as e:
             print(f"RAG Error: {e}") 
             # RAG 실패해도 대화는 진행
+            
+        # 2. Token Optimization: Compress User Input to English Keywords
+        compressed_message = await self._compress_to_english_keywords(user_message)
 
-        # 2. System Prompt 구성
+        # 3. System Prompt 구성
         base_system_prompt = (
             "당신은 몰입형 인터랙티브 스토리텔링 플랫폼 'NovelAIne'의 AI 스토리텔러입니다.\n"
-            "사용자의 선택에 따라 흥미롭고 감정적인 이야기를 전개하세요.\n"
-            "문체는 소설처럼 서술적이고 묘사가 풍부해야 합니다.\n"
+            "The user will provide story directions as English keywords to save tokens.\n"
+            "Based on these keywords and the story context, write the next scene in KOREAN (or the user's preferred language).\n"
+            "Must be descriptive, immersive, and formatted clearly like a novel.\n"
         )
         
         if rag_context:
-            base_system_prompt += f"\n[참고할 캐릭터/설정 정보]\n{rag_context}\n"
+            base_system_prompt += f"\n[Story Lore/Context]\n{rag_context}\n"
             
-        # 3. Message 구성 (Memory 적용)
-        # 현재 요청에 시스템 프롬프트가 없다면 추가
+        # 4. Message 구성 (Memory 적용)
         current_messages = [{"role": "system", "content": base_system_prompt}]
         
-        # 이전 기록 추가 (User가 보낸 history가 있다면)
         if history:
             current_messages.extend(self.memory_service.format_history(history))
             
-        # 현재 사용자 메시지 추가
-        current_messages.append({"role": "user", "content": user_message})
+        current_messages.append({"role": "user", "content": f"[Directions]: {compressed_message}"})
 
-        # 4. LLM 호출 (Direct HTTP Request using httpx)
+        # 5. LLM 호출
         data = {
             "model": self.model,
             "messages": current_messages,
