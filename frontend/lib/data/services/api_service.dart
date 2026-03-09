@@ -161,11 +161,30 @@ class ApiService {
       if (jsonResponse['success'] == true) {
         return jsonResponse['data'];
       } else {
-        throw Exception('Failed to create character: ${jsonResponse['error']}');
+        throw Exception("Failed to create character: ${jsonResponse['error']}");
       }
     } else {
       throw Exception('Failed to create character: ${response.body}');
     }
+  }
+
+  // Upload Character Image
+  Future<String> uploadCharacterImage(
+    String characterId,
+    String imagePath,
+  ) async {
+    final uri = Uri.parse('$_baseUrl/characters/$characterId/upload-image');
+    final request = http.MultipartRequest('POST', uri);
+    request.files.add(await http.MultipartFile.fromPath('file', imagePath));
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    if (response.statusCode == 200) {
+      final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
+      if (jsonResponse['success'] == true) {
+        return jsonResponse['data']['image_url'] as String;
+      }
+    }
+    throw Exception('Failed to upload image: ${response.body}');
   }
 
   // Update Story (Rename/Status)

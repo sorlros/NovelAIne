@@ -7,3 +7,12 @@ Traceback (most recent call last):
     raise APIError(dict(json_obj))
 postgrest.exceptions.APIError: {'message': 'null value in column "user_id" of relation "stories" violates not-null constraint', 'code': '23502', 'hint': None, 'details': 'Failing row contains (34a7883b-bec5-408e-844d-0af68463fe1f, null, 새로운 모험, fantasy, 알 수 없는 이유로 생성에 실패했습니다., active, 0, null, null, 2026-03-09 01:16:37.126045+00, 2026-03-09 01:16:37.126045+00).'}
 
+[2026-03-09 11:46:27.139257] Error creating story: {'message': 'new row for relation "stories" violates check constraint "stories_genre_check"', 'code': '23514', 'hint': None, 'details': 'Failing row contains (814f5996-44b6-4c55-9dc4-77ce30ecc729, ad7f9883-5506-449d-b139-3c6911e7f97d, 새로운 모험, wuxia, 알 수 없는 이유로 생성에 실패했습니다., active, 0, null, null, 2026-03-09 02:46:26.999666+00, 2026-03-09 02:46:26.999666+00).'}
+Traceback (most recent call last):
+  File "/Users/choi/Desktop/workspace/NovelAIne/backend/app/api/stories.py", line 160, in create_story
+    story_response = client.table("stories").insert(story_db_data).execute()
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/envs/tf_env/lib/python3.11/site-packages/postgrest/_sync/request_builder.py", line 53, in execute
+    raise APIError(dict(json_obj))
+postgrest.exceptions.APIError: {'message': 'new row for relation "stories" violates check constraint "stories_genre_check"', 'code': '23514', 'hint': None, 'details': 'Failing row contains (814f5996-44b6-4c55-9dc4-77ce30ecc729, ad7f9883-5506-449d-b139-3c6911e7f97d, 새로운 모험, wuxia, 알 수 없는 이유로 생성에 실패했습니다., active, 0, null, null, 2026-03-09 02:46:26.999666+00, 2026-03-09 02:46:26.999666+00).'}
+
