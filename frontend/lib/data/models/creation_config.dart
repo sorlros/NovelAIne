@@ -17,6 +17,7 @@ class CreationConfig {
   String? userAge;
   List<String> personalityTraits = [];
   File? userImage; // Local file path
+  String? characterImagePath; // Picked image path for upload
   String? imageStyle; // e.g., "Anime", "Realistic"
 
   // Step 3: Hook
@@ -28,7 +29,7 @@ class CreationConfig {
   String toString() {
     return 'CreationConfig(genre: $genreLabel, name: $userName, traits: $personalityTraits)';
   }
-  
+
   // Convert key selections to a final system prompt for the LLM
   String toSystemPrompt() {
     return """

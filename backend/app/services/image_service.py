@@ -9,7 +9,7 @@ class ImageService:
         self.api_key = os.getenv("HF_TOKEN")
         # Use Animagine XL 3.1 for anime style illustration
         self.model_id = "cagliostrolab/animagine-xl-3.1"
-        self.api_url = f"https://api-inference.huggingface.co/models/{self.model_id}"
+        self.api_url = f"https://router.huggingface.co/hf-inference/models/{self.model_id}"
         self.headers = {"Authorization": f"Bearer {self.api_key}"}
         
         self.supabase = get_supabase_client()

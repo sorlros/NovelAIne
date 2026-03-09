@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File
 from typing import List, Optional
 from uuid import UUID
+import uuid as uuid_module
 
 from app.services.supabase_client import get_supabase_client
 from app.schemas.models import Character, CharacterCreate, ApiResponse
@@ -116,4 +117,50 @@ async def delete_character(character_id: UUID):
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to delete character: {str(e)}"
+        )
+@router.post("/{character_id}/upload-image", response_model=ApiResponse)
+async def upload_character_image(
+    character_id: UUID,
+    file: UploadFile = File(...),
+):
+    """Upload an image for a character and save the public URL."""
+    try:
+        client = get_supabase_client()
+
+        # Read file content
+        file_content = await file.read()
+        
+        # Build a unique filename in Supabase Storage
+        extension = (file.filename or "img.jpg").rsplit(".", 1)[-1].lower()
+        storage_path = f"{character_id}/{uuid_module.uuid4()}.{extension}"
+        bucket_name = "character-avatars"
+
+        # Upload to Supabase Storage bucket
+        client.storage.from_(bucket_name).upload(
+            path=storage_path,
+            file=file_content,
+            file_options={"content-type": file.content_type or "image/jpeg"},
+        )
+
+        # Get the public URL
+        public_url = client.storage.from_(bucket_name).get_public_url(storage_path)
+
+        # Update the character's image_url column
+        response = (
+            client.table("characters")
+            .update({"image_url": public_url})
+            .eq("id", str(character_id))
+            .execute()
+        )
+
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Character not found")
+
+        return ApiResponse.ok(data={"image_url": public_url})
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to upload image: {str(e)}"
         )

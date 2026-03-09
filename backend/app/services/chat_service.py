@@ -15,7 +15,8 @@ class ChatService:
             "HTTP-Referer": "https://novelaine.com",
             "X-Title": "NovelAIne",
         }
-        self.model = os.getenv("LLM_MODEL", "tngtech/tng-r1t-chimera")
+        # self.model = os.getenv("LLM_MODEL", "tngtech/deepseek-r1t2-chimera")
+        self.model = os.getenv("LLM_MODEL", "google/gemini-2.5-flash")
         
         self.rag_service = RagService()
         self.memory_service = MemoryService(max_buffer_size=10)
@@ -80,10 +81,13 @@ class ChatService:
 
         # 3. System Prompt 구성
         base_system_prompt = (
-            "당신은 몰입형 인터랙티브 스토리텔링 플랫폼 'NovelAIne'의 AI 스토리텔러입니다.\n"
+            "당신은 몰입형 인터랙티브 스토리텔링 플랫폼 'NovelAIne'의 베스트셀러 소설 작가입니다.\n"
             "The user will provide story directions as English keywords to save tokens.\n"
             "Based on these keywords and the story context, write the next scene in KOREAN (or the user's preferred language).\n"
-            "Must be descriptive, immersive, and formatted clearly like a novel.\n"
+            "CRITICAL RULES:\n"
+            "1. MUST use rich, literary prose with sensory details (Show, don't just Tell).\n"
+            "2. MUST include realistic and engaging dialogues between characters using double quotes (\"\").\n"
+            "3. DO NOT act like a chatbot or a game master. NEVER ask '무엇을 하시겠습니까?' (What do you want to do?). End the scene naturally like a paragraph in a novel.\n"
         )
         
         if rag_context:
@@ -139,9 +143,10 @@ class ChatService:
         항상 JSON 형식으로 반환합니다.
         """
         system_prompt = (
-            "You are a creative writer for an interactive novel app.\n"
+            "You are a bestselling author for an interactive novel app.\n"
             "Generate the story metadata in valid JSON format ONLY.\n"
             "Do not include any prose outside the JSON object.\n"
+            "The 'first_scene' MUST be written in a highly engaging, literary novel style, rich with sensory details and realistic character dialogues (\"\").\n"
             "The keys must be: 'title', 'description', 'first_scene', 'protagonist_bio'."
         )
 
@@ -157,7 +162,7 @@ class ChatService:
         {{
             "title": "Story Title",
             "description": "Short summary of the premise",
-            "first_scene": "The actual narrative content of the first scene (approx 300 words). Engaging and immersive.",
+            "first_scene": "The actual narrative content of the first scene (approx 300 words). MUST include immersive descriptions and character dialogue.",
             "protagonist_bio": "A short backstory for the character based on the traits and setting."
         }}
         """
@@ -169,6 +174,7 @@ class ChatService:
                 {"role": "user", "content": user_prompt}
             ],
             "temperature": 0.9,
+            "max_tokens": 2000,
             "response_format": {"type": "json_object"}
         }
 
@@ -185,7 +191,16 @@ class ChatService:
                     resp_json = response.json()
                     content = self._extract_response_text(resp_json)
                     print(f"[DEBUG] LLM JSON Response: {content}")
-                    return json.loads(content)
+                    
+                    content_str = content.strip()
+                    if content_str.startswith("```json"):
+                        content_str = content_str[7:]
+                    elif content_str.startswith("```"):
+                        content_str = content_str[3:]
+                    if content_str.endswith("```"):
+                        content_str = content_str[:-3]
+                        
+                    return json.loads(content_str.strip())
                 else:
                     print(f"API Error {response.status_code}: {response.text}")
                     raise Exception(f"Failed to generate story: {response.status_code}")
