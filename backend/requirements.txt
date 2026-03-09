@@ -2,6 +2,7 @@ fastapi
 uvicorn
 supabase
 huggingface_hub
-groq
+openai
 supabase
 psycopg2-binary
+python-dotenv

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Any
 from datetime import datetime
 from uuid import UUID
 
@@ -71,8 +71,16 @@ class StoryBase(BaseModel):
     description: Optional[str] = Field(None, max_length=2000)
 
 
-class StoryCreate(StoryBase):
-    character_ids: Optional[List[UUID]] = None  # Initial characters
+class StoryCreate(BaseModel):
+    title: Optional[str] = Field(None, max_length=200)  # Optional, can be generated
+    genre: str = Field(..., pattern="^(fantasy|scifi|mystery|romance|horror|adventure|wuxia|apocalypse|cyberpunk|other)$")
+    description: Optional[str] = Field(None, max_length=2000)
+    # Generation params
+    tone: Optional[str] = None
+    protagonist_name: Optional[str] = None
+    protagonist_traits: Optional[List[str]] = None
+    opening_scenario: Optional[str] = None
+    character_ids: Optional[List[UUID]] = None
 
 
 class Story(StoryBase):
@@ -265,7 +273,7 @@ T = type("T", (), {})
 
 class ApiResponse(BaseModel):
     success: bool
-    data: Optional[dict] = None
+    data: Optional[Any] = None
     error: Optional[str] = None
     meta: Optional[dict] = None
 
