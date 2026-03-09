@@ -140,7 +140,8 @@ async def create_story(story: StoryCreate):
                 tone=story.tone,
                 protagonist_name=story.protagonist_name,
                 traits=story.protagonist_traits,
-                scenario=story.opening_scenario
+                scenario=story.opening_scenario,
+                language=story.language
             )
             
             # Fill in the missing required fields

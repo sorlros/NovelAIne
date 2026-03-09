@@ -1,8 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../../core/constants.dart';
 import '../models/story_model.dart';
-import '../models/creation_config.dart'; // Added
+import '../models/creation_config.dart';
 
 class ApiService {
   final String _baseUrl = AppConstants.baseUrl;
@@ -234,6 +235,7 @@ class ApiService {
         "protagonist_appearance_description": config.appearanceDescription,
       // We don't have explicit scenario input in UI yet, but model supports it
       // "opening_scenario": ...
+      "language": Platform.localeName, // e.g., 'ko_KR', 'en_US'
     };
 
     final response = await http.post(
