@@ -128,8 +128,13 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
 
     try {
       final apiService = ApiService();
-      // Generate using API
-      final imageUrl = await apiService.generateImage(messageId, prompt, type);
+      // Generate using API with story ID context for appearance injection
+      final imageUrl = await apiService.generateImage(
+        messageId,
+        prompt,
+        type,
+        storyId: widget.initialStory?.id,
+      );
 
       // Update state with new image
       ref.read(messageProvider.notifier).update((state) {
