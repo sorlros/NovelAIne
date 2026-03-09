@@ -19,6 +19,7 @@ class CreationConfig {
   File? userImage; // Local file path
   String? characterImagePath; // Picked image path for upload
   String? imageStyle; // e.g., "Anime", "Realistic"
+  String? appearanceDescription; // Visual consistency tags
 
   // Step 3: Hook
   String? openingScenario;

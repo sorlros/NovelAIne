@@ -83,8 +83,9 @@ class ApiService {
   Future<String> generateImage(
     String messageId,
     String prompt,
-    String sceneType,
-  ) async {
+    String sceneType, {
+    String? storyId,
+  }) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/images/generate'),
       headers: {'Content-Type': 'application/json'},
@@ -92,6 +93,7 @@ class ApiService {
         'message_id': messageId,
         'prompt': prompt,
         'scene_type': sceneType,
+        if (storyId != null) 'story_id': storyId,
       }),
     );
 
@@ -144,8 +146,9 @@ class ApiService {
   Future<Map<String, dynamic>> createCharacter(
     String name,
     String description,
-    List<String> traits,
-  ) async {
+    List<String> traits, {
+    String? appearanceDescription,
+  }) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/characters'),
       headers: {'Content-Type': 'application/json'},
@@ -153,6 +156,8 @@ class ApiService {
         'name': name,
         'description': description,
         'personality_traits': traits,
+        if (appearanceDescription != null)
+          'appearance_description': appearanceDescription,
       }),
     );
 
@@ -224,6 +229,9 @@ class ApiService {
       "tone": config.toneLabel,
       "protagonist_name": config.userName,
       "protagonist_traits": config.personalityTraits,
+      if (config.appearanceDescription != null &&
+          config.appearanceDescription!.isNotEmpty)
+        "protagonist_appearance_description": config.appearanceDescription,
       // We don't have explicit scenario input in UI yet, but model supports it
       // "opening_scenario": ...
     };

@@ -79,6 +79,7 @@ class StoryCreate(BaseModel):
     tone: Optional[str] = None
     protagonist_name: Optional[str] = None
     protagonist_traits: Optional[List[str]] = None
+    protagonist_appearance_description: Optional[str] = Field(None, max_length=1000)
     opening_scenario: Optional[str] = None
     character_ids: Optional[List[UUID]] = None
 

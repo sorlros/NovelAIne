@@ -22,6 +22,7 @@ class CharacterStep extends StatefulWidget {
 
 class _CharacterStepState extends State<CharacterStep> {
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _appearanceController = TextEditingController();
   File? _selectedImage;
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -32,11 +33,17 @@ class _CharacterStepState extends State<CharacterStep> {
     _nameController.addListener(() {
       widget.config.userName = _nameController.text;
     });
+
+    _appearanceController.text = widget.config.appearanceDescription ?? '';
+    _appearanceController.addListener(() {
+      widget.config.appearanceDescription = _appearanceController.text;
+    });
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _appearanceController.dispose();
     super.dispose();
   }
 
@@ -155,6 +162,17 @@ class _CharacterStepState extends State<CharacterStep> {
             decoration: const InputDecoration(
               labelText: "이름",
               hintText: "캐릭터의 이름을 입력하세요",
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // ── Appearance Input ──
+          TextField(
+            controller: _appearanceController,
+            maxLines: 2,
+            decoration: const InputDecoration(
+              labelText: "외모 특징 (선택)",
+              hintText: "예: 은발의 장발, 붉은 눈, 낡은 로브 (한글/영문 모두 가능)",
             ),
           ),
           const SizedBox(height: 24),
