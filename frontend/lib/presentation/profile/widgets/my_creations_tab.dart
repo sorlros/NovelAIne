@@ -271,14 +271,34 @@ class MyCreationsTab extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF7C3AED).withOpacity(0.15),
-              shape: BoxShape.circle,
+          if (char.imageUrl != null && char.imageUrl!.isNotEmpty)
+            Container(
+              width: 68,
+              height: 68,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFF7C3AED).withOpacity(0.5),
+                ),
+                image: DecorationImage(
+                  image: NetworkImage(char.imageUrl!),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C3AED).withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.person,
+                size: 36,
+                color: Color(0xFF7C3AED),
+              ),
             ),
-            child: const Icon(Icons.person, size: 36, color: Color(0xFF7C3AED)),
-          ),
           const SizedBox(height: 16),
           Text(
             char.name,

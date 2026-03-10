@@ -171,6 +171,37 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
+                                if (char.imageUrl != null &&
+                                    char.imageUrl!.isNotEmpty)
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      image: DecorationImage(
+                                        image: NetworkImage(char.imageUrl!),
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(
+                                        0xFF7C3AED,
+                                      ).withOpacity(0.15),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.person,
+                                      size: 20,
+                                      color: Color(0xFF7C3AED),
+                                    ),
+                                  ),
                                 Text(
                                   char.name,
                                   style: const TextStyle(
@@ -183,7 +214,7 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  char.description,
+                                  char.description.replaceAll('\\n', '\n'),
                                   style: const TextStyle(
                                     color: Colors.white54,
                                     fontSize: 11,
