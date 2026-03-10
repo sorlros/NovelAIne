@@ -293,7 +293,9 @@ class MyCreationsTab extends ConsumerWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Text(
-                char.description.isNotEmpty ? char.description : 'Unknown Role',
+                char.description.isNotEmpty
+                    ? char.description.replaceAll('\\n', '\n')
+                    : 'Unknown Role',
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,

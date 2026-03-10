@@ -126,7 +126,10 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
                               widget.config.userName = char.name;
 
                               // Prepend background story to appearance desc for LLM context
-                              String fullDesc = char.description;
+                              String fullDesc = char.description.replaceAll(
+                                '\\n',
+                                '\n',
+                              );
                               if (char.backgroundStory != null &&
                                   char.backgroundStory!.isNotEmpty) {
                                 fullDesc += "\n[배경]: ${char.backgroundStory}";

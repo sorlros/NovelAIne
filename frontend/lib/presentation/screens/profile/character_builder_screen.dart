@@ -79,7 +79,9 @@ class _CharacterBuilderScreenState
       // ACTUALLY, checking ApiService.createCharacter, it only takes 3 positional args. Let's stick to them first.
       await ApiService().createCharacter(
         _nameController.text.trim(),
-        "${_descController.text.trim()}\n[배경]: ${_backgroundController.text.trim()}\n[외양]: ${_appearanceController.text.trim()}",
+        '''${_descController.text.trim()}
+[배경]: ${_backgroundController.text.trim()}
+[외양]: ${_appearanceController.text.trim()}''',
         _traits,
       );
 

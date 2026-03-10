@@ -19,7 +19,8 @@ class CharacterModel {
     return CharacterModel(
       id: json['id'],
       name: json['name'],
-      description: json['description'] ?? '',
+      description:
+          (json['description'] as String?)?.replaceAll('\\n', '\n') ?? '',
       // Ensure we parse correctly whether it's a Map or a List from the backend
       personalityTraits: json['personality_traits'] is Map
           ? Map<String, dynamic>.from(json['personality_traits'])
