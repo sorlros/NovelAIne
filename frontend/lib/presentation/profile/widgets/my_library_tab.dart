@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../providers/content_provider.dart';
+import '../../screens/story_screen.dart';
 
-class MyLibraryTab extends StatelessWidget {
+class MyLibraryTab extends ConsumerWidget {
   const MyLibraryTab({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Placeholder data
-    final List<Map<String, String>> readingStories = [
-      {"title": "잃어버린 세계", "progress": "에피소드 3 / 10"},
-      {"title": "오래된 저택의 비밀", "progress": "에피소드 1 / 5"},
-    ];
+  Widget build(BuildContext context, WidgetRef ref) {
+    final storiesState = ref.watch(storiesProvider);
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
@@ -26,56 +25,98 @@ class MyLibraryTab extends StatelessWidget {
         const SizedBox(height: 16),
         SizedBox(
           height: 240,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: readingStories.length,
-            itemBuilder: (context, index) {
-              final story = readingStories[index];
-              return Container(
-                width: 140,
-                margin: const EdgeInsets.only(right: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1E1E1E), // Dark placeholder
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.white10),
+          child: storiesState.when(
+            data: (stories) {
+              if (stories.isEmpty) {
+                return Center(
+                  child: const Text(
+                    "아직 작성된 스토리가 없습니다.",
+                    style: TextStyle(color: Colors.white54),
+                  ).animate().fadeIn(),
+                );
+              }
+              return ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: stories.length,
+                itemBuilder: (context, index) {
+                  final story = stories[index];
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              StoryScreen(initialStory: story),
                         ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.menu_book,
-                            size: 40,
-                            color: Colors.white24,
+                      );
+                    },
+                    child: Container(
+                      width: 140,
+                      margin: const EdgeInsets.only(right: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1E1E1E),
+                                borderRadius: BorderRadius.circular(16),
+                                image: story.coverImageUrl != null
+                                    ? DecorationImage(
+                                        image: NetworkImage(
+                                          story.coverImageUrl!,
+                                        ),
+                                        fit: BoxFit.cover,
+                                      )
+                                    : null,
+                                border: Border.all(color: Colors.white10),
+                              ),
+                              child: story.coverImageUrl == null
+                                  ? const Center(
+                                      child: Icon(
+                                        Icons.menu_book,
+                                        size: 40,
+                                        color: Colors.white24,
+                                      ),
+                                    )
+                                  : null,
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 12),
+                          Text(
+                            story.title,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              fontSize: 14,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            story.genre ?? "모험",
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.white54,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      story["title"]!,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        fontSize: 14,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      story["progress"]!,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.white54,
-                      ),
-                    ),
-                  ],
-                ),
-              ).animate().fadeIn().slideX(delay: (100 + index * 100).ms);
+                    ).animate().fadeIn().slideX(delay: (100 + index * 100).ms),
+                  );
+                },
+              );
             },
+            loading: () => const Center(
+              child: CircularProgressIndicator(color: Color(0xFF7C3AED)),
+            ),
+            error: (err, _) => const Center(
+              child: Text(
+                "스토리를 불러오는데 실패했습니다.",
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 32),

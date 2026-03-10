@@ -20,7 +20,12 @@ class CharacterModel {
       id: json['id'],
       name: json['name'],
       description: json['description'] ?? '',
-      personalityTraits: json['personality_traits'] ?? {},
+      // Ensure we parse correctly whether it's a Map or a List from the backend
+      personalityTraits: json['personality_traits'] is Map
+          ? Map<String, dynamic>.from(json['personality_traits'])
+          : json['personality_traits'] is List
+          ? {'traits': List<String>.from(json['personality_traits'])}
+          : {},
       backgroundStory: json['background_story'],
       imageUrl: json['image_url'],
     );
