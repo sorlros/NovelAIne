@@ -4,6 +4,7 @@ import '../../providers/content_provider.dart';
 import '../../../data/models/story_model.dart';
 import '../../../data/models/character_model.dart';
 import '../../../data/services/api_service.dart';
+import '../../screens/story_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class MyCreationsTab extends ConsumerWidget {
@@ -311,6 +312,14 @@ class MyCreationsTab extends ConsumerWidget {
         border: Border.all(color: Colors.white10),
       ),
       child: ListTile(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => StoryScreen(initialStory: story),
+            ),
+          );
+        },
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Container(
           padding: const EdgeInsets.all(12),

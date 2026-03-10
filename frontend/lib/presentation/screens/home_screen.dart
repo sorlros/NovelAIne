@@ -166,7 +166,9 @@ class _StoryCard extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const StoryScreen()),
+          MaterialPageRoute(
+            builder: (context) => StoryScreen(initialStory: story),
+          ),
         );
       },
       child: Container(
