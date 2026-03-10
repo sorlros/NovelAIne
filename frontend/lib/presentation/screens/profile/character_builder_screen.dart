@@ -282,7 +282,7 @@ class _CharacterBuilderScreenState
             _buildTextField(
               controller: _backgroundController,
               label: "상세 배경 스토리 (선택)",
-              hint: "이 캐릭터는 어떤 과거를 가지고 있나요?\\n어떤 목적을 위해 여행을 하나요?",
+              hint: "이 캐릭터는 어떤 과거를 가지고 있나요?\n어떤 목적을 위해 여행을 하나요?",
               maxLines: 4,
             ).animate().fadeIn().slideX(delay: 250.ms),
             const SizedBox(height: 32),
@@ -295,7 +295,7 @@ class _CharacterBuilderScreenState
             _buildTextField(
               controller: _appearanceController,
               label: "외모 특징 (선택)",
-              hint: "예: 긴 은발, 붉은 눈동자, 검은색 롱코트\\n(이 묘사는 이미지 생성 시 활용됩니다)",
+              hint: "예: 긴 은발, 붉은 눈동자, 검은색 롱코트\n(이 묘사는 이미지 생성 시 활용됩니다)",
               maxLines: 2,
             ).animate().fadeIn().slideX(delay: 350.ms),
             const SizedBox(height: 48),
