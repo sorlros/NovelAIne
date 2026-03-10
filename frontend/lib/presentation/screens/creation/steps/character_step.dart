@@ -129,7 +129,7 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
                               String fullDesc = char.description;
                               if (char.backgroundStory != null &&
                                   char.backgroundStory!.isNotEmpty) {
-                                fullDesc += "\\n[배경]: ${char.backgroundStory}";
+                                fullDesc += "\n[배경]: ${char.backgroundStory}";
                               }
                               _appearanceController.text = fullDesc;
                               widget.config.appearanceDescription = fullDesc;
