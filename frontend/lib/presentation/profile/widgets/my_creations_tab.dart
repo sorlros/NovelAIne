@@ -5,6 +5,7 @@ import '../../../data/models/story_model.dart';
 import '../../../data/models/character_model.dart';
 import '../../../data/services/api_service.dart';
 import '../../screens/story_screen.dart';
+import '../../screens/profile/character_builder_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class MyCreationsTab extends ConsumerWidget {
@@ -96,113 +97,7 @@ class MyCreationsTab extends ConsumerWidget {
     );
   }
 
-  void _showCreateCharacterDialog(BuildContext context, WidgetRef ref) {
-    final nameController = TextEditingController();
-    final descController = TextEditingController();
-    bool isLoading = false;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF1E1E1E),
-              title: const Text(
-                "새 캐릭터 만들기",
-                style: TextStyle(color: Colors.white),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: "이름",
-                      labelStyle: TextStyle(color: Colors.white54),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white24),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xFF7C3AED)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: descController,
-                    maxLines: 2,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: "설명",
-                      labelStyle: TextStyle(color: Colors.white54),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white24),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xFF7C3AED)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    "취소",
-                    style: TextStyle(color: Colors.white54),
-                  ),
-                ),
-                isLoading
-                    ? const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : TextButton(
-                        onPressed: () async {
-                          if (nameController.text.trim().isEmpty) return;
-                          setState(() => isLoading = true);
-                          try {
-                            await ApiService().createCharacter(
-                              nameController.text.trim(),
-                              descController.text.trim(),
-                              [
-                                "용감함",
-                                "호기심 많음",
-                              ], // Hardcoded default traits for now
-                            );
-                            ref.invalidate(charactersProvider);
-                            if (context.mounted) Navigator.pop(context);
-                          } catch (e) {
-                            setState(() => isLoading = false);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text("생성 실패: $e")),
-                              );
-                            }
-                          }
-                        },
-                        child: const Text(
-                          "생성",
-                          style: TextStyle(
-                            color: Color(0xFF7C3AED),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
+  // Replaced by CharacterBuilderScreen
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -260,7 +155,14 @@ class MyCreationsTab extends ConsumerWidget {
             ),
             IconButton(
               icon: const Icon(Icons.add_circle, color: Color(0xFF7C3AED)),
-              onPressed: () => _showCreateCharacterDialog(context, ref),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CharacterBuilderScreen(),
+                  ),
+                );
+              },
             ),
           ],
         ).animate().fadeIn().slideX(delay: 200.ms),

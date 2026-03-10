@@ -4,8 +4,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 import '../../../../data/models/creation_config.dart';
 import '../../../../data/constants/creation_prompts.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../providers/content_provider.dart';
 
-class CharacterStep extends StatefulWidget {
+class CharacterStep extends ConsumerStatefulWidget {
   final CreationConfig config;
   final VoidCallback onNext;
   final VoidCallback onPrev;
@@ -18,10 +20,10 @@ class CharacterStep extends StatefulWidget {
   });
 
   @override
-  State<CharacterStep> createState() => _CharacterStepState();
+  ConsumerState<CharacterStep> createState() => _CharacterStepState();
 }
 
-class _CharacterStepState extends State<CharacterStep> {
+class _CharacterStepState extends ConsumerState<CharacterStep> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _appearanceController = TextEditingController();
   File? _selectedImage;
@@ -85,6 +87,124 @@ class _CharacterStepState extends State<CharacterStep> {
           Text(
             AppLocalizations.of(context)!.whoIsTheProtagonist,
             style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 24),
+
+          // ── My Characters Selection ──
+          const Text(
+            "내 캐릭터에서 불러오기",
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.white70,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 80,
+            child: ref
+                .watch(charactersProvider)
+                .when(
+                  data: (characters) {
+                    if (characters.isEmpty) {
+                      return const Center(
+                        child: Text(
+                          "저장된 캐릭터가 없습니다.",
+                          style: TextStyle(color: Colors.white30, fontSize: 12),
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: characters.length,
+                      itemBuilder: (context, index) {
+                        final char = characters[index];
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _nameController.text = char.name;
+                              widget.config.userName = char.name;
+
+                              // Prepend background story to appearance desc for LLM context
+                              String fullDesc = char.description;
+                              if (char.backgroundStory != null &&
+                                  char.backgroundStory!.isNotEmpty) {
+                                fullDesc += "\\n[배경]: ${char.backgroundStory}";
+                              }
+                              _appearanceController.text = fullDesc;
+                              widget.config.appearanceDescription = fullDesc;
+
+                              // Populate Traits
+                              widget.config.personalityTraits.clear();
+                              // Handle parsed traits format
+                              if (char.personalityTraits.containsKey(
+                                    'traits',
+                                  ) &&
+                                  char.personalityTraits['traits'] is List) {
+                                final traitsList = List<String>.from(
+                                  char.personalityTraits['traits'],
+                                );
+                                for (var t in traitsList.take(3)) {
+                                  widget.config.personalityTraits.add(t);
+                                }
+                              }
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("${char.name} 설정이 불러와졌습니다."),
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            width: 120,
+                            margin: const EdgeInsets.only(right: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E1E1E),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.white10),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  char.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  char.description,
+                                  style: const TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 11,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (err, _) => Center(
+                    child: Text(
+                      "에러: $err",
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ),
           ),
           const SizedBox(height: 32),
 
