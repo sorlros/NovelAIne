@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../data/services/api_service.dart';
-import '../../../providers/content_provider.dart';
+import '../../providers/content_provider.dart';
 
 class CharacterBuilderScreen extends ConsumerStatefulWidget {
   const CharacterBuilderScreen({super.key});
