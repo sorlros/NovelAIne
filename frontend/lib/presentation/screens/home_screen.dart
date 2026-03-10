@@ -448,7 +448,7 @@ class _CrispBottomNavBar extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (context) =>
-                          const creation_screen.ModeSelectionScreen(),
+                          const creation_screen.CreationModeSelectionScreen(),
                     ),
                   );
                 },
