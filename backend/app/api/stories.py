@@ -44,45 +44,12 @@ async def list_stories(
 
             response = query.range(offset, offset + limit - 1).execute()
             
-            if response.data:
-                return ApiResponse.ok(
-                    data=response.data,
-                    meta={"total": len(response.data), "limit": limit, "offset": offset},
-                )
-        except Exception:
-            # Fallback to Mock Data if DB is not set up
-            pass
-
-        # MOCK DATA
-        mock_stories = [
-            {
-                "id": "550e8400-e29b-41d4-a716-446655440000",
-                "title": "The Lost World",
-                "genre": "adventure",
-                "description": "An ancient island discovered in the modern era, full of prehistoric creatures and forgotten mysteries.",
-                "status": "published",
-                "total_scenes": 12,
-                "created_at": "2023-10-27T10:00:00Z",
-                "updated_at": "2023-10-28T14:30:00Z",
-                "cover_image_url": "https://picsum.photos/400/600" 
-            },
-            {
-                "id": "550e8400-e29b-41d4-a716-446655440001",
-                "title": "Neon Nights",
-                "genre": "scifi",
-                "description": "A cyberpunk noir detective story set in the rain-slicked streets of New Tokyo.",
-                "status": "draft",
-                "total_scenes": 5,
-                "created_at": "2023-11-01T09:00:00Z",
-                "updated_at": "2023-11-02T11:20:00Z",
-                "cover_image_url": "https://picsum.photos/401/600"
-            }
-        ]
-        
-        return ApiResponse.ok(
-            data=mock_stories,
-            meta={"total": len(mock_stories), "limit": limit, "offset": offset, "source": "mock"},
-        )
+            return ApiResponse.ok(
+                data=response.data if response.data else [],
+                meta={"total": len(response.data) if response.data else 0, "limit": limit, "offset": offset},
+            )
+        except Exception as e:
+            return ApiResponse.fail(str(e))
 
     except Exception as e:
         return ApiResponse.fail(str(e))
