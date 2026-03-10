@@ -4,6 +4,8 @@ import 'package:frontend/l10n/app_localizations.dart';
 import 'story_screen.dart';
 import 'creation/mode_selection_screen.dart' as creation_screen;
 import '../profile/profile_screen.dart';
+import 'explore_screen.dart';
+import 'community_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/content_provider.dart';
 import '../../../data/services/api_service.dart';
@@ -429,14 +431,36 @@ class _CrispBottomNavBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _NavBarIcon(Icons.home_outlined, Icons.home, true, () {}),
+              _NavBarIcon(Icons.search, Icons.search, false, () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ExploreScreen(),
+                  ),
+                );
+              }),
               _NavBarIcon(
-                Icons.menu_book_outlined,
-                Icons.menu_book,
+                Icons.add_circle_outline,
+                Icons.add_circle,
                 false,
-                () {},
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          const creation_screen.ModeSelectionScreen(),
+                    ),
+                  );
+                },
               ),
-              _NavBarIcon(Icons.edit_square, Icons.edit_note, false, () {}),
-              _NavBarIcon(Icons.people_outline, Icons.people, false, () {}),
+              _NavBarIcon(Icons.forum_outlined, Icons.forum, false, () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CommunityScreen(),
+                  ),
+                );
+              }),
               _NavBarIcon(Icons.person_outline, Icons.person, false, () {
                 Navigator.push(
                   context,
@@ -525,7 +549,7 @@ class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
     try {
       await ApiService().deleteStory(widget.storyId);
       if (mounted) {
-        ref.refresh(storiesProvider);
+        ref.invalidate(storiesProvider);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('스토리가 삭제되었습니다.'),

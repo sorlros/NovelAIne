@@ -443,7 +443,7 @@ class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
     try {
       await ApiService().deleteStory(widget.storyId);
       if (mounted) {
-        ref.refresh(storiesProvider);
+        ref.invalidate(storiesProvider);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('스토리가 삭제되었습니다.'),
