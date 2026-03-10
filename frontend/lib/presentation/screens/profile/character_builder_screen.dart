@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../data/services/api_service.dart';
 import '../../providers/content_provider.dart';
 
@@ -23,6 +25,8 @@ class _CharacterBuilderScreenState
 
   final List<String> _traits = [];
   bool _isLoading = false;
+  XFile? _selectedImage;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void dispose() {
@@ -47,6 +51,23 @@ class _CharacterBuilderScreenState
     setState(() {
       _traits.remove(trait);
     });
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      if (image != null) {
+        setState(() {
+          _selectedImage = image;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("이미지 선택 오류: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   Future<void> _saveCharacter() async {
@@ -77,13 +98,23 @@ class _CharacterBuilderScreenState
       // Assuming createCharacter(name, desc, traits) is the current signature.
       // We will update ApiService to handle these if we want, but for now we just use standard.
       // ACTUALLY, checking ApiService.createCharacter, it only takes 3 positional args. Let's stick to them first.
-      await ApiService().createCharacter(
+      final response = await ApiService().createCharacter(
         _nameController.text.trim(),
         '''${_descController.text.trim()}
 [배경]: ${_backgroundController.text.trim()}
 [외양]: ${_appearanceController.text.trim()}''',
         _traits,
       );
+
+      final characterId = response['id'];
+
+      // Upload image if selected
+      if (_selectedImage != null) {
+        await ApiService().uploadCharacterImage(
+          characterId,
+          _selectedImage!.path,
+        );
+      }
 
       ref.invalidate(charactersProvider);
 
@@ -202,6 +233,52 @@ class _CharacterBuilderScreenState
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
+            // Avatar Picture Upload UI
+            Center(
+              child: GestureDetector(
+                onTap: _pickImage,
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E1E1E),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFF7C3AED).withOpacity(0.5),
+                      width: 2,
+                    ),
+                    image: _selectedImage != null
+                        ? DecorationImage(
+                            image: FileImage(File(_selectedImage!.path)),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  child: _selectedImage == null
+                      ? Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.add_a_photo_outlined,
+                              color: const Color(0xFF7C3AED).withOpacity(0.8),
+                              size: 32,
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              "사진 추가",
+                              style: TextStyle(
+                                color: Colors.white54,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        )
+                      : null,
+                ),
+              ),
+            ).animate().fadeIn().slideY(begin: 0.1, delay: 100.ms),
+            const SizedBox(height: 32),
+
             // Core Info
             _buildSectionTitle("기본 정보", Icons.badge_outlined),
             _buildTextField(
