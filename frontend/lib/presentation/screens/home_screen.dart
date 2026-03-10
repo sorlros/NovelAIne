@@ -6,7 +6,7 @@ import 'creation/mode_selection_screen.dart' as creation_screen;
 import '../profile/profile_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/content_provider.dart';
-import '../../data/services/api_service.dart';
+import '../../../data/services/api_service.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});

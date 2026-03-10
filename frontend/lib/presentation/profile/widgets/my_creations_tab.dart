@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/content_provider.dart';
 import '../../../data/models/story_model.dart';
 import '../../../data/models/character_model.dart';
-import '../../data/services/api_service.dart';
+import '../../../data/services/api_service.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class MyCreationsTab extends ConsumerWidget {
@@ -173,7 +173,8 @@ class MyCreationsTab extends ConsumerWidget {
                               descController.text.trim(),
                               [
                                 "용감함",
-                              ], // Default trait for standalone creation logic
+                                "호기심 많음",
+                              ], // Hardcoded default traits for now
                             );
                             ref.invalidate(charactersProvider);
                             if (context.mounted) Navigator.pop(context);

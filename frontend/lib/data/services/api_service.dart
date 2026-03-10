@@ -259,6 +259,23 @@ class ApiService {
     }
   }
 
+  // Delete Story API
+  Future<bool> deleteStory(String storyId) async {
+    final url = Uri.parse('$_baseUrl/stories/$storyId');
+    try {
+      final response = await http.delete(url);
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        throw Exception(
+          'Failed to delete story. Status: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      throw Exception('Failed to delete story: $e');
+    }
+  }
+
   // Fetch Scenes for a Story
   Future<List<dynamic>> fetchScenes(String storyId) async {
     final response = await http.get(
