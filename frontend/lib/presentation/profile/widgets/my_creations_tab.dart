@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/content_provider.dart';
 import '../../../data/models/story_model.dart';
 import '../../../data/models/character_model.dart';
-import '../../../data/services/api_service.dart';
+import '../../data/services/api_service.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class MyCreationsTab extends ConsumerWidget {
@@ -333,11 +333,17 @@ class MyCreationsTab extends ConsumerWidget {
             style: const TextStyle(color: Colors.white54, fontSize: 13),
           ),
         ),
-        trailing: IconButton(
-          icon: const Icon(Icons.edit_outlined, color: Colors.white54),
-          onPressed: () {
-            _showEditStoryDialog(context, ref, story);
-          },
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, color: Colors.white54),
+              onPressed: () {
+                _showEditStoryDialog(context, ref, story);
+              },
+            ),
+            _DeleteStoryButton(storyId: story.id.toString()),
+          ],
         ),
       ),
     ).animate().fadeIn().slideY(delay: (300 + index * 100).ms);
@@ -391,5 +397,90 @@ class MyCreationsTab extends ConsumerWidget {
         ],
       ),
     ).animate().fadeIn().slideY(delay: (400 + index * 100).ms);
+  }
+}
+
+class _DeleteStoryButton extends ConsumerStatefulWidget {
+  final String storyId;
+  const _DeleteStoryButton({required this.storyId});
+
+  @override
+  ConsumerState<_DeleteStoryButton> createState() => _DeleteStoryButtonState();
+}
+
+class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
+  bool _isLoading = false;
+
+  Future<void> _deleteStory() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('스토리 삭제', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          '정말로 이 스토리를 삭제하시겠습니까?\\n이 작업은 취소할 수 없습니다.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('삭제', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+
+    try {
+      await ApiService().deleteStory(widget.storyId);
+      if (mounted) {
+        ref.refresh(storiesProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('스토리가 삭제되었습니다.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('삭제 실패: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _isLoading
+        ? const Padding(
+            padding: EdgeInsets.all(12.0),
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.redAccent,
+              ),
+            ),
+          )
+        : IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+            onPressed: _deleteStory,
+          );
   }
 }

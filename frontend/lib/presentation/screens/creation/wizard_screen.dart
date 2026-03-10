@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/l10n/app_localizations.dart';
 import '../../../../data/models/creation_config.dart';
 import '../../../../data/services/api_service.dart';
 import '../story_screen.dart';
@@ -82,7 +83,13 @@ class _WizardScreenState extends State<WizardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: true, // Crucial for character/world input steps
-      appBar: AppBar(title: Text(widget.isQuickStart ? "빠른 시작" : "상세 설정 모드")),
+      appBar: AppBar(
+        title: Text(
+          widget.isQuickStart
+              ? AppLocalizations.of(context)!.quickStart
+              : AppLocalizations.of(context)!.detailedSettings,
+        ),
+      ),
       body: SafeArea(
         child: Column(
           children: [

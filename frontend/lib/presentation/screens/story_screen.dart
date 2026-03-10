@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:frontend/l10n/app_localizations.dart';
 import '../../data/services/api_service.dart';
 import 'character_sheet_widget.dart';
 import '../../data/models/story_model.dart';
@@ -297,23 +298,24 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                         padding: const EdgeInsets.only(bottom: 24.0),
                         child: isUser
                             ? _UserNarrative(
-                                content: msg['content']!,
-                                imageUrl: msg['imageUrl'],
+                                content: msg['content']! as String,
+                                imageUrl: msg['imageUrl'] as String?,
                                 onGenerateImage: () => _generateImageForMessage(
-                                  msg['id'],
-                                  msg['content'],
+                                  msg['id'] as String,
+                                  msg['content'] as String,
                                   'dialogue',
                                 ),
                                 isGenerating: isGenerating,
                               )
                             : _AINarrative(
-                                content: msg['content']!,
-                                sceneType: msg['sceneType'],
-                                imageUrl: msg['imageUrl'],
+                                content: msg['content'] as String,
+                                sceneType:
+                                    msg['sceneType'] as String? ?? 'narrative',
+                                imageUrl: msg['imageUrl'] as String?,
                                 onGenerateImage: () => _generateImageForMessage(
-                                  msg['id'],
-                                  msg['content'],
-                                  msg['sceneType'],
+                                  msg['id'] as String,
+                                  msg['content'] as String,
+                                  msg['sceneType'] as String? ?? 'event',
                                 ),
                                 isGenerating: isGenerating,
                               ),
@@ -322,7 +324,11 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   ),
                 ),
               ),
-              _CommandBar(controller: _controller, onSend: _sendMessage),
+              _CommandBar(
+                controller: _controller,
+                onSend: _sendMessage,
+                parentContext: context,
+              ),
             ],
           ),
         ),
@@ -395,6 +401,7 @@ class _AINarrative extends StatelessWidget {
             imageUrl: imageUrl,
             onGenerate: onGenerateImage,
             isGenerating: isGenerating,
+            context: context,
           ),
           const SizedBox(height: 16),
         ],
@@ -432,15 +439,17 @@ class _EventImagePlaceholder extends StatelessWidget {
   final String? imageUrl;
   final VoidCallback onGenerate;
   final bool isGenerating;
+  final BuildContext context;
 
   const _EventImagePlaceholder({
     this.imageUrl,
     required this.onGenerate,
     required this.isGenerating,
+    required this.context,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext buildContext) {
     if (imageUrl != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
@@ -471,12 +480,16 @@ class _EventImagePlaceholder extends StatelessWidget {
               ? const CircularProgressIndicator(color: Color(0xFF7C3AED))
               : Column(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.auto_fix_high, color: Colors.white54, size: 36),
-                    SizedBox(height: 8),
+                  children: [
+                    const Icon(
+                      Icons.auto_fix_high,
+                      color: Colors.white54,
+                      size: 36,
+                    ),
+                    const SizedBox(height: 8),
                     Text(
-                      "클릭하여 씬 일러스트 생성",
-                      style: TextStyle(color: Colors.white54),
+                      AppLocalizations.of(context)!.clickToGenerateIllustration,
+                      style: const TextStyle(color: Colors.white54),
                     ),
                   ],
                 ),
@@ -541,8 +554,13 @@ class _AvatarBox extends StatelessWidget {
 class _CommandBar extends StatelessWidget {
   final TextEditingController controller;
   final VoidCallback onSend;
+  final BuildContext parentContext;
 
-  const _CommandBar({required this.controller, required this.onSend});
+  const _CommandBar({
+    required this.controller,
+    required this.onSend,
+    required this.parentContext,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -566,11 +584,13 @@ class _CommandBar extends StatelessWidget {
                 child: TextField(
                   controller: controller,
                   style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    hintText: "어떤 행동을 하시겠습니까?",
-                    hintStyle: TextStyle(color: Colors.white38),
+                  decoration: InputDecoration(
+                    hintText: AppLocalizations.of(
+                      parentContext,
+                    )!.whatActionToTake,
+                    hintStyle: const TextStyle(color: Colors.white38),
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
+                    contentPadding: const EdgeInsets.symmetric(
                       horizontal: 20,
                       vertical: 14,
                     ),
@@ -583,7 +603,7 @@ class _CommandBar extends StatelessWidget {
             Container(
               decoration: const BoxDecoration(
                 color: Color(0xFF7C3AED),
-                shape: BoxShape.circle, // Vibrant Purple send button
+                shape: BoxShape.circle,
               ),
               child: IconButton(
                 icon: const Icon(Icons.send_rounded, color: Colors.white),

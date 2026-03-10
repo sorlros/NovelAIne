@@ -151,7 +151,8 @@ async def create_story(story: StoryCreate):
         # 1. Insert Story
         # Exclude generation params that don't exist in DB
         story_db_data = story.model_dump(exclude={
-            "character_ids", "tone", "protagonist_name", "protagonist_traits", "protagonist_appearance_description", "opening_scenario"
+            "character_ids", "tone", "protagonist_name", "protagonist_traits",
+            "protagonist_appearance_description", "opening_scenario", "language"
         })
         story_db_data["status"] = "active" # Set default status
         story_db_data["total_scenes"] = 0

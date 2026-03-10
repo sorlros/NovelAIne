@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:frontend/l10n/app_localizations.dart';
 import '../../../../data/models/creation_config.dart';
 import '../../../../data/constants/creation_prompts.dart';
 
@@ -76,10 +77,13 @@ class _CharacterStepState extends State<CharacterStep> {
       padding: const EdgeInsets.all(24.0),
       child: ListView(
         children: [
-          Text("주인공 설정", style: Theme.of(context).textTheme.headlineMedium),
+          Text(
+            AppLocalizations.of(context)!.characterSetup,
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
           const SizedBox(height: 8),
           Text(
-            "이야기를 이끌어갈 주인공은 누구인가요?",
+            AppLocalizations.of(context)!.whoIsTheProtagonist,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 32),
@@ -114,14 +118,18 @@ class _CharacterStepState extends State<CharacterStep> {
                               horizontal: 10,
                               vertical: 6,
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.edit, size: 14, color: Colors.white),
-                                SizedBox(width: 4),
+                                const Icon(
+                                  Icons.edit,
+                                  size: 14,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 4),
                                 Text(
-                                  '변경',
-                                  style: TextStyle(
+                                  AppLocalizations.of(context)!.change,
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
                                   ),
@@ -132,23 +140,29 @@ class _CharacterStepState extends State<CharacterStep> {
                         ),
                       ],
                     )
-                  : const Column(
+                  : Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.add_a_photo_outlined,
                           size: 44,
                           color: Colors.white54,
                         ),
-                        SizedBox(height: 12),
+                        const SizedBox(height: 12),
                         Text(
-                          '캐릭터 이미지 업로드 (선택)',
-                          style: TextStyle(color: Colors.white54, fontSize: 14),
+                          AppLocalizations.of(context)!.characterImageUpload,
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 14,
+                          ),
                         ),
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
                         Text(
-                          '탭하여 갤러리에서 선택',
-                          style: TextStyle(color: Colors.white30, fontSize: 12),
+                          AppLocalizations.of(context)!.tapToSelectFromGallery,
+                          style: const TextStyle(
+                            color: Colors.white30,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -159,9 +173,9 @@ class _CharacterStepState extends State<CharacterStep> {
           // ── Name Input ──
           TextField(
             controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: "이름",
-              hintText: "캐릭터의 이름을 입력하세요",
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.characterNameLabel,
+              hintText: AppLocalizations.of(context)!.characterNameHint,
             ),
           ),
           const SizedBox(height: 24),
@@ -170,15 +184,18 @@ class _CharacterStepState extends State<CharacterStep> {
           TextField(
             controller: _appearanceController,
             maxLines: 2,
-            decoration: const InputDecoration(
-              labelText: "외모 특징 (선택)",
-              hintText: "예: 은발의 장발, 붉은 눈, 낡은 로브 (한글/영문 모두 가능)",
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.appearanceLabel,
+              hintText: AppLocalizations.of(context)!.appearanceHint,
             ),
           ),
           const SizedBox(height: 24),
 
           // ── Personality Traits ──
-          Text("성격 (최대 3개)", style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            AppLocalizations.of(context)!.personalityTraitsLabel,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 12),
           Wrap(
             spacing: 10,
@@ -209,13 +226,16 @@ class _CharacterStepState extends State<CharacterStep> {
 
           Row(
             children: [
-              TextButton(onPressed: widget.onPrev, child: const Text("이전")),
+              TextButton(
+                onPressed: widget.onPrev,
+                child: Text(AppLocalizations.of(context)!.prevStep),
+              ),
               const Spacer(),
               ElevatedButton(
                 onPressed: _nameController.text.isNotEmpty
                     ? widget.onNext
                     : null,
-                child: const Text("검토 및 시작"),
+                child: Text(AppLocalizations.of(context)!.reviewAndStart),
               ),
             ],
           ),

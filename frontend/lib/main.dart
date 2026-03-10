@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/l10n/app_localizations.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/screens/auth/auth_screen.dart';
 
@@ -15,6 +16,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'NovelAIne',
       theme: AppTheme.darkTheme,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: const AuthScreen(),
       debugShowCheckedModeBanner: false,
     );

@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:http/http.dart' as http;
 import '../../core/constants.dart';
 import '../models/story_model.dart';
@@ -235,7 +235,8 @@ class ApiService {
         "protagonist_appearance_description": config.appearanceDescription,
       // We don't have explicit scenario input in UI yet, but model supports it
       // "opening_scenario": ...
-      "language": Platform.localeName, // e.g., 'ko_KR', 'en_US'
+      "language": ui.PlatformDispatcher.instance.locale
+          .toLanguageTag(), // e.g., 'ko-KR', 'en-US'
     };
 
     final response = await http.post(

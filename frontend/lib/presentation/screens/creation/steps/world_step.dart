@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/l10n/app_localizations.dart';
 import '../../../../data/models/creation_config.dart';
 import '../../../../data/constants/creation_prompts.dart';
 
@@ -25,16 +26,22 @@ class _WorldStepState extends State<WorldStep> {
       padding: const EdgeInsets.all(24.0),
       child: ListView(
         children: [
-          Text("세계관 및 컨셉", style: Theme.of(context).textTheme.headlineMedium),
+          Text(
+            AppLocalizations.of(context)!.worldTheme,
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
           const SizedBox(height: 8),
           Text(
-            "당신의 이야기가 펼쳐질 배경을 설정하세요.",
+            AppLocalizations.of(context)!.worldThemeDesc,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 32),
 
           // Genre Selection
-          Text("장르 (Genre)", style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            AppLocalizations.of(context)!.genreLabel,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 12),
           Wrap(
             spacing: 10,
@@ -61,13 +68,16 @@ class _WorldStepState extends State<WorldStep> {
           const SizedBox(height: 32),
 
           // Tone Selection
-          Text("분위기 (Tone)", style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            AppLocalizations.of(context)!.toneLabel,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: widget.config.toneLabel,
-            decoration: const InputDecoration(
-              labelText: "분위기 선택",
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.toneSelect,
+              border: const OutlineInputBorder(),
             ),
             dropdownColor: Theme.of(context).cardColor,
             items: CreationPrompts.tones.entries.map((entry) {
@@ -98,7 +108,9 @@ class _WorldStepState extends State<WorldStep> {
                     )
                   : null,
               child: Text(
-                widget.isQuickStart ? "모험 시작 (AI 자동 생성)" : "다음: 주인공 설정",
+                widget.isQuickStart
+                    ? AppLocalizations.of(context)!.startAdventureAuto
+                    : AppLocalizations.of(context)!.nextProtagonistSetup,
               ),
             ),
           ),
