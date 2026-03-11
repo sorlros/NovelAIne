@@ -14,10 +14,7 @@ class CharacterSheetWidget extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor.withOpacity(0.8),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.1),
-            width: 1,
-          ),
+          border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
         ),
         child: Column(
           children: [
@@ -46,19 +43,25 @@ class CharacterSheetWidget extends StatelessWidget {
                             height: 100,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              border: Border.all(color: Theme.of(context).primaryColor, width: 2),
-                              image: const DecorationImage(
-                                image: NetworkImage('https://via.placeholder.com/150'), // Placeholder
-                                fit: BoxFit.cover,
+                              border: Border.all(
+                                color: Theme.of(context).primaryColor,
+                                width: 2,
                               ),
+                              color: Theme.of(context).cardColor,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Theme.of(context).primaryColor.withOpacity(0.4),
+                                  color: Theme.of(
+                                    context,
+                                  ).primaryColor.withOpacity(0.4),
                                   blurRadius: 20,
-                                )
+                                ),
                               ],
                             ),
-                            child: const Icon(Icons.person, size: 50, color: Colors.white24), // Fallback
+                            child: const Icon(
+                              Icons.person,
+                              size: 50,
+                              color: Colors.white24,
+                            ), // Fallback
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -68,11 +71,20 @@ class CharacterSheetWidget extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).primaryColor.withOpacity(0.2),
+                              color: Theme.of(
+                                context,
+                              ).primaryColor.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.5)),
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).primaryColor.withOpacity(0.5),
+                              ),
                             ),
                             child: Text(
                               "레벨 5 마법사",
@@ -101,7 +113,10 @@ class CharacterSheetWidget extends StatelessWidget {
                     const SizedBox(height: 32),
 
                     // Bio
-                    Text("배경 이야기", style: Theme.of(context).textTheme.titleLarge),
+                    Text(
+                      "배경 이야기",
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                     const SizedBox(height: 12),
                     Text(
                       "북쪽의 그림자 계곡에서 태어난 엘라리아는 어린 시절 그림자 마법에 대한 재능을 발견했습니다. 부족에서 추방당한 그녀는 이제 자신의 힘을 설명할 수 있는 고대 문서를 찾아 세상을 떠돌고 있습니다.",
@@ -111,14 +126,17 @@ class CharacterSheetWidget extends StatelessWidget {
                     const SizedBox(height: 32),
 
                     // Memory / Relationships
-                    Text("당신과의 관계", style: Theme.of(context).textTheme.titleLarge),
+                    Text(
+                      "당신과의 관계",
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                     const SizedBox(height: 12),
-                     Container(
+                    Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.black12,
                         borderRadius: BorderRadius.circular(16),
-                         border: Border.all(color: Colors.white10),
+                        border: Border.all(color: Colors.white10),
                       ),
                       child: Row(
                         children: [
@@ -174,10 +192,7 @@ class _StatCircle extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
       ],
     );
   }

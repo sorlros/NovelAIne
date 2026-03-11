@@ -81,6 +81,7 @@ class StoryCreate(BaseModel):
     protagonist_traits: Optional[List[str]] = None
     protagonist_appearance_description: Optional[str] = Field(None, max_length=1000)
     opening_scenario: Optional[str] = None
+    language: Optional[str] = "en_US"
     character_ids: Optional[List[UUID]] = None
 
 

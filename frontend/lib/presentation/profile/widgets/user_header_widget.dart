@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/content_provider.dart';
+import 'package:frontend/l10n/app_localizations.dart';
 import '../../settings/settings_screen.dart';
 
 class UserHeaderWidget extends ConsumerWidget {
@@ -60,8 +61,16 @@ class UserHeaderWidget extends ConsumerWidget {
                   spacing: 24,
                   runSpacing: 12,
                   children: [
-                    _buildStatItem(context, "창작 스토리", storiesCount),
-                    _buildStatItem(context, "읽는 중", "2"),
+                    _buildStatItem(
+                      context,
+                      AppLocalizations.of(context)!.createdStories,
+                      storiesCount,
+                    ),
+                    _buildStatItem(
+                      context,
+                      AppLocalizations.of(context)!.reading,
+                      "2",
+                    ),
                   ],
                 ),
               ],

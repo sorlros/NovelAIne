@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:frontend/l10n/app_localizations.dart';
 import 'story_screen.dart';
 import 'creation/mode_selection_screen.dart' as creation_screen;
 import '../profile/profile_screen.dart';
+import 'explore_screen.dart';
+import 'community_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/content_provider.dart';
+import '../../../data/services/api_service.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -64,7 +68,7 @@ class _HeaderSection extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                "당신의 이야기를 이어서 작성해보세요",
+                AppLocalizations.of(context)!.quickStart,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.white54,
                   fontSize: 14,
@@ -85,9 +89,9 @@ class _HeaderSection extends StatelessWidget {
             );
           },
           icon: const Icon(Icons.add, size: 18),
-          label: const Text(
-            "새로운 이야기 시작",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          label: Text(
+            AppLocalizations.of(context)!.startNewAdventure,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF7C3AED), // Vibrant purple
@@ -162,7 +166,9 @@ class _StoryCard extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const StoryScreen()),
+          MaterialPageRoute(
+            builder: (context) => StoryScreen(initialStory: story),
+          ),
         );
       },
       child: Container(
@@ -237,22 +243,29 @@ class _StoryCard extends StatelessWidget {
                             ), // Hardcoded example for demo as per mockup
                           ],
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            "2시간 전",
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 11,
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.6),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text(
+                                "15분 전", // Hardcoded example
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 8),
+                            _DeleteStoryButton(storyId: story.id.toString()),
+                          ],
                         ),
                       ],
                     ),
@@ -420,14 +433,36 @@ class _CrispBottomNavBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _NavBarIcon(Icons.home_outlined, Icons.home, true, () {}),
+              _NavBarIcon(Icons.search, Icons.search, false, () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ExploreScreen(),
+                  ),
+                );
+              }),
               _NavBarIcon(
-                Icons.menu_book_outlined,
-                Icons.menu_book,
+                Icons.add_circle_outline,
+                Icons.add_circle,
                 false,
-                () {},
+                () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          const creation_screen.CreationModeSelectionScreen(),
+                    ),
+                  );
+                },
               ),
-              _NavBarIcon(Icons.edit_square, Icons.edit_note, false, () {}),
-              _NavBarIcon(Icons.people_outline, Icons.people, false, () {}),
+              _NavBarIcon(Icons.forum_outlined, Icons.forum, false, () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CommunityScreen(),
+                  ),
+                );
+              }),
               _NavBarIcon(Icons.person_outline, Icons.person, false, () {
                 Navigator.push(
                   context,
@@ -471,5 +506,98 @@ class _NavBarIcon extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _DeleteStoryButton extends ConsumerStatefulWidget {
+  final String storyId;
+  const _DeleteStoryButton({required this.storyId});
+
+  @override
+  ConsumerState<_DeleteStoryButton> createState() => _DeleteStoryButtonState();
+}
+
+class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
+  bool _isLoading = false;
+
+  Future<void> _deleteStory() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('스토리 삭제', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          '정말로 이 스토리를 삭제하시겠습니까?\\n이 작업은 취소할 수 없습니다.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('삭제', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+
+    try {
+      await ApiService().deleteStory(widget.storyId);
+      if (mounted) {
+        ref.invalidate(storiesProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('스토리가 삭제되었습니다.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('삭제 실패: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _isLoading
+        ? const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.redAccent,
+            ),
+          )
+        : GestureDetector(
+            onTap: _deleteStory,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.6),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.delete_outline,
+                color: Colors.white70,
+                size: 16,
+              ),
+            ),
+          );
   }
 }

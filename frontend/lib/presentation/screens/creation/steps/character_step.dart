@@ -1,10 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:frontend/l10n/app_localizations.dart';
 import '../../../../data/models/creation_config.dart';
 import '../../../../data/constants/creation_prompts.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../providers/content_provider.dart';
 
-class CharacterStep extends StatefulWidget {
+class CharacterStep extends ConsumerStatefulWidget {
   final CreationConfig config;
   final VoidCallback onNext;
   final VoidCallback onPrev;
@@ -17,10 +20,10 @@ class CharacterStep extends StatefulWidget {
   });
 
   @override
-  State<CharacterStep> createState() => _CharacterStepState();
+  ConsumerState<CharacterStep> createState() => _CharacterStepState();
 }
 
-class _CharacterStepState extends State<CharacterStep> {
+class _CharacterStepState extends ConsumerState<CharacterStep> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _appearanceController = TextEditingController();
   File? _selectedImage;
@@ -76,11 +79,166 @@ class _CharacterStepState extends State<CharacterStep> {
       padding: const EdgeInsets.all(24.0),
       child: ListView(
         children: [
-          Text("주인공 설정", style: Theme.of(context).textTheme.headlineMedium),
+          Text(
+            AppLocalizations.of(context)!.characterSetup,
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
           const SizedBox(height: 8),
           Text(
-            "이야기를 이끌어갈 주인공은 누구인가요?",
+            AppLocalizations.of(context)!.whoIsTheProtagonist,
             style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 24),
+
+          // ── My Characters Selection ──
+          const Text(
+            "내 캐릭터에서 불러오기",
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.white70,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 80,
+            child: ref
+                .watch(charactersProvider)
+                .when(
+                  data: (characters) {
+                    if (characters.isEmpty) {
+                      return const Center(
+                        child: Text(
+                          "저장된 캐릭터가 없습니다.",
+                          style: TextStyle(color: Colors.white30, fontSize: 12),
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: characters.length,
+                      itemBuilder: (context, index) {
+                        final char = characters[index];
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _nameController.text = char.name;
+                              widget.config.userName = char.name;
+
+                              // Prepend background story to appearance desc for LLM context
+                              String fullDesc = char.description.replaceAll(
+                                '\\n',
+                                '\n',
+                              );
+                              if (char.backgroundStory != null &&
+                                  char.backgroundStory!.isNotEmpty) {
+                                fullDesc += "\n[배경]: ${char.backgroundStory}";
+                              }
+                              _appearanceController.text = fullDesc;
+                              widget.config.appearanceDescription = fullDesc;
+
+                              // Populate Traits
+                              widget.config.personalityTraits.clear();
+                              // Handle parsed traits format
+                              if (char.personalityTraits.containsKey(
+                                    'traits',
+                                  ) &&
+                                  char.personalityTraits['traits'] is List) {
+                                final traitsList = List<String>.from(
+                                  char.personalityTraits['traits'],
+                                );
+                                for (var t in traitsList.take(3)) {
+                                  widget.config.personalityTraits.add(t);
+                                }
+                              }
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("${char.name} 설정이 불러와졌습니다."),
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            width: 120,
+                            margin: const EdgeInsets.only(right: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E1E1E),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.white10),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (char.imageUrl != null &&
+                                    char.imageUrl!.isNotEmpty)
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      image: DecorationImage(
+                                        image: NetworkImage(char.imageUrl!),
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(
+                                        0xFF7C3AED,
+                                      ).withOpacity(0.15),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.person,
+                                      size: 20,
+                                      color: Color(0xFF7C3AED),
+                                    ),
+                                  ),
+                                Text(
+                                  char.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  char.description.replaceAll('\\n', '\n'),
+                                  style: const TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 11,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (err, _) => Center(
+                    child: Text(
+                      "에러: $err",
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ),
           ),
           const SizedBox(height: 32),
 
@@ -114,14 +272,18 @@ class _CharacterStepState extends State<CharacterStep> {
                               horizontal: 10,
                               vertical: 6,
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.edit, size: 14, color: Colors.white),
-                                SizedBox(width: 4),
+                                const Icon(
+                                  Icons.edit,
+                                  size: 14,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 4),
                                 Text(
-                                  '변경',
-                                  style: TextStyle(
+                                  AppLocalizations.of(context)!.change,
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
                                   ),
@@ -132,23 +294,29 @@ class _CharacterStepState extends State<CharacterStep> {
                         ),
                       ],
                     )
-                  : const Column(
+                  : Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.add_a_photo_outlined,
                           size: 44,
                           color: Colors.white54,
                         ),
-                        SizedBox(height: 12),
+                        const SizedBox(height: 12),
                         Text(
-                          '캐릭터 이미지 업로드 (선택)',
-                          style: TextStyle(color: Colors.white54, fontSize: 14),
+                          AppLocalizations.of(context)!.characterImageUpload,
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 14,
+                          ),
                         ),
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
                         Text(
-                          '탭하여 갤러리에서 선택',
-                          style: TextStyle(color: Colors.white30, fontSize: 12),
+                          AppLocalizations.of(context)!.tapToSelectFromGallery,
+                          style: const TextStyle(
+                            color: Colors.white30,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -159,9 +327,9 @@ class _CharacterStepState extends State<CharacterStep> {
           // ── Name Input ──
           TextField(
             controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: "이름",
-              hintText: "캐릭터의 이름을 입력하세요",
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.characterNameLabel,
+              hintText: AppLocalizations.of(context)!.characterNameHint,
             ),
           ),
           const SizedBox(height: 24),
@@ -170,15 +338,18 @@ class _CharacterStepState extends State<CharacterStep> {
           TextField(
             controller: _appearanceController,
             maxLines: 2,
-            decoration: const InputDecoration(
-              labelText: "외모 특징 (선택)",
-              hintText: "예: 은발의 장발, 붉은 눈, 낡은 로브 (한글/영문 모두 가능)",
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)!.appearanceLabel,
+              hintText: AppLocalizations.of(context)!.appearanceHint,
             ),
           ),
           const SizedBox(height: 24),
 
           // ── Personality Traits ──
-          Text("성격 (최대 3개)", style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            AppLocalizations.of(context)!.personalityTraitsLabel,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 12),
           Wrap(
             spacing: 10,
@@ -209,13 +380,16 @@ class _CharacterStepState extends State<CharacterStep> {
 
           Row(
             children: [
-              TextButton(onPressed: widget.onPrev, child: const Text("이전")),
+              TextButton(
+                onPressed: widget.onPrev,
+                child: Text(AppLocalizations.of(context)!.prevStep),
+              ),
               const Spacer(),
               ElevatedButton(
                 onPressed: _nameController.text.isNotEmpty
                     ? widget.onNext
                     : null,
-                child: const Text("검토 및 시작"),
+                child: Text(AppLocalizations.of(context)!.reviewAndStart),
               ),
             ],
           ),

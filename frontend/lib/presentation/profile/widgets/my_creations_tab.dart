@@ -4,6 +4,8 @@ import '../../providers/content_provider.dart';
 import '../../../data/models/story_model.dart';
 import '../../../data/models/character_model.dart';
 import '../../../data/services/api_service.dart';
+import '../../screens/story_screen.dart';
+import '../../screens/profile/character_builder_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class MyCreationsTab extends ConsumerWidget {
@@ -95,112 +97,7 @@ class MyCreationsTab extends ConsumerWidget {
     );
   }
 
-  void _showCreateCharacterDialog(BuildContext context, WidgetRef ref) {
-    final nameController = TextEditingController();
-    final descController = TextEditingController();
-    bool isLoading = false;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF1E1E1E),
-              title: const Text(
-                "새 캐릭터 만들기",
-                style: TextStyle(color: Colors.white),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: "이름",
-                      labelStyle: TextStyle(color: Colors.white54),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white24),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xFF7C3AED)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: descController,
-                    maxLines: 2,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: "설명",
-                      labelStyle: TextStyle(color: Colors.white54),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white24),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Color(0xFF7C3AED)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    "취소",
-                    style: TextStyle(color: Colors.white54),
-                  ),
-                ),
-                isLoading
-                    ? const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : TextButton(
-                        onPressed: () async {
-                          if (nameController.text.trim().isEmpty) return;
-                          setState(() => isLoading = true);
-                          try {
-                            await ApiService().createCharacter(
-                              nameController.text.trim(),
-                              descController.text.trim(),
-                              [
-                                "용감함",
-                              ], // Default trait for standalone creation logic
-                            );
-                            ref.invalidate(charactersProvider);
-                            if (context.mounted) Navigator.pop(context);
-                          } catch (e) {
-                            setState(() => isLoading = false);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text("생성 실패: $e")),
-                              );
-                            }
-                          }
-                        },
-                        child: const Text(
-                          "생성",
-                          style: TextStyle(
-                            color: Color(0xFF7C3AED),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
+  // Replaced by CharacterBuilderScreen
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -258,7 +155,14 @@ class MyCreationsTab extends ConsumerWidget {
             ),
             IconButton(
               icon: const Icon(Icons.add_circle, color: Color(0xFF7C3AED)),
-              onPressed: () => _showCreateCharacterDialog(context, ref),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CharacterBuilderScreen(),
+                  ),
+                );
+              },
             ),
           ],
         ).animate().fadeIn().slideX(delay: 200.ms),
@@ -310,6 +214,14 @@ class MyCreationsTab extends ConsumerWidget {
         border: Border.all(color: Colors.white10),
       ),
       child: ListTile(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => StoryScreen(initialStory: story),
+            ),
+          );
+        },
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Container(
           padding: const EdgeInsets.all(12),
@@ -333,11 +245,17 @@ class MyCreationsTab extends ConsumerWidget {
             style: const TextStyle(color: Colors.white54, fontSize: 13),
           ),
         ),
-        trailing: IconButton(
-          icon: const Icon(Icons.edit_outlined, color: Colors.white54),
-          onPressed: () {
-            _showEditStoryDialog(context, ref, story);
-          },
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, color: Colors.white54),
+              onPressed: () {
+                _showEditStoryDialog(context, ref, story);
+              },
+            ),
+            _DeleteStoryButton(storyId: story.id.toString()),
+          ],
         ),
       ),
     ).animate().fadeIn().slideY(delay: (300 + index * 100).ms);
@@ -353,14 +271,34 @@ class MyCreationsTab extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF7C3AED).withOpacity(0.15),
-              shape: BoxShape.circle,
+          if (char.imageUrl != null && char.imageUrl!.isNotEmpty)
+            Container(
+              width: 68,
+              height: 68,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFF7C3AED).withOpacity(0.5),
+                ),
+                image: DecorationImage(
+                  image: NetworkImage(char.imageUrl!),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C3AED).withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.person,
+                size: 36,
+                color: Color(0xFF7C3AED),
+              ),
             ),
-            child: const Icon(Icons.person, size: 36, color: Color(0xFF7C3AED)),
-          ),
           const SizedBox(height: 16),
           Text(
             char.name,
@@ -375,7 +313,9 @@ class MyCreationsTab extends ConsumerWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Text(
-                char.description.isNotEmpty ? char.description : 'Unknown Role',
+                char.description.isNotEmpty
+                    ? char.description.replaceAll('\\n', '\n')
+                    : 'Unknown Role',
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -391,5 +331,90 @@ class MyCreationsTab extends ConsumerWidget {
         ],
       ),
     ).animate().fadeIn().slideY(delay: (400 + index * 100).ms);
+  }
+}
+
+class _DeleteStoryButton extends ConsumerStatefulWidget {
+  final String storyId;
+  const _DeleteStoryButton({required this.storyId});
+
+  @override
+  ConsumerState<_DeleteStoryButton> createState() => _DeleteStoryButtonState();
+}
+
+class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
+  bool _isLoading = false;
+
+  Future<void> _deleteStory() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('스토리 삭제', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          '정말로 이 스토리를 삭제하시겠습니까?\\n이 작업은 취소할 수 없습니다.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('삭제', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+
+    try {
+      await ApiService().deleteStory(widget.storyId);
+      if (mounted) {
+        ref.invalidate(storiesProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('스토리가 삭제되었습니다.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('삭제 실패: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _isLoading
+        ? const Padding(
+            padding: EdgeInsets.all(12.0),
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.redAccent,
+              ),
+            ),
+          )
+        : IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+            onPressed: _deleteStory,
+          );
   }
 }

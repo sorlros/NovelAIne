@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:frontend/l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../home_screen.dart';
 
@@ -87,8 +88,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
             children: [
               // Logo or Title
               Image.asset(
-                'assets/images/NovelAIne_logo.png',
-                height: 80,
+                'assets/images/logo_dark.png',
+                height: 100,
                 fit: BoxFit.contain,
               ).animate().fadeIn().moveY(begin: -20, end: 0),
 
@@ -113,9 +114,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                   unselectedLabelColor: Colors.white54,
                   dividerColor: Colors.transparent,
                   overlayColor: WidgetStateProperty.all(Colors.transparent),
-                  tabs: const [
-                    Tab(text: "로그인"),
-                    Tab(text: "회원가입"),
+                  tabs: [
+                    Tab(text: AppLocalizations.of(context)!.login),
+                    Tab(text: AppLocalizations.of(context)!.signup),
                   ],
                 ),
               ),
@@ -148,7 +149,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
           TextField(
             controller: _emailController,
             style: const TextStyle(color: Colors.white),
-            decoration: _inputDecoration("이메일", Icons.email_outlined),
+            decoration: _inputDecoration(
+              AppLocalizations.of(context)!.email,
+              Icons.email_outlined,
+            ),
           ).animate().fadeIn(delay: 100.ms),
 
           const SizedBox(height: 16),
@@ -159,15 +163,21 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
               child: TextField(
                 controller: _usernameController,
                 style: const TextStyle(color: Colors.white),
-                decoration: _inputDecoration("닉네임", Icons.person_outline),
-              ).animate().fadeIn(delay: 200.ms),
+                decoration: _inputDecoration(
+                  AppLocalizations.of(context)!.username,
+                  Icons.person_outline,
+                ),
+              ).animate().fadeIn(delay: 150.ms),
             ),
 
           TextField(
             controller: _passwordController,
             obscureText: true,
             style: const TextStyle(color: Colors.white),
-            decoration: _inputDecoration("비밀번호", Icons.lock_outline),
+            decoration: _inputDecoration(
+              AppLocalizations.of(context)!.password,
+              Icons.lock_outline,
+            ),
           ).animate().fadeIn(delay: isLogin ? 200.ms : 300.ms),
 
           const SizedBox(height: 32),
@@ -191,15 +201,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: Colors.black,
                       ),
                     )
                   : Text(
-                      isLogin ? "로그인" : "회원가입",
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      isLogin
+                          ? AppLocalizations.of(context)!.login
+                          : AppLocalizations.of(context)!.signup,
+                      style: const TextStyle(fontSize: 16),
                     ),
             ),
           ).animate().fadeIn(delay: 400.ms).moveY(begin: 20, end: 0),

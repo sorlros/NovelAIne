@@ -1,8 +1,9 @@
 import 'dart:convert';
+import 'dart:ui' as ui;
 import 'package:http/http.dart' as http;
 import '../../core/constants.dart';
 import '../models/story_model.dart';
-import '../models/creation_config.dart'; // Added
+import '../models/creation_config.dart';
 
 class ApiService {
   final String _baseUrl = AppConstants.baseUrl;
@@ -234,6 +235,8 @@ class ApiService {
         "protagonist_appearance_description": config.appearanceDescription,
       // We don't have explicit scenario input in UI yet, but model supports it
       // "opening_scenario": ...
+      "language": ui.PlatformDispatcher.instance.locale
+          .toLanguageTag(), // e.g., 'ko-KR', 'en-US'
     };
 
     final response = await http.post(
@@ -253,6 +256,41 @@ class ApiService {
       throw Exception(
         'Failed to create story: ${response.statusCode} - ${response.body}',
       );
+    }
+  }
+
+  // Delete Story API
+  Future<bool> deleteStory(String storyId) async {
+    final url = Uri.parse('$_baseUrl/stories/$storyId');
+    try {
+      final response = await http.delete(url);
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        throw Exception(
+          'Failed to delete story. Status: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      throw Exception('Failed to delete story: $e');
+    }
+  }
+
+  // Fetch Scenes for a Story
+  Future<List<dynamic>> fetchScenes(String storyId) async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/stories/$storyId/scenes'),
+    );
+
+    if (response.statusCode == 200) {
+      final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
+      if (jsonResponse['success'] == true) {
+        return jsonResponse['data'];
+      } else {
+        throw Exception('Failed to fetch scenes: ${jsonResponse['error']}');
+      }
+    } else {
+      throw Exception('Failed to load scenes: ${response.statusCode}');
     }
   }
 

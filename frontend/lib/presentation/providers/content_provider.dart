@@ -13,5 +13,9 @@ final storiesProvider = FutureProvider<List<StoryModel>>((ref) async {
 final charactersProvider = FutureProvider<List<CharacterModel>>((ref) async {
   final apiService = ApiService();
   final data = await apiService.fetchCharacters();
-  return data.map((json) => CharacterModel.fromJson(json)).toList();
+  return data
+      .map<CharacterModel>(
+        (json) => CharacterModel.fromJson(json as Map<String, dynamic>),
+      )
+      .toList();
 });

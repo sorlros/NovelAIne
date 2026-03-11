@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/data/services/api_service.dart';
 import '../screens/auth/auth_screen.dart';
+import 'package:frontend/l10n/app_localizations.dart';
 import 'widgets/user_header_widget.dart';
 import 'widgets/my_library_tab.dart';
 import 'widgets/my_creations_tab.dart';
@@ -87,9 +88,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                   unselectedLabelColor: Colors.white54,
                   dividerColor: Colors.transparent,
                   overlayColor: WidgetStateProperty.all(Colors.transparent),
-                  tabs: const [
-                    Tab(text: "내 서재"),
-                    Tab(text: "나의 창작물"),
+                  tabs: [
+                    Tab(text: AppLocalizations.of(context)!.myLibrary),
+                    Tab(text: AppLocalizations.of(context)!.myCreations),
                   ],
                 ),
               ),

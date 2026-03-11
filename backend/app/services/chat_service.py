@@ -137,7 +137,8 @@ class ChatService:
         tone: str = None,
         protagonist_name: str = None,
         traits: List[str] = None,
-        scenario: str = None
+        scenario: str = None,
+        language: str = "en_US"
     ) -> Dict[str, Any]:
         """
         초기 설정을 바탕으로 소설의 제목, 개요, 첫 장면, 주인공 설정을 생성합니다.
@@ -148,7 +149,9 @@ class ChatService:
             "Generate the story metadata in valid JSON format ONLY.\n"
             "Do not include any prose outside the JSON object.\n"
             "The 'first_scene' MUST be written in a highly engaging, literary novel style, rich with sensory details and realistic character dialogues (\"\").\n"
-            "The keys must be: 'title', 'description', 'first_scene', 'protagonist_bio'."
+            "The keys must be: 'title', 'description', 'first_scene', 'protagonist_bio'.\n"
+            f"CRITICAL: The user's locale is '{language}'. You MUST translate all generated content (title, description, first_scene, protagonist_bio) into this language naturally.\n"
+            "FORMATTING: You MUST separate every paragraph and every spoken dialogue with a double newline (`\\n\\n`) in the 'first_scene'."
         )
 
         user_prompt = f"""
