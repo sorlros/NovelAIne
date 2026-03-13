@@ -16,7 +16,7 @@ class UserHeaderWidget extends ConsumerWidget {
 
     final username = authState.value?.username ?? "Traveler";
     final avatarUrl =
-        authState.value?.avatarUrl ?? "https://i.pravatar.cc/150?u=guest";
+        authState.value?.avatarUrl ?? "https://api.dicebear.com/7.x/avataaars/png?seed=guest";
     final storiesCount = storiesState.when(
       data: (stories) => stories.length.toString(),
       loading: () => "...",
@@ -37,10 +37,21 @@ class UserHeaderWidget extends ConsumerWidget {
                 width: 2,
               ), // Purple border
             ),
-            child: CircleAvatar(
-              radius: 40,
-              backgroundImage: NetworkImage(avatarUrl),
-              backgroundColor: const Color(0xFF1E1E1E),
+            child: ClipOval(
+              child: Image.network(
+                avatarUrl,
+                width: 80,
+                height: 80,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    width: 80,
+                    height: 80,
+                    color: const Color(0xFF1E1E1E),
+                    child: const Icon(Icons.person, color: Colors.white24, size: 40),
+                  );
+                },
+              ),
             ),
           ),
           const SizedBox(width: 24),

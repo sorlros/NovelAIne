@@ -19,7 +19,7 @@ void main() {
     await $(TextField).at(1).enterText('password123');
 
     // Tap Login button
-    await $('로그인 시작').tap(andSettle: true);
+    await $('로그인 시작').tap();
 
     // 3. Verify Home Screen loaded
     // Look for the "계속 쓰기" (Continue Writing) header introduced in the new UI
@@ -28,21 +28,21 @@ void main() {
 
     // 4. Navigate to Profile Screen via Bottom Nav Bar
     // Tap the standard Profile icon index (last item = 2)
-    await $(Icons.person_outline).tap(andSettle: true);
+    await $(Icons.person_outline).tap();
 
     // 5. Verify Profile Screen loaded
     expect($('창작 스토리'), findsOneWidget);
     expect($('내 캐릭터'), findsOneWidget);
 
     // Optional: Tap Settings icon to verify navigation
-    await $(Icons.settings).tap(andSettle: true);
+    await $(Icons.settings).tap();
     expect($('일반 설정'), findsOneWidget);
 
     // Go back
-    await $(Icons.arrow_back).tap(andSettle: true);
+    await $(Icons.arrow_back).tap();
 
     // Sign out
-    await $(Icons.logout).tap(andSettle: true);
+    await $(Icons.logout).tap();
 
     // Ensure we are back to Auth Screen
     expect($('로그인'), findsOneWidget);

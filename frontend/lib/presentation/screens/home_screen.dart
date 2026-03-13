@@ -6,6 +6,7 @@ import 'creation/mode_selection_screen.dart' as creation_screen;
 import '../profile/profile_screen.dart';
 import 'explore_screen.dart';
 import 'community_screen.dart';
+import '../widgets/responsive_layout.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/content_provider.dart';
 import '../../../data/services/api_service.dart';
@@ -15,32 +16,35 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Color(0xFF121212),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24.0),
-                  child: _HeaderSection(),
-                ),
-                SizedBox(height: 32),
-                _HorizontalStoryList(),
-                SizedBox(height: 48),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24.0),
-                  child: _RecommendedThemes(),
-                ),
-              ],
+    return ResponsiveLayout(
+      currentIndex: 0,
+      bottomNavigationBar: const _CrispBottomNavBar(),
+      child: const Scaffold(
+        backgroundColor: Color(0xFF121212),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24.0),
+                    child: _HeaderSection(),
+                  ),
+                  SizedBox(height: 32),
+                  _HorizontalStoryList(),
+                  SizedBox(height: 48),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24.0),
+                    child: _RecommendedThemes(),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
-      bottomNavigationBar: _CrispBottomNavBar(),
     );
   }
 }
@@ -52,7 +56,7 @@ class _HeaderSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Expanded(
           child: Column(
@@ -62,16 +66,16 @@ class _HeaderSection extends StatelessWidget {
                 "계속 쓰기",
                 style: Theme.of(context).textTheme.displayLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  fontSize: 28,
+                  fontSize: 32,
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
-                AppLocalizations.of(context)!.quickStart,
+                "당신의 상상력이 현실이 되는 곳입니다.",
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.white54,
-                  fontSize: 14,
+                  fontSize: 15,
                 ),
               ),
             ],
@@ -88,15 +92,15 @@ class _HeaderSection extends StatelessWidget {
               ),
             );
           },
-          icon: const Icon(Icons.add, size: 18),
-          label: Text(
-            AppLocalizations.of(context)!.startNewAdventure,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          icon: const Icon(Icons.add, size: 20),
+          label: const Text(
+            "새로운 이야기 시작",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
           ),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF7C3AED), // Vibrant purple
+            backgroundColor: const Color(0xFF6B4EFF), // Exact purple/blue from mockup
             foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -127,21 +131,31 @@ class _HorizontalStoryList extends ConsumerWidget {
           );
         }
 
-        return SizedBox(
-          height:
-              440, // Height for the horizontal cards increased to prevent overflow
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: stories.length,
-            itemBuilder: (context, index) {
-              final story = stories[index];
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: _StoryCard(story: story, index: index),
-              );
-            },
-          ),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isDesktop = constraints.maxWidth >= 800;
+            final cardWidth = isDesktop ? 252.0 : 196.0; // 70% of 360 / 280
+            final listHeight = isDesktop ? 336.0 : 308.0; // 70% of 480 / 440
+
+            return SizedBox(
+              height: listHeight,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: stories.length,
+                itemBuilder: (context, index) {
+                  final story = stories[index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: SizedBox(
+                      width: cardWidth,
+                      child: _StoryCard(story: story, index: index),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -172,10 +186,9 @@ class _StoryCard extends StatelessWidget {
         );
       },
       child: Container(
-        width: 280,
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1E1E), // Slightly lighter than background
-          borderRadius: BorderRadius.circular(20),
+          color: const Color(0xFF151515), // Darker card background
+          borderRadius: BorderRadius.circular(16), // Slightly smaller radius
           border: Border.all(color: Colors.white10, width: 1),
         ),
         child: Column(
@@ -183,13 +196,13 @@ class _StoryCard extends StatelessWidget {
           children: [
             // Cover Image Area
             Expanded(
-              flex: 5,
+              flex: 11,
               child: Stack(
                 children: [
                   Container(
                     decoration: BoxDecoration(
                       borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(19),
+                        top: Radius.circular(15),
                       ),
                       image: story.coverImageUrl != null
                           ? DecorationImage(
@@ -204,7 +217,7 @@ class _StoryCard extends StatelessWidget {
                             child: Icon(
                               Icons.auto_awesome,
                               color: Colors.white24,
-                              size: 40,
+                              size: 32, // Scaled down icon
                             ),
                           )
                         : null,
@@ -213,61 +226,58 @@ class _StoryCard extends StatelessWidget {
                   Container(
                     decoration: BoxDecoration(
                       borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(19),
+                        top: Radius.circular(15),
                       ),
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          const Color(0xFF1E1E1E).withOpacity(0.9),
+                          const Color(0xFF151515).withOpacity(0.95),
                         ],
                       ),
                     ),
                   ),
                   // Tags and Time
                   Positioned(
-                    top: 16,
-                    left: 16,
-                    right: 16,
+                    bottom: 12,
+                    left: 12,
+                    right: 12,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Row(
                           children: [
-                            _buildTag(story.genre ?? "판타지"),
-                            const SizedBox(width: 8),
-                            _buildTag(
-                              "다크",
-                            ), // Hardcoded example for demo as per mockup
+                            const Icon(Icons.access_time, color: Colors.white70, size: 12),
+                            const SizedBox(width: 4),
+                            const Text(
+                              "2시간 전", // Hardcoded example
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ],
                         ),
                         Row(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.6),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Text(
-                                "15분 전", // Hardcoded example
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            _DeleteStoryButton(storyId: story.id.toString()),
+                            _buildTag(story.genre ?? "판타지", const Color(0xFF3F3B6C)),
+                            const SizedBox(width: 4),
+                            _buildTag("다크", const Color(0xFF3F3B6C)),
                           ],
                         ),
                       ],
+                    ),
+                  ),
+                  // Delete Button
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Transform.scale(
+                      scale: 0.85,
+                      child: _DeleteStoryButton(storyId: story.id.toString()),
                     ),
                   ),
                 ],
@@ -275,9 +285,9 @@ class _StoryCard extends StatelessWidget {
             ),
             // Content Area
             Expanded(
-              flex: 5,
+              flex: 9,
               child: Padding(
-                padding: const EdgeInsets.all(20.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -286,52 +296,58 @@ class _StoryCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 20,
+                        fontSize: 18, // Reduced font size
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Expanded(
                       child: Text(
                         story.description ??
                             "어둠 속에서 들려오는 목소리. 그것은 구원일까, 또 다른 저주일까?",
-                        maxLines: 3,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white60,
+                          fontSize: 12, // Reduced font size
+                          color: Colors.white70,
                           height: 1.5,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    // Progress bar - Visual placeholder for completeness 65%
+                    const SizedBox(height: 12),
+                    // Progress Header
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: const LinearProgressIndicator(
-                              value: 0.65,
-                              backgroundColor: Colors.white10,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Color(0xFF7C3AED),
-                              ),
-                              minHeight: 6,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
                         const Text(
-                          "65%",
+                          "진행도",
                           style: TextStyle(
                             color: Colors.white54,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                        ),
+                        const Text(
+                          "45%",
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: 11,
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 6),
+                    // Progress Bar
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: const LinearProgressIndicator(
+                        value: 0.45,
+                        backgroundColor: Colors.white10,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Color(0xFF6B4EFF),
+                        ),
+                        minHeight: 4, // Scaled down height
+                      ),
                     ),
                   ],
                 ),
@@ -343,18 +359,18 @@ class _StoryCard extends StatelessWidget {
     );
   }
 
-  Widget _buildTag(String text) {
+  Widget _buildTag(String text, Color bgColor) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(12),
+        color: bgColor,
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         text,
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -367,19 +383,25 @@ class _RecommendedThemes extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themes = ["현대판타지", "로맨스 판타지", "무협", "SF", "미스터리", "성장물"];
+    final themes = ["현대판타지", "로맨스 판타지", "무협", "스페이스 오페라", "아포칼립스", "대체역사"];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          "추천 테마",
-          style: Theme.of(context).textTheme.displayMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-            color: Colors.white,
-          ),
+        Row(
+          children: [
+            const Icon(Icons.trending_up, color: Color(0xFF6B4EFF), size: 28),
+            const SizedBox(width: 12),
+            Text(
+              "추천 테마",
+              style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 24,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ).animate().fadeIn().slideX(delay: 400.ms),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -389,19 +411,19 @@ class _RecommendedThemes extends StatelessWidget {
               borderRadius: BorderRadius.circular(24),
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
+                  horizontal: 24,
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
                   color: Colors.transparent,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white24, width: 1),
+                  border: Border.all(color: Colors.white24, width: 1.5),
                 ),
                 child: Text(
                   theme,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
+                    color: Colors.white70,
+                    fontSize: 15,
                     fontWeight: FontWeight.w500,
                   ),
                 ),

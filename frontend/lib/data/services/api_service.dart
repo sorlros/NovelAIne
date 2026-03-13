@@ -111,8 +111,12 @@ class ApiService {
   }
 
   // Stories API
-  Future<List<StoryModel>> fetchStories() async {
-    final response = await http.get(Uri.parse('$_baseUrl/stories'));
+  Future<List<StoryModel>> fetchStories({String? userId}) async {
+    final uri = userId != null 
+        ? Uri.parse('$_baseUrl/stories?user_id=$userId')
+        : Uri.parse('$_baseUrl/stories');
+
+    final response = await http.get(uri);
 
     if (response.statusCode == 200) {
       final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
@@ -123,7 +127,7 @@ class ApiService {
         throw Exception('Failed to fetch stories: ${jsonResponse['error']}');
       }
     } else {
-      throw Exception('Failed to load stories: ${response.statusCode}');
+      throw Exception('Failed to connect to API');
     }
   }
 

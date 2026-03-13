@@ -26,17 +26,20 @@ router = APIRouter(prefix="/stories", tags=["stories"])
 
 @router.get("", response_model=ApiResponse)
 async def list_stories(
+    user_id: Optional[str] = None,
     genre: Optional[str] = None,
     status: Optional[str] = None,
     limit: int = Query(default=10, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ):
-    """List all stories with optional filtering."""
+    """List all stories with optional filtering by user_id and others."""
     try:
         try:
             client = get_supabase_client()
             query = client.table("stories").select("*")
 
+            if user_id:
+                query = query.eq("user_id", user_id)
             if genre:
                 query = query.eq("genre", genre)
             if status:

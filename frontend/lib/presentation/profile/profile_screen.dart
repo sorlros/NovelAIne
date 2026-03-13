@@ -5,6 +5,7 @@ import 'package:frontend/l10n/app_localizations.dart';
 import 'widgets/user_header_widget.dart';
 import 'widgets/my_library_tab.dart';
 import 'widgets/my_creations_tab.dart';
+import '../widgets/responsive_layout.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -43,25 +44,27 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF121212), // Deep dark background
-      appBar: AppBar(
-        title: const Text(
-          "내 프로필",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-        ),
-        backgroundColor: const Color(0xFF121212),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white70),
-            onPressed: _logout,
-            tooltip: '로그아웃',
+    return ResponsiveLayout(
+      currentIndex: 3,
+      child: Scaffold(
+        backgroundColor: const Color(0xFF121212), // Deep dark background
+        appBar: AppBar(
+          title: const Text(
+            "내 프로필",
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
           ),
-        ],
-      ),
-      body: NestedScrollView(
+          backgroundColor: const Color(0xFF121212),
+          elevation: 0,
+          iconTheme: const IconThemeData(color: Colors.white),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout, color: Colors.white70),
+              onPressed: _logout,
+              tooltip: '로그아웃',
+            ),
+          ],
+        ),
+        body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverToBoxAdapter(
@@ -102,7 +105,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           children: const [MyLibraryTab(), MyCreationsTab()],
         ),
       ),
-    );
+    ));
   }
 }
 
