@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // Added
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 import '../../../../data/models/creation_config.dart';
 import '../../../../data/services/api_service.dart';
-import '../../../../data/repositories/story_repository.dart'; // Added
+import '../../../../data/repositories/story_repository.dart';
+import '../../providers/content_provider.dart'; // Added
 import '../../widgets/custom_loading_indicator.dart';
 import '../story_screen.dart';
 import 'steps/world_step.dart';
