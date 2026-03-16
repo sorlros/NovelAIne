@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/content_provider.dart';
 import '../../../data/models/story_model.dart';
 import '../../../data/models/character_model.dart';
@@ -226,7 +227,7 @@ class MyCreationsTab extends ConsumerWidget {
         leading: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0xFF7C3AED).withOpacity(0.15), // Purple tint
+            color: const Color(0xFF7C3AED).withValues(alpha: 0.15), // Purple tint
             borderRadius: BorderRadius.circular(12),
           ),
           child: const Icon(Icons.menu_book, color: Color(0xFF7C3AED)),
@@ -278,11 +279,20 @@ class MyCreationsTab extends ConsumerWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: const Color(0xFF7C3AED).withOpacity(0.5),
+                  color: const Color(0xFF7C3AED).withValues(alpha: 0.5),
                 ),
-                image: DecorationImage(
-                  image: NetworkImage(char.imageUrl!),
+              ),
+              child: ClipOval(
+                child: CachedNetworkImage(
+                  imageUrl: char.imageUrl!,
                   fit: BoxFit.cover,
+                  placeholder: (context, url) => const Center(
+                    child: CircularProgressIndicator(strokeWidth: 1),
+                  ),
+                  errorWidget: (context, url, error) => const Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.white24,
+                  ),
                 ),
               ),
             )
@@ -290,7 +300,7 @@ class MyCreationsTab extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF7C3AED).withOpacity(0.15),
+                color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: const Icon(

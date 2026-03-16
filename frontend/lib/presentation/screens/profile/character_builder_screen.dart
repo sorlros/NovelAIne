@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -25,7 +25,7 @@ class _CharacterBuilderScreenState
 
   final List<String> _traits = [];
   bool _isLoading = false;
-  XFile? _selectedImage;
+  Uint8List? _selectedImageBytes;
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -57,8 +57,9 @@ class _CharacterBuilderScreenState
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image != null) {
+        final bytes = await image.readAsBytes();
         setState(() {
-          _selectedImage = image;
+          _selectedImageBytes = bytes;
         });
       }
     } catch (e) {
@@ -87,17 +88,8 @@ class _CharacterBuilderScreenState
     setState(() => _isLoading = true);
 
     try {
-      final additionalPayload = {
-        'background_story': _backgroundController.text.trim(),
-        'image_url': _appearanceController.text.trim().isNotEmpty
-            ? 'generate:${_appearanceController.text.trim()}'
-            : null,
-      };
-
       // ApiService doesn't accept full payload for character yet in the current sig:
       // Assuming createCharacter(name, desc, traits) is the current signature.
-      // We will update ApiService to handle these if we want, but for now we just use standard.
-      // ACTUALLY, checking ApiService.createCharacter, it only takes 3 positional args. Let's stick to them first.
       final response = await ApiService().createCharacter(
         _nameController.text.trim(),
         '''${_descController.text.trim()}
@@ -109,10 +101,11 @@ class _CharacterBuilderScreenState
       final characterId = response['id'];
 
       // Upload image if selected
-      if (_selectedImage != null) {
+      if (_selectedImageBytes != null) {
         await ApiService().uploadCharacterImage(
           characterId,
-          _selectedImage!.path,
+          _selectedImageBytes!,
+          fileName: 'character_${characterId.substring(0, 8)}.jpg',
         );
       }
 
@@ -244,23 +237,23 @@ class _CharacterBuilderScreenState
                     color: const Color(0xFF1E1E1E),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: const Color(0xFF7C3AED).withOpacity(0.5),
+                      color: const Color(0xFF7C3AED).withValues(alpha: 0.5),
                       width: 2,
                     ),
-                    image: _selectedImage != null
+                    image: _selectedImageBytes != null
                         ? DecorationImage(
-                            image: FileImage(File(_selectedImage!.path)),
+                            image: MemoryImage(_selectedImageBytes!),
                             fit: BoxFit.cover,
                           )
                         : null,
                   ),
-                  child: _selectedImage == null
+                  child: _selectedImageBytes == null
                       ? Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
                               Icons.add_a_photo_outlined,
-                              color: const Color(0xFF7C3AED).withOpacity(0.8),
+                              color: const Color(0xFF7C3AED).withValues(alpha: 0.8),
                               size: 32,
                             ),
                             const SizedBox(height: 8),
@@ -326,10 +319,10 @@ class _CharacterBuilderScreenState
                         onDeleted: () => _removeTrait(trait),
                         backgroundColor: const Color(
                           0xFF7C3AED,
-                        ).withOpacity(0.2),
+                        ).withValues(alpha: 0.2),
                         labelStyle: const TextStyle(color: Colors.white),
                         side: BorderSide(
-                          color: const Color(0xFF7C3AED).withOpacity(0.5),
+                          color: const Color(0xFF7C3AED).withValues(alpha: 0.5),
                         ),
                       );
                     }).toList(),

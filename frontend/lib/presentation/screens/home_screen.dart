@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 import 'story_screen.dart';
 import 'creation/mode_selection_screen.dart' as creation_screen;
@@ -54,12 +55,12 @@ class _HeaderSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Expanded(
-          child: Column(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 600;
+
+        if (isNarrow) {
+          return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
@@ -78,36 +79,95 @@ class _HeaderSection extends StatelessWidget {
                   fontSize: 15,
                 ),
               ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 16),
-        ElevatedButton.icon(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    const creation_screen.CreationModeSelectionScreen(),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const creation_screen.CreationModeSelectionScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.add, size: 20),
+                  label: const Text(
+                    "새로운 이야기 시작",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6B4EFF),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
               ),
-            );
-          },
-          icon: const Icon(Icons.add, size: 20),
-          label: const Text(
-            "새로운 이야기 시작",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF6B4EFF), // Exact purple/blue from mockup
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+            ],
+          );
+        }
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "계속 쓰기",
+                    style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 32,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    "당신의 상상력이 현실이 되는 곳입니다.",
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white54,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            elevation: 0,
-          ),
-        ),
-      ],
+            const SizedBox(width: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const creation_screen.CreationModeSelectionScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.add, size: 20),
+              label: const Text(
+                "새로운 이야기 시작",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6B4EFF),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+            ),
+          ],
+        );
+      },
     ).animate().fadeIn();
   }
 }
@@ -200,27 +260,42 @@ class _StoryCard extends StatelessWidget {
               child: Stack(
                 children: [
                   Container(
-                    decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.vertical(
+                    width: double.infinity,
+                    height: double.infinity,
+                    decoration: const BoxDecoration(
+                      borderRadius: BorderRadius.vertical(
                         top: Radius.circular(15),
                       ),
-                      image: story.coverImageUrl != null
-                          ? DecorationImage(
-                              image: NetworkImage(story.coverImageUrl!),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
                       color: Colors.black26,
                     ),
-                    child: story.coverImageUrl == null
-                        ? const Center(
+                    child: story.coverImageUrl != null
+                        ? ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(15),
+                            ),
+                            child: CachedNetworkImage(
+                              imageUrl: story.coverImageUrl!,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => const Center(
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              ),
+                              errorWidget: (context, url, error) => const Icon(
+                                Icons.broken_image_outlined,
+                                color: Colors.white24,
+                              ),
+                            ),
+                          )
+                        : const Center(
                             child: Icon(
                               Icons.auto_awesome,
                               color: Colors.white24,
                               size: 32, // Scaled down icon
                             ),
-                          )
-                        : null,
+                          ),
                   ),
                   // Gradient overlay
                   Container(
@@ -233,7 +308,7 @@ class _StoryCard extends StatelessWidget {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          const Color(0xFF151515).withOpacity(0.95),
+                          const Color(0xFF151515).withValues(alpha: 0.95),
                         ],
                       ),
                     ),
@@ -516,15 +591,18 @@ class _NavBarIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        child: Icon(
-          isSelected ? iconSolid : iconOutlined,
-          color: isSelected ? const Color(0xFF7C3AED) : Colors.white54,
-          size: 28,
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: Icon(
+            isSelected ? iconSolid : iconOutlined,
+            color: isSelected ? const Color(0xFF7C3AED) : Colors.white54,
+            size: 28,
+          ),
         ),
       ),
     );
@@ -611,7 +689,7 @@ class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
             child: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
+                color: Colors.black.withValues(alpha: 0.6),
                 shape: BoxShape.circle,
               ),
               child: const Icon(

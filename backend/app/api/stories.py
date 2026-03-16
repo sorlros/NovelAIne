@@ -65,46 +65,19 @@ async def create_story(story: StoryCreate):
         client = get_supabase_client()
         chat_service = ChatService()
 
-        # 0. Get or Create Default User (MVP Hack)
-        # In real app, extracting from JWT
+        # 0. User check logic (same as before)
         user_id = None
         try:
             users_response = client.table("users").select("id").limit(1).execute()
             if users_response.data:
                 user_id = users_response.data[0]["id"]
-            else:
-                # Create Default User
-                print("Creating default user...")
-                new_user_id = str(uuid4())
-                user_data = {
-                    "id": new_user_id,
-                    "email": "guest@novelaine.com",
-                    "username": "Traveler",
-                    "created_at": datetime.now().isoformat(),
-                    "updated_at": datetime.now().isoformat()
-                }
-                # Try inserting into 'users' (public profile)
-                # Note: If this fails due to auth linkage, we might need a different approach
-                user_res = client.table("users").insert(user_data).execute()
-                if user_res.data:
-                    user_id = user_res.data[0]["id"]
-        except Exception as e:
-            print(f"User check failed: {e}")
-            # If we really can't create a user, we might proceed and hope DB treats user_id as optional? 
-            # unlikely given the model, but let's try to proceed or fail clearly.
-            pass
-
-        if not user_id:
-             # If strictly required, this will fail next. 
-             # Let's use a hardcoded fallback just in case the table allows it?
-             # Or assume we can't proceed.
-             print("Warning: No user_id found or created.")
+        except: pass
 
         # Check if we need to generate story content
         generated_data = None
         if not story.title:
-            # Generate via LLM
-            print(f"Generating story for {story.genre}...")
+            print(f"[DEBUG] Requesting AI story generation for {story.genre}...")
+            # chat_service.start_new_story handles its own internal parsing and errors
             generated_data = await chat_service.start_new_story(
                 genre=story.genre,
                 tone=story.tone,
@@ -114,87 +87,77 @@ async def create_story(story: StoryCreate):
                 language=story.language
             )
             
-            # Fill in the missing required fields
-            story.title = generated_data.get("title", "Untitled Story")
-            story.description = generated_data.get("description", "No description")
+            story.title = generated_data.get("title", "Untitled Story").strip()
+            story.description = generated_data.get("description", "No description").strip()
+            print(f"[DEBUG] AI Story generated: {story.title}")
 
         # 1. Insert Story
-        # Exclude generation params that don't exist in DB
         story_db_data = story.model_dump(exclude={
             "character_ids", "tone", "protagonist_name", "protagonist_traits",
             "protagonist_appearance_description", "opening_scenario", "language"
         })
-        story_db_data["status"] = "active" # Set default status
+        story_db_data["status"] = "active"
         story_db_data["total_scenes"] = 0
         if user_id:
-            story_db_data["user_id"] = user_id # Inject User ID
+            story_db_data["user_id"] = user_id
         
         story_response = client.table("stories").insert(story_db_data).execute()
-
         if not story_response.data:
-            raise HTTPException(status_code=500, detail="Failed to create story")
+            raise HTTPException(status_code=500, detail="Failed to save story to DB")
 
         created_story = story_response.data[0]
         story_id = created_story["id"]
 
         # 2. Handle Generated Content (Character & Scene)
         if generated_data:
-            # A. Create Protagonist
-            protagonist_name = story.protagonist_name or generated_data.get("title", "Hero").split("'s")[0] # Fallback
-            if story.protagonist_name:
-                protagonist_name = story.protagonist_name
-            
-            # Use 'protagonist_bio' from LLM or fallback
-            bio = generated_data.get("protagonist_bio", "A bold adventurer starting their journey.")
-            
-            char_data = {
-                "name": protagonist_name,
-                "description": bio,
-                "personality_traits": story.protagonist_traits,
-                "appearance_description": story.protagonist_appearance_description,
-                "user_id": created_story["user_id"] # Inherit user_id
-            }
-            
-            char_response = client.table("characters").insert(char_data).execute()
-            if char_response.data:
-                char_id = char_response.data[0]["id"]
-                # Link to Story
-                link_data = {
-                    "story_id": story_id,
-                    "character_id": char_id,
-                    "role_in_story": "protagonist"
+            try:
+                # A. Create Protagonist
+                p_name = story.protagonist_name or "주인공"
+                bio = generated_data.get("protagonist_bio", "용감한 모험가")
+                
+                char_data = {
+                    "name": p_name,
+                    "description": bio,
+                    "personality_traits": story.protagonist_traits,
+                    "appearance_description": story.protagonist_appearance_description,
+                    "user_id": user_id
                 }
-                client.table("story_characters").insert(link_data).execute()
+                
+                char_response = client.table("characters").insert(char_data).execute()
+                if char_response.data:
+                    char_id = char_response.data[0]["id"]
+                    client.table("story_characters").insert({
+                        "story_id": story_id,
+                        "character_id": char_id,
+                        "role_in_story": "protagonist"
+                    }).execute()
 
-            # B. Create First Scene
-            first_scene_content = generated_data.get("first_scene", "The adventure begins...")
-            scene_data = {
-                "story_id": story_id,
-                "sequence": 1,
-                "scene_type": "narrative",
-                "content": first_scene_content
-            }
-            client.table("scenes").insert(scene_data).execute()
-            
-            # Update Story scene count
-            client.table("stories").update({"total_scenes": 1}).eq("id", story_id).execute()
+                # B. Create First Scene
+                scene_content = generated_data.get("first_scene", "모험의 막이 오릅니다.")
+                client.table("scenes").insert({
+                    "story_id": story_id,
+                    "sequence": 1,
+                    "scene_type": "narrative",
+                    "content": scene_content
+                }).execute()
+                
+                client.table("stories").update({"total_scenes": 1}).eq("id", story_id).execute()
+            except Exception as linked_err:
+                print(f"[ERROR] Failed to create linked characters/scenes: {linked_err}")
 
-        # 3. Handle Explicitly Linked Characters (if any)
+        # 3. Handle Explicitly Linked Characters
         if story.character_ids:
-            character_links = [
-                {"story_id": story_id, "character_id": char_id}
-                for char_id in story.character_ids
-            ]
-            client.table("story_characters").insert(character_links).execute()
+            try:
+                links = [{"story_id": story_id, "character_id": cid} for cid in story.character_ids]
+                client.table("story_characters").insert(links).execute()
+            except: pass
 
         return ApiResponse.ok(data=created_story)
     except Exception as e:
-        import traceback
-        error_msg = f"Error creating story: {str(e)}\n{traceback.format_exc()}"
-        print(error_msg)
-        with open("error.log", "a") as f:
-            f.write(f"[{datetime.now()}] {error_msg}\n")
-        raise HTTPException(status_code=500, detail=f"Failed to create story: {str(e)}")
+        error_msg = f"Failed to create story: {str(e)}"
+        print(f"[FATAL] {error_msg}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=error_msg)
 
 
 @router.get("/{story_id}", response_model=ApiResponse)

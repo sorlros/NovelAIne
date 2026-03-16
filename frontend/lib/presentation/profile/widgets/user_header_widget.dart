@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/content_provider.dart';
 import 'package:frontend/l10n/app_localizations.dart';
@@ -38,19 +39,29 @@ class UserHeaderWidget extends ConsumerWidget {
               ), // Purple border
             ),
             child: ClipOval(
-              child: Image.network(
-                avatarUrl,
+              child: CachedNetworkImage(
+                imageUrl: avatarUrl,
                 width: 80,
                 height: 80,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: 80,
-                    height: 80,
-                    color: const Color(0xFF1E1E1E),
-                    child: const Icon(Icons.person, color: Colors.white24, size: 40),
-                  );
-                },
+                placeholder: (context, url) => Container(
+                  width: 80,
+                  height: 80,
+                  color: const Color(0xFF1E1E1E),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  width: 80,
+                  height: 80,
+                  color: const Color(0xFF1E1E1E),
+                  child: const Icon(Icons.person, color: Colors.white24, size: 40),
+                ),
               ),
             ),
           ),

@@ -18,7 +18,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _usernameController = TextEditingController();
-  bool _isLoading = false;
 
   @override
   void initState() {
@@ -36,43 +35,43 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
   }
 
   Future<void> _submit() async {
-    setState(() => _isLoading = true);
     final isLogin = _tabController.index == 0;
 
-    try {
-      if (isLogin) {
-        await ref.read(authProvider.notifier).login(
-          _emailController.text.trim(),
-          _passwordController.text.trim(),
-        );
-      } else {
-        await ref.read(authProvider.notifier).signup(
-          _emailController.text.trim(),
-          _passwordController.text.trim(),
-          _usernameController.text.trim(),
-        );
-      }
+    if (isLogin) {
+      await ref.read(authProvider.notifier).login(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+      );
+    } else {
+      await ref.read(authProvider.notifier).signup(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+        _usernameController.text.trim(),
+      );
+    }
 
+    final authState = ref.read(authProvider);
+    if (authState.hasValue && authState.value != null) {
       if (!mounted) return;
-
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => const HomeScreen()),
       );
-    } catch (e) {
+    } else if (authState.hasError) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.toString().replaceAll("Exception: ", "")),
+          content: Text("인증 실패: ${authState.error}"),
           backgroundColor: Colors.redAccent,
         ),
       );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+    final isLoading = authState.isLoading;
+
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D12),
       body: LayoutBuilder(
@@ -90,7 +89,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                         colors: [
                           const Color(0xFF151515),
                           const Color(0xFF0D0D12),
-                          const Color(0xFF6B4EFF).withOpacity(0.1),
+                          const Color(0xFF6B4EFF).withValues(alpha: 0.1),
                         ],
                       ),
                     ),
@@ -127,7 +126,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 400),
-                      child: _buildFormCard(),
+                      child: _buildFormCard(isLoading),
                     ),
                   ),
                 ),
@@ -154,7 +153,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                         ),
                       ),
                       const SizedBox(height: 32),
-                      _buildFormCard(),
+                      _buildFormCard(isLoading),
                     ],
                   ),
                 ),
@@ -166,7 +165,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     );
   }
 
-  Widget _buildFormCard() {
+  Widget _buildFormCard(bool isLoading) {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF151515),
@@ -216,7 +215,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                 SizedBox(
                   height: 52,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _submit,
+                    onPressed: isLoading ? null : _submit,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF6B4EFF),
                       foregroundColor: Colors.white,
@@ -225,7 +224,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                       ),
                       elevation: 0,
                     ),
-                    child: _isLoading
+                    child: isLoading
                         ? const SizedBox(
                             width: 24,
                             height: 24,

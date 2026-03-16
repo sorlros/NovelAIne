@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../core/constants.dart';
 import '../models/story_model.dart';
@@ -80,6 +81,27 @@ class ApiService {
     }
   }
 
+  // Streaming Chat API
+  Stream<String> streamChat(String message, {List<Map<String, String>>? history}) async* {
+    final request = http.Request('POST', Uri.parse('$_baseUrl/chat/stream'));
+    request.headers['Content-Type'] = 'application/json';
+    request.body = jsonEncode({
+      'message': message,
+      'history': history ?? [],
+    });
+
+    final response = await http.Client().send(request);
+
+    if (response.statusCode == 200) {
+      // 바이트 스트림을 문자열 스트림으로 변환
+      yield* response.stream
+          .transform(utf8.decoder)
+          .transform(const LineSplitter()); // 줄바꿈 단위로 끊어줄 수도 있지만, 여기서는 실시간성을 위해 유지
+    } else {
+      throw Exception('Streaming failed: ${response.statusCode}');
+    }
+  }
+
   // Generate Image API
   Future<String> generateImage(
     String messageId,
@@ -128,6 +150,22 @@ class ApiService {
       }
     } else {
       throw Exception('Failed to connect to API');
+    }
+  }
+
+  // Fetch Single Story (with characters)
+  Future<Map<String, dynamic>> fetchStory(String storyId) async {
+    final response = await http.get(Uri.parse('$_baseUrl/stories/$storyId'));
+
+    if (response.statusCode == 200) {
+      final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
+      if (jsonResponse['success'] == true) {
+        return jsonResponse['data'];
+      } else {
+        throw Exception('Failed to fetch story: ${jsonResponse['error']}');
+      }
+    } else {
+      throw Exception('Failed to load story: ${response.statusCode}');
     }
   }
 
@@ -181,13 +219,24 @@ class ApiService {
   // Upload Character Image
   Future<String> uploadCharacterImage(
     String characterId,
-    String imagePath,
-  ) async {
+    Uint8List imageBytes, {
+    String? fileName,
+  }) async {
     final uri = Uri.parse('$_baseUrl/characters/$characterId/upload-image');
     final request = http.MultipartRequest('POST', uri);
-    request.files.add(await http.MultipartFile.fromPath('file', imagePath));
+    
+    // Using fromBytes to ensure Web compatibility
+    final multipartFile = http.MultipartFile.fromBytes(
+      'file',
+      imageBytes,
+      filename: fileName ?? 'profile_image.jpg',
+    );
+    
+    request.files.add(multipartFile);
+    
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
+    
     if (response.statusCode == 200) {
       final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
       if (jsonResponse['success'] == true) {
@@ -250,13 +299,24 @@ class ApiService {
     );
 
     if (response.statusCode == 200) {
-      final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
-      if (jsonResponse['success'] == true) {
-        return StoryModel.fromJson(jsonResponse['data']);
-      } else {
-        throw Exception('Failed to create story: ${jsonResponse['error']}');
+      final String rawBody = utf8.decode(response.bodyBytes);
+      try {
+        final jsonResponse = jsonDecode(rawBody);
+        if (jsonResponse['success'] == true) {
+          return StoryModel.fromJson(jsonResponse['data']);
+        } else {
+          throw Exception('Failed to create story: ${jsonResponse['error']}');
+        }
+      } catch (e) {
+        debugPrint('--- JSON Parsing Error Details ---');
+        debugPrint('Error: $e');
+        debugPrint('Raw Response Content: $rawBody');
+        debugPrint('----------------------------------');
+        // Let the exception bubble up to the UI so we can see the exact cause
+        rethrow;
       }
-    } else {
+    }
+ else {
       throw Exception(
         'Failed to create story: ${response.statusCode} - ${response.body}',
       );

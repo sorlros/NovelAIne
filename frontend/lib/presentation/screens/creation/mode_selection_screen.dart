@@ -63,7 +63,7 @@ class CreationModeSelectionScreen extends StatelessWidget {
                         Text(
                           "상상 속의 세계를 펼칠 준비가 되었습니다.\n원하는 창작 방식을 선택해 주세요.",
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
+                            color: Colors.white.withValues(alpha: 0.6),
                             fontSize: 16,
                             height: 1.6,
                           ),
@@ -204,13 +204,13 @@ class _ModernModeCardState extends State<_ModernModeCard> {
             color: const Color(0xFF151515),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: _isHovered ? widget.accentColor.withOpacity(0.5) : Colors.white10,
+              color: _isHovered ? widget.accentColor.withValues(alpha: 0.5) : Colors.white10,
               width: 1.5,
             ),
             boxShadow: [
               if (_isHovered)
                 BoxShadow(
-                  color: widget.accentColor.withOpacity(0.15),
+                  color: widget.accentColor.withValues(alpha: 0.15),
                   blurRadius: 20,
                   spreadRadius: 5,
                 )
@@ -222,7 +222,7 @@ class _ModernModeCardState extends State<_ModernModeCard> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: widget.accentColor.withOpacity(0.1),
+                  color: widget.accentColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(widget.iconData, color: widget.accentColor, size: 32),
@@ -250,7 +250,7 @@ class _ModernModeCardState extends State<_ModernModeCard> {
               Text(
                 widget.description,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
+                  color: Colors.white.withValues(alpha: 0.6),
                   fontSize: 15,
                   height: 1.5,
                 ),
@@ -293,10 +293,10 @@ class _SubtleBackgroundGlow extends StatelessWidget {
             height: 400,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFF6B4EFF).withOpacity(0.05),
+              color: const Color(0xFF6B4EFF).withValues(alpha: 0.05),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF6B4EFF).withOpacity(0.05),
+                  color: const Color(0xFF6B4EFF).withValues(alpha: 0.05),
                   blurRadius: 100,
                   spreadRadius: 50,
                 ),
@@ -312,10 +312,10 @@ class _SubtleBackgroundGlow extends StatelessWidget {
             height: 300,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFFFFBE0B).withOpacity(0.03),
+              color: const Color(0xFFFFBE0B).withValues(alpha: 0.03),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFFFBE0B).withOpacity(0.03),
+                  color: const Color(0xFFFFBE0B).withValues(alpha: 0.03),
                   blurRadius: 100,
                   spreadRadius: 50,
                 ),

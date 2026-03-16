@@ -116,7 +116,7 @@ class _WorldStepState extends State<WorldStep> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: accentColor,
                   foregroundColor: Colors.black,
-                  disabledBackgroundColor: Colors.white.withOpacity(0.05),
+                  disabledBackgroundColor: Colors.white.withValues(alpha: 0.05),
                   disabledForegroundColor: Colors.white24,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -180,7 +180,7 @@ class _CustomChoiceChip extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? accentColor.withOpacity(0.15) : Colors.white.withOpacity(0.05),
+          color: isSelected ? accentColor.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? accentColor : Colors.white10,
@@ -220,7 +220,7 @@ class _CustomDropdown extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white10),
       ),

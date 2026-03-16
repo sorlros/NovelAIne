@@ -110,7 +110,7 @@ class _StoryPreviewCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: Colors.white10, width: 1),
       ),
@@ -127,7 +127,7 @@ class _StoryPreviewCard extends StatelessWidget {
                 height: 120,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: accentColor.withOpacity(0.1),
+                  color: accentColor.withValues(alpha: 0.1),
                 ),
               ),
             ),
@@ -141,7 +141,7 @@ class _StoryPreviewCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: accentColor.withOpacity(0.15),
+                          color: accentColor.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
@@ -189,7 +189,7 @@ class _StoryPreviewCard extends StatelessWidget {
                       Icon(
                         Icons.info_outline_rounded,
                         size: 14,
-                        color: accentColor.withOpacity(0.6),
+                        color: accentColor.withValues(alpha: 0.6),
                       ),
                       const SizedBox(width: 8),
                       Expanded(

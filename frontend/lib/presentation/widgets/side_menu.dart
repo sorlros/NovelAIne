@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../screens/home_screen.dart';
 import '../screens/explore_screen.dart';
-import '../screens/community_screen.dart';
 import '../profile/profile_screen.dart';
+
 import '../screens/creation/mode_selection_screen.dart' as creation_screen;
 
 class SideMenu extends StatelessWidget {

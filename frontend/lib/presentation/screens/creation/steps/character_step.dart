@@ -1,7 +1,8 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 import '../../../../data/models/creation_config.dart';
 import '../../../../data/constants/creation_prompts.dart';
@@ -27,7 +28,7 @@ class CharacterStep extends ConsumerStatefulWidget {
 class _CharacterStepState extends ConsumerState<CharacterStep> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _appearanceController = TextEditingController();
-  File? _selectedImage;
+  Uint8List? _selectedImageBytes;
   final ImagePicker _imagePicker = ImagePicker();
 
   @override
@@ -42,6 +43,8 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
     _appearanceController.addListener(() {
       widget.config.appearanceDescription = _appearanceController.text;
     });
+    
+    _selectedImageBytes = widget.config.userImageBytes;
   }
 
   @override
@@ -60,8 +63,10 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
         imageQuality: 85,
       );
       if (picked != null) {
+        final bytes = await picked.readAsBytes();
         setState(() {
-          _selectedImage = File(picked.path);
+          _selectedImageBytes = bytes;
+          widget.config.userImageBytes = bytes;
           widget.config.characterImagePath = picked.path;
         });
       }
@@ -172,25 +177,25 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
                     height: 180,
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
+                      color: Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: _selectedImage != null ? accentColor.withOpacity(0.5) : Colors.white10,
+                        color: _selectedImageBytes != null ? accentColor.withValues(alpha: 0.5) : Colors.white10,
                         width: 1.5,
                       ),
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: _selectedImage != null
+                    child: _selectedImageBytes != null
                         ? Stack(
                             fit: StackFit.expand,
                             children: [
-                              Image.file(_selectedImage!, fit: BoxFit.cover),
+                              Image.memory(_selectedImageBytes!, fit: BoxFit.cover),
                               Container(
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
-                                    colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
+                                    colors: [Colors.transparent, Colors.black.withValues(alpha: 0.7)],
                                   ),
                                 ),
                               ),
@@ -217,7 +222,7 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.add_a_photo_rounded, size: 40, color: accentColor.withOpacity(0.5)),
+                              Icon(Icons.add_a_photo_rounded, size: 40, color: accentColor.withValues(alpha: 0.5)),
                               const SizedBox(height: 12),
                               Text(
                                 AppLocalizations.of(context)!.tapToSelectFromGallery,
@@ -366,7 +371,7 @@ class _CharacterListItem extends StatelessWidget {
         margin: const EdgeInsets.only(right: 12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected ? accentColor.withOpacity(0.1) : Colors.white.withOpacity(0.03),
+          color: isSelected ? accentColor.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.03),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? accentColor : Colors.white10,
@@ -379,12 +384,12 @@ class _CharacterListItem extends StatelessWidget {
             if (char.imageUrl != null && char.imageUrl!.isNotEmpty)
               CircleAvatar(
                 radius: 20,
-                backgroundImage: NetworkImage(char.imageUrl!),
+                backgroundImage: CachedNetworkImageProvider(char.imageUrl!),
               )
             else
               CircleAvatar(
                 radius: 20,
-                backgroundColor: accentColor.withOpacity(0.1),
+                backgroundColor: accentColor.withValues(alpha: 0.1),
                 child: Icon(Icons.person_rounded, size: 20, color: accentColor),
               ),
             const SizedBox(height: 8),
@@ -411,9 +416,9 @@ class _EmptyCharacterState extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.02),
+        color: Colors.white.withValues(alpha: 0.02),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: const Center(
         child: Text(
@@ -458,7 +463,7 @@ class _CustomTextField extends StatelessWidget {
             hintText: hint,
             hintStyle: const TextStyle(color: Colors.white24, fontSize: 14),
             filled: true,
-            fillColor: Colors.white.withOpacity(0.05),
+            fillColor: Colors.white.withValues(alpha: 0.05),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
@@ -494,8 +499,8 @@ class _TraitChip extends StatelessWidget {
       label: Text(label),
       selected: isSelected,
       onSelected: onSelected,
-      backgroundColor: Colors.white.withOpacity(0.05),
-      selectedColor: accentColor.withOpacity(0.2),
+      backgroundColor: Colors.white.withValues(alpha: 0.05),
+      selectedColor: accentColor.withValues(alpha: 0.2),
       checkmarkColor: accentColor,
       labelStyle: TextStyle(
         color: isSelected ? accentColor : Colors.white70,

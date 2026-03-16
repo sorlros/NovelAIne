@@ -91,7 +91,7 @@ class AppTheme {
           horizontal: 20,
           vertical: 16,
         ),
-        hintStyle: TextStyle(color: _textSecondary.withOpacity(0.6)),
+        hintStyle: TextStyle(color: _textSecondary.withValues(alpha: 0.6)),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(30), // Pill shape
           borderSide: BorderSide.none,

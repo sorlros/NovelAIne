@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 import '../../../../data/models/creation_config.dart';
 import '../../../../data/services/api_service.dart';
+import '../../widgets/custom_loading_indicator.dart'; // Added
 import '../story_screen.dart';
 import 'steps/world_step.dart';
 import 'steps/character_step.dart';
@@ -59,11 +60,15 @@ class _WizardScreenState extends State<WizardScreen> {
   }
 
   Future<void> _finishCreation() async {
-    showDialog(
+    // Show magical loading full screen dialog
+    showGeneralDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(color: Color(0xFF7C3AED)),
+      barrierColor: Colors.black.withValues(alpha: 0.9), // Very dark background
+      transitionDuration: const Duration(milliseconds: 500),
+      pageBuilder: (context, anim1, anim2) => const Scaffold(
+        backgroundColor: Colors.transparent,
+        body: StoryCreationLoadingWidget(),
       ),
     );
 
@@ -71,8 +76,33 @@ class _WizardScreenState extends State<WizardScreen> {
       final apiService = ApiService();
       final createdStory = await apiService.createStory(_config);
 
+      // Handle character image upload if provided in wizard
+      if (_config.userImageBytes != null) {
+        try {
+          // 1. Fetch the story again to get linked characters (protagonist)
+          final storyData = await apiService.fetchStory(createdStory.id);
+          final characters = storyData['characters'] as List?;
+          
+          if (characters != null && characters.isNotEmpty) {
+            // Assume the first one is the protagonist if not specified
+            final protagonist = characters.first;
+            final protagonistId = protagonist['id'];
+            
+            // 2. Upload image
+            await apiService.uploadCharacterImage(
+              protagonistId,
+              _config.userImageBytes!,
+              fileName: 'protagonist_${protagonistId.substring(0, 8)}.jpg',
+            );
+          }
+        } catch (imageErr) {
+          // Non-fatal, just log and continue to story screen
+          debugPrint("Protagonist image upload failed: $imageErr");
+        }
+      }
+
       if (!mounted) return;
-      Navigator.pop(context);
+      Navigator.pop(context); // Close loading dialog
 
       Navigator.pushReplacement(
         context,
@@ -82,7 +112,7 @@ class _WizardScreenState extends State<WizardScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context);
+      Navigator.pop(context); // Close loading dialog
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("생성 실패: $e")));
@@ -128,10 +158,10 @@ class _WizardScreenState extends State<WizardScreen> {
               height: 250,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: accentColor.withOpacity(0.08),
+                color: accentColor.withValues(alpha: 0.08),
                 boxShadow: [
                   BoxShadow(
-                    color: accentColor.withOpacity(0.1),
+                    color: accentColor.withValues(alpha: 0.1),
                     blurRadius: 100,
                     spreadRadius: 50,
                   ),
@@ -216,7 +246,7 @@ class _StepIndicator extends StatelessWidget {
                         shape: BoxShape.circle,
                         boxShadow: isCurrent ? [
                           BoxShadow(
-                            color: accentColor.withOpacity(0.4),
+                            color: accentColor.withValues(alpha: 0.4),
                             blurRadius: 10,
                             spreadRadius: 2,
                           )

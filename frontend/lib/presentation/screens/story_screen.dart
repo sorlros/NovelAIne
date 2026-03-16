@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 import '../../data/services/api_service.dart';
 import 'character_sheet_widget.dart';
 import '../../data/models/story_model.dart';
+import '../providers/content_provider.dart';
 
 // Simple State Management for the story
 final messageProvider = StateProvider<List<Map<String, dynamic>>>((ref) => []);
@@ -42,20 +44,18 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
 
     ref.read(isLoadingProvider.notifier).state = true;
     try {
-      final scenes = await _apiService.fetchScenes(widget.initialStory!.id);
+      // Use scenesProvider to leverage Repository caching
+      final scenes = await ref.read(scenesProvider(widget.initialStory!.id).future);
 
       if (scenes.isNotEmpty && mounted) {
         final messages = scenes.map((scene) {
           return {
-            'id':
-                scene['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-            'role':
-                scene['role'] ??
-                'ai', // Assuming fetched scenes are from AI/Narrator
+            'id': scene['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+            'role': scene['role'] ?? 'ai',
             'content': scene['content'],
-            'imageUrl': scene['image_url'], // Support if backend returns image
-            'bgmUrl': scene['bgm_url'],
-            'sceneType': scene['scene_type'] ?? 'narrative',
+            'imageUrl': scene['imageUrl'],
+            'bgmUrl': scene['bgmUrl'],
+            'sceneType': scene['sceneType'] ?? 'narrative',
           };
         }).toList();
 
@@ -98,11 +98,10 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     if (text.isEmpty) return;
 
     final userMessageId = DateTime.now().millisecondsSinceEpoch.toString();
+    final aiMessageId = (DateTime.now().millisecondsSinceEpoch + 1).toString();
 
-    // Add user message
-    ref
-        .read(messageProvider.notifier)
-        .update(
+    // 1. 유저 메시지 추가
+    ref.read(messageProvider.notifier).update(
           (state) => [
             ...state,
             {
@@ -116,54 +115,51 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     _controller.clear();
     _scrollToBottom();
 
-    // Set loading
+    // 2. 빈 AI 메시지 미리 추가 (여기에 글자가 하나씩 채워짐)
+    ref.read(messageProvider.notifier).update(
+          (state) => [
+            ...state,
+            {
+              'id': aiMessageId,
+              'role': 'ai',
+              'content': '', // 초기엔 비어있음
+              'imageUrl': null,
+              'sceneType': 'narrative',
+            },
+          ],
+        );
+
     ref.read(isLoadingProvider.notifier).state = true;
 
     try {
-      // Call API
-      final responseMap = await _apiService.chat(text);
-      final aiText = responseMap['response'] as String;
-      final bgmUrl = responseMap['bgmUrl'] as String?;
-      final aiMessageId = DateTime.now().millisecondsSinceEpoch.toString();
-
-      // Play BGM if valid
-      if (bgmUrl != null && bgmUrl.isNotEmpty) {
-        try {
-          // Attempt to play the new BGM, sweeping out the old one
-          await _audioPlayer.play(UrlSource(bgmUrl));
-        } catch (e) {
-          debugPrint("BGM Play Error: $e");
-        }
+      String fullResponse = "";
+      
+      // 3. 스트리밍 시작
+      final stream = _apiService.streamChat(text);
+      
+      await for (final chunk in stream) {
+        fullResponse += chunk;
+        
+        // 실시간으로 해당 메시지의 내용만 업데이트
+        ref.read(messageProvider.notifier).update((state) {
+          return state.map((msg) {
+            if (msg['id'] == aiMessageId) {
+              return {...msg, 'content': fullResponse};
+            }
+            return msg;
+          }).toList();
+        });
+        
+        _scrollToBottom();
       }
-
-      // Determine scene type heuristically for demo
-      final isDialogue = aiText.contains('"') || aiText.contains('「');
-      final sceneType = isDialogue ? 'dialogue' : 'event';
-
-      // Add AI response
-      ref
-          .read(messageProvider.notifier)
-          .update(
-            (state) => [
-              ...state,
-              {
-                'id': aiMessageId,
-                'role': 'ai',
-                'content': aiText,
-                'imageUrl': null,
-                'bgmUrl': bgmUrl,
-                'sceneType': sceneType,
-              },
-            ],
-          );
-      _scrollToBottom();
+      
+      // 스트리밍 완료 후 최종 처리 (BGM 등 - 스트림에는 텍스트만 오므로 필요시 추가 로직)
+      // 현재는 텍스트 위주로 먼저 개선
+      
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.redAccent),
         );
       }
     } finally {
@@ -421,7 +417,7 @@ class _AINarrative extends StatelessWidget {
                 data: content,
                 styleSheet: MarkdownStyleSheet(
                   p: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     height: 1.6,
                     letterSpacing: 0.2,
                   ),
@@ -453,11 +449,21 @@ class _EventImagePlaceholder extends StatelessWidget {
     if (imageUrl != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: Image.network(
-          imageUrl!,
+        child: CachedNetworkImage(
+          imageUrl: imageUrl!,
           width: double.infinity,
           height: 200,
           fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            height: 200,
+            color: Colors.white.withValues(alpha: 0.05),
+            child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
+          errorWidget: (context, url, error) => Container(
+            height: 200,
+            color: Colors.white.withValues(alpha: 0.05),
+            child: const Icon(Icons.broken_image_outlined, color: Colors.white24),
+          ),
         ),
       ).animate().fadeIn();
     }
@@ -528,7 +534,17 @@ class _AvatarBox extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(19),
           child: imageUrl != null
-              ? Image.network(imageUrl!, fit: BoxFit.cover)
+              ? CachedNetworkImage(
+                  imageUrl: imageUrl!,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => const Center(
+                    child: CircularProgressIndicator(strokeWidth: 1),
+                  ),
+                  errorWidget: (context, url, error) => const Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.white24,
+                  ),
+                )
               : Center(
                   child: isGenerating
                       ? const SizedBox(
@@ -568,7 +584,7 @@ class _CommandBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
         color: const Color(0xFF121212),
-        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.05))),
+        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.05))),
       ),
       child: SafeArea(
         top: false,
