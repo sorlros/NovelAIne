@@ -77,11 +77,17 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       final apiService = ApiService();
       final createdStory = await apiService.createStory(_config);
 
-      // 1. [중요] 생성된 스토리의 장면들을 서버에서 즉시 가져와 로컬 캐시에 동기화
-      // 이를 통해 StoryScreen 진입 시 즉시 데이터가 나타납니다.
+      final repository = ref.read(storyRepositoryProvider);
+
+      // 1. [중요] 생성된 스토리를 로컬 DB에 수동으로 즉시 저장
+      await repository.cacheStory(createdStory);
+
+      // 2. [중요] 생성된 스토리의 장면들을 서버에서 즉시 가져와 로컬 캐시에 동기화
       try {
-        final repository = ref.read(storyRepositoryProvider);
         await repository.getScenes(createdStory.id, forceRefresh: true);
+        
+        // 스토리 리스트 프로바이더 무효화하여 메인 화면 최신화 강제
+        ref.invalidate(storiesProvider);
       } catch (syncErr) {
         debugPrint("Initial scene sync failed: $syncErr");
       }
