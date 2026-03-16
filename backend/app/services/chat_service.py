@@ -238,12 +238,14 @@ class ChatService:
             
         compressed_message = await self._compress_to_english_keywords(user_message)
 
+        # 시스템 언어 감지 및 한국어 강제 지시
         base_system_prompt = (
-            "당신은 몰입형 인터랙티브 스토리텔링 플랫폼 'NovelAIne'의 베스트셀러 소설 작가입니다.\n"
+            "당신은 베스트셀러 소설 작가입니다. 사용자의 입력을 바탕으로 다음 장면을 서술하세요.\n"
             "CRITICAL RULES:\n"
-            "1. MUST use rich, literary prose with sensory details.\n"
-            "2. MUST include realistic dialogues using double quotes (\"\").\n"
-            "3. FORMATTING: Separate paragraphs with a double newline (\\n\\n).\n"
+            "1. LANGUAGE: You MUST write in KOREAN. (한국어로 답변하세요)\n"
+            "2. STYLE: Use rich, literary prose with sensory details.\n"
+            "3. DIALOGUE: Use 「 」 for character dialogues.\n"
+            "4. FORMATTING: Separate paragraphs with a double newline (\\n\\n).\n"
         )
         if rag_context:
             base_system_prompt += f"\n[Story Lore/Context]\n{rag_context}\n"
@@ -257,7 +259,7 @@ class ChatService:
             "model": self.model,
             "messages": current_messages,
             "temperature": 0.8,
-            "stream": True # 스트리밍 활성화
+            "stream": True 
         }
         
         try:

@@ -89,12 +89,13 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
-    final aiMessageId = (DateTime.now().millisecondsSinceEpoch + 1).toString();
+    final aiMessageId = DateTime.now().millisecondsSinceEpoch.toString();
 
+    // 1. UI에 유저 메시지와 빈 AI 메시지 즉시 추가
     ref.read(messageProvider.notifier).update((state) => [
       ...state,
-      {'id': DateTime.now().millisecondsSinceEpoch.toString(), 'role': 'user', 'content': text, 'imageUrl': null},
-      {'id': aiMessageId, 'role': 'ai', 'content': '', 'imageUrl': null, 'sceneType': 'narrative'},
+      {'id': 'user_${aiMessageId}', 'role': 'user', 'content': text, 'imageUrl': null},
+      {'id': aiMessageId, 'role': 'ai', 'content': '...', 'imageUrl': null, 'sceneType': 'narrative'},
     ]);
     
     _controller.clear();
@@ -102,18 +103,44 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
 
     try {
       String fullResponse = "";
-      await for (final chunk in _apiService.streamChat(text)) {
-        fullResponse += chunk;
+      final stream = _apiService.streamChat(text);
+      bool isFirstChunk = true;
+      
+      await for (final chunk in stream) {
+        if (isFirstChunk) {
+          fullResponse = chunk;
+          isFirstChunk = false;
+        } else {
+          fullResponse += chunk;
+        }
+
+        // 2. 실시간 텍스트 업데이트
         ref.read(messageProvider.notifier).update((state) {
           return state.map((msg) {
             if (msg['id'] == aiMessageId) return {...msg, 'content': fullResponse};
             return msg;
           }).toList();
         });
-        _scrollToBottom();
+        
+        // 스크롤을 끝까지 내림 (애니메이션 없이 빠르게)
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        }
       }
+
+      // 3. [중요] 스트리밍 완료 후 백엔드 DB와 로컬 캐시 동기화
+      if (widget.initialStory != null) {
+        final repository = ref.read(storyRepositoryProvider);
+        await repository.getScenes(widget.initialStory!.id, forceRefresh: true);
+      }
+      
     } catch (e) {
       debugPrint("🚨 Stream Error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('통신 오류: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
     }
   }
 
