@@ -84,42 +84,79 @@ class StoryRepository {
 
   // 2. Scenes Caching
   Future<List<Map<String, dynamic>>> getScenes(String storyId, {bool forceRefresh = false}) async {
-    final localScenes = await (database.select(database.scenes)
-      ..where((t) => t.storyId.equals(storyId))
-      ..orderBy([(t) => OrderingTerm(expression: t.sequence)]))
-      .get();
+    try {
+      final localScenes = await (database.select(database.scenes)
+        ..where((t) => t.storyId.equals(storyId))
+        ..orderBy([(t) => OrderingTerm(expression: t.sequence)]))
+        .get();
 
-    if (localScenes.isNotEmpty && !forceRefresh) {
-      return localScenes.map((s) => {
-        'id': s.id,
-        'storyId': s.storyId,
-        'sequence': s.sequence,
-        'content': s.content,
-        'sceneType': s.sceneType,
-        'imageUrl': s.imageUrl,
-        'bgmUrl': s.bgmUrl,
-        'role': 'ai', // Default role for scenes from API
+      if (localScenes.isNotEmpty && !forceRefresh) {
+        debugPrint("🟢 [Cache] Found ${localScenes.length} scenes for story $storyId.");
+        return localScenes.map((s) => {
+          'id': s.id,
+          'storyId': s.storyId,
+          'sequence': s.sequence,
+          'content': s.content,
+          'sceneType': s.sceneType,
+          'imageUrl': s.imageUrl,
+          'bgmUrl': s.bgmUrl,
+          'role': 'ai', 
+        }).toList();
+      }
+    } catch (e) {
+      debugPrint("⚠️ [Cache] Failed to read scenes from local DB: $e");
+    }
+
+    // Fetch from API
+    try {
+      debugPrint("☁️ [API] Fetching scenes for story $storyId from Supabase...");
+      final remoteScenes = await apiService.fetchScenes(storyId);
+      
+      if (remoteScenes.isEmpty) {
+        debugPrint("🟡 [API] No scenes found on server for story $storyId.");
+        return [];
+      }
+
+      // Sync to local
+      try {
+        for (var s in remoteScenes) {
+          // 백엔드 응답에서 내용(content)을 찾기 위해 가능한 모든 필드명 확인
+          final String contentBody = s['content'] ?? s['text'] ?? s['body'] ?? "";
+          
+          if (contentBody.isEmpty) {
+            debugPrint("⚠️ [Cache] Warning: Scene ${s['id']} has no content. Raw: $s");
+          }
+
+          await database.into(database.scenes).insertOnConflictUpdate(
+            ScenesCompanion.insert(
+              id: s['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+              storyId: storyId,
+              sequence: s['sequence'] ?? 0,
+              content: contentBody,
+              sceneType: Value(s['scene_type'] ?? s['sceneType'] ?? 'narrative'),
+              imageUrl: Value(s['image_url'] ?? s['imageUrl']),
+              bgmUrl: Value(s['bgm_url'] ?? s['bgmUrl']),
+            )
+          );
+        }
+        debugPrint("💾 [Cache] Synced ${remoteScenes.length} scenes to local DB.");
+      } catch (dbErr) {
+        debugPrint("⚠️ [Cache] Sync failed: $dbErr");
+      }
+
+      // Return formatted data
+      return remoteScenes.map((s) => {
+        'id': s['id'],
+        'content': s['content'] ?? s['text'] ?? s['body'] ?? "내용을 불러올 수 없습니다.",
+        'role': s['role'] ?? 'ai',
+        'imageUrl': s['image_url'] ?? s['imageUrl'],
+        'bgmUrl': s['bgm_url'] ?? s['bgmUrl'],
+        'sceneType': s['scene_type'] ?? s['sceneType'] ?? 'narrative',
       }).toList();
+    } catch (apiErr) {
+      debugPrint("🚨 [API] Failed to fetch scenes: $apiErr");
+      rethrow;
     }
-
-    final remoteScenes = await apiService.fetchScenes(storyId);
-    
-    // Sync to local
-    for (var s in remoteScenes) {
-      await database.into(database.scenes).insertOnConflictUpdate(
-        ScenesCompanion.insert(
-          id: s['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-          storyId: storyId,
-          sequence: s['sequence'] ?? 0,
-          content: s['content'],
-          sceneType: Value(s['sceneType'] ?? 'narrative'),
-          imageUrl: Value(s['imageUrl']),
-          bgmUrl: Value(s['bgmUrl']),
-        )
-      );
-    }
-
-    return remoteScenes.map((s) => Map<String, dynamic>.from(s)).toList();
   }
 
   // 3. Sync Single Story (useful after creation)
@@ -161,5 +198,16 @@ class StoryRepository {
         );
       }
     }
+  }
+
+  // 4. Delete Story (Sync local & remote)
+  Future<void> deleteStory(String storyId) async {
+    // 1. Remote Delete
+    await apiService.deleteStory(storyId);
+    
+    // 2. Local Delete (Drift will handle cascade for related scenes/links)
+    await (database.delete(database.stories)..where((t) => t.id.equals(storyId))).go();
+    
+    debugPrint("🗑️ [Cache] Successfully deleted story $storyId from local and remote.");
   }
 }

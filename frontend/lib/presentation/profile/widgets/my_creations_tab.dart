@@ -5,6 +5,7 @@ import '../../providers/content_provider.dart';
 import '../../../data/models/story_model.dart';
 import '../../../data/models/character_model.dart';
 import '../../../data/services/api_service.dart';
+import '../../../data/repositories/story_repository.dart'; // Added
 import '../../screens/story_screen.dart';
 import '../../screens/profile/character_builder_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -362,7 +363,7 @@ class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
         backgroundColor: const Color(0xFF1E1E1E),
         title: const Text('스토리 삭제', style: TextStyle(color: Colors.white)),
         content: const Text(
-          '정말로 이 스토리를 삭제하시겠습니까?\\n이 작업은 취소할 수 없습니다.',
+          '정말로 이 스토리를 삭제하시겠습니까?\n이 작업은 취소할 수 없습니다.',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -384,7 +385,9 @@ class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
     setState(() => _isLoading = true);
 
     try {
-      await ApiService().deleteStory(widget.storyId);
+      final repository = ref.read(storyRepositoryProvider);
+      await repository.deleteStory(widget.storyId);
+      
       if (mounted) {
         ref.invalidate(storiesProvider);
         ScaffoldMessenger.of(context).showSnackBar(

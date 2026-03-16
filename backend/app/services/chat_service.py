@@ -130,18 +130,26 @@ class ChatService:
         traits: List[str] = None, scenario: str = None, language: str = "en_US"
     ) -> Dict[str, Any]:
         system_prompt = (
-            "You are a professional novelist. Generate story metadata in strict JSON format.\n"
+            "You are a bestselling professional novelist. Generate story metadata in strict JSON format.\n"
             "IMPORTANT: \n"
-            "1. The 'first_scene' MUST be long and descriptive (1000+ characters).\n"
-            "2. Use standard JSON escaping: Use '\\n' for newlines and '\\\"' for double quotes inside string values.\n"
-            "3. Do NOT include any control characters or raw newlines inside the JSON strings.\n"
+            "1. The 'first_scene' MUST be long and descriptive (at least 2000 characters).\n"
+            "2. COMPLETION: You MUST end the 'first_scene' with a complete sentence ending in a period (.), exclamation (!), or question mark (?). NEVER end mid-sentence.\n"
+            "3. Use '\\n\\n' for paragraphs.\n"
+            "4. CRITICAL: Use '「' and '」' for character dialogues. DO NOT use double quotes (\") inside the story text.\n"
             f"User Locale: {language}. Write all content in this language."
         )
 
         user_prompt = f"""
-        Create a new story:
+        Create a new immersive story with these settings:
         Genre: {genre}, Tone: {tone}, Hero: {protagonist_name}, Traits: {traits}, Scenario: {scenario}
-        Format: {{"title": "", "description": "", "first_scene": "", "protagonist_bio": ""}}
+        
+        REQUIRED JSON FORMAT:
+        {{
+            "title": "Story Title",
+            "description": "Short summary",
+            "first_scene": "Extremely long narrative (2000+ chars) using 「dialogue」. Ensure the last sentence is FULLY COMPLETED.",
+            "protagonist_bio": "Character background"
+        }}
         """
 
         data = {
@@ -150,41 +158,71 @@ class ChatService:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            "temperature": 0.7,
-            "max_tokens": 4000,
+            "temperature": 0.8,
+            "max_tokens": 8000,
             "response_format": {"type": "json_object"}
         }
 
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.post(self.base_url, headers=self.headers, json=data, timeout=60.0)
+                response = await client.post(self.base_url, headers=self.headers, json=data, timeout=120.0)
                 if response.status_code == 200:
                     raw_text = self._extract_response_text(response.json())
                     
-                    # [진단용 로그] AI가 준 날것의 응답을 터미널에 출력
-                    print("\n" + "="*50)
-                    print("[RAW LLM RESPONSE START]")
-                    print(raw_text)
-                    print("[RAW LLM RESPONSE END]")
-                    print("="*50 + "\n")
-                    
-                    # 1. AI 응답에서 JSON 내용만 안전하게 추출
                     content = raw_text.strip()
                     start_idx = content.find('{')
                     end_idx = content.rfind('}')
                     if start_idx != -1 and end_idx != -1:
                         content = content[start_idx:end_idx + 1]
                     
-                    # 2. 파이썬 표준 라이브러리를 사용하여 파싱
-                    # strict=False를 통해 AI가 실수로 넣은 제어 문자들을 유연하게 처리
-                    parsed = json.loads(content, strict=False)
+                    try:
+                        result = self._sanitize_dict(json.loads(content, strict=False))
+                    except json.JSONDecodeError:
+                        print("[REPAIR] Standard parse failed. Starting advanced slicing...")
+                        
+                        keys = ["title", "description", "first_scene", "protagonist_bio"]
+                        extracted = {}
+                        
+                        for i in range(len(keys)):
+                            k_p = f'"{keys[i]}"'
+                            start_p = content.find(k_p)
+                            if start_p == -1:
+                                extracted[keys[i]] = ""
+                                continue
+                            
+                            val_start = content.find(':', start_p)
+                            val_start = content.find('"', val_start) + 1
+                            
+                            if i < len(keys) - 1:
+                                next_k = f'"{keys[i+1]}"'
+                                val_end = content.find(next_k, val_start)
+                                if val_end != -1:
+                                    last_q = content.rfind('"', val_start, val_end)
+                                    while last_q != -1:
+                                        after_q = content[last_q+1:val_end].strip()
+                                        if after_q == "," or after_q == "":
+                                            val_end = last_q
+                                            break
+                                        last_q = content.rfind('"', val_start, last_q - 1)
+                            else:
+                                val_end = content.rfind('"', val_start, content.rfind('}'))
+
+                            if val_end == -1 or val_end <= val_start: val_end = len(content)
+                            extracted[keys[i]] = content[val_start:val_end].replace('\\n', '\n').replace('\\"', '"').strip()
+                        result = self._sanitize_dict(extracted)
+
+                    # --- [추가] 문장 완결성 후처리 로직 ---
+                    if "first_scene" in result and result["first_scene"]:
+                        fs = result["first_scene"].strip()
+                        # 마지막 문장이 마침표나 대화 종료 기호로 끝나지 않았다면, 마지막 문장 제거 (불완전한 문장 제거)
+                        last_punctuation = max(fs.rfind('.'), fs.rfind('!'), fs.rfind('?'), fs.rfind('」'))
+                        if last_punctuation != -1 and last_punctuation < len(fs) - 1:
+                            result["first_scene"] = fs[:last_punctuation + 1]
                     
-                    # 3. 각 필드 데이터 정제
-                    return self._sanitize_dict(parsed)
+                    return result
                 else:
                     raise Exception(f"API Error {response.status_code}")
         except Exception as e:
-            # 임시 텍스트 대신 실제 에러를 발생시켜 원인을 추적할 수 있게 함
             print(f"Critical Generation Error: {e}")
             raise e
 

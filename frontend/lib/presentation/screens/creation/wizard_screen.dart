@@ -1,24 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // Added
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 import '../../../../data/models/creation_config.dart';
 import '../../../../data/services/api_service.dart';
-import '../../widgets/custom_loading_indicator.dart'; // Added
+import '../../../../data/repositories/story_repository.dart'; // Added
+import '../../widgets/custom_loading_indicator.dart';
 import '../story_screen.dart';
 import 'steps/world_step.dart';
 import 'steps/character_step.dart';
 import 'steps/review_step.dart';
 
-class WizardScreen extends StatefulWidget {
+class WizardScreen extends ConsumerStatefulWidget { // Changed to ConsumerStatefulWidget
   final bool isQuickStart;
 
   const WizardScreen({super.key, required this.isQuickStart});
 
   @override
-  State<WizardScreen> createState() => _WizardScreenState();
+  ConsumerState<WizardScreen> createState() => _WizardScreenState();
 }
 
-class _WizardScreenState extends State<WizardScreen> {
+class _WizardScreenState extends ConsumerState<WizardScreen> {
   late CreationConfig _config;
   int _currentStep = 0;
   final PageController _pageController = PageController();
@@ -60,11 +62,10 @@ class _WizardScreenState extends State<WizardScreen> {
   }
 
   Future<void> _finishCreation() async {
-    // Show magical loading full screen dialog
     showGeneralDialog(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black.withValues(alpha: 0.9), // Very dark background
+      barrierColor: Colors.black.withValues(alpha: 0.9),
       transitionDuration: const Duration(milliseconds: 500),
       pageBuilder: (context, anim1, anim2) => const Scaffold(
         backgroundColor: Colors.transparent,
@@ -76,19 +77,22 @@ class _WizardScreenState extends State<WizardScreen> {
       final apiService = ApiService();
       final createdStory = await apiService.createStory(_config);
 
-      // Handle character image upload if provided in wizard
+      // 1. [중요] 생성된 스토리의 장면들을 서버에서 즉시 가져와 로컬 캐시에 동기화
+      // 이를 통해 StoryScreen 진입 시 즉시 데이터가 나타납니다.
+      try {
+        final repository = ref.read(storyRepositoryProvider);
+        await repository.getScenes(createdStory.id, forceRefresh: true);
+      } catch (syncErr) {
+        debugPrint("Initial scene sync failed: $syncErr");
+      }
+
+      // Handle character image upload (existing logic)
       if (_config.userImageBytes != null) {
         try {
-          // 1. Fetch the story again to get linked characters (protagonist)
           final storyData = await apiService.fetchStory(createdStory.id);
           final characters = storyData['characters'] as List?;
-          
           if (characters != null && characters.isNotEmpty) {
-            // Assume the first one is the protagonist if not specified
-            final protagonist = characters.first;
-            final protagonistId = protagonist['id'];
-            
-            // 2. Upload image
+            final protagonistId = characters.first['id'];
             await apiService.uploadCharacterImage(
               protagonistId,
               _config.userImageBytes!,
@@ -96,7 +100,6 @@ class _WizardScreenState extends State<WizardScreen> {
             );
           }
         } catch (imageErr) {
-          // Non-fatal, just log and continue to story screen
           debugPrint("Protagonist image upload failed: $imageErr");
         }
       }
