@@ -418,9 +418,13 @@ class _RefinedNarrativeCard extends StatelessWidget {
                 letterSpacing: 0.4,
               ),
               strong: const TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold),
-              blockquote: BoxDecoration(
+              blockquoteDecoration: BoxDecoration(
                 border: const Border(left: BorderSide(color: Color(0xFF7C3AED), width: 4)),
                 color: Colors.white.withValues(alpha: 0.03),
+              ),
+              blockquote: GoogleFonts.notoSerif(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontStyle: FontStyle.italic,
               ),
             ),
           ),
