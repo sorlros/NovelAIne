@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 class CreationConfig {
   // Mode
@@ -16,8 +16,11 @@ class CreationConfig {
   String? userGender;
   String? userAge;
   List<String> personalityTraits = [];
-  File? userImage; // Local file path
-  String? characterImagePath; // Picked image path for upload
+  
+  // Platform agnostic image data
+  Uint8List? userImageBytes; 
+  String? characterImagePath; // Local path (App) or Blob URL (Web)
+  
   String? imageStyle; // e.g., "Anime", "Realistic"
   String? appearanceDescription; // Visual consistency tags
 

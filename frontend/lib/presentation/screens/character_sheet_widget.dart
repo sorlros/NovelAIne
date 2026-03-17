@@ -12,9 +12,9 @@ class CharacterSheetWidget extends StatelessWidget {
       child: Container(
         height: MediaQuery.of(context).size.height * 0.85,
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor.withOpacity(0.8),
+          color: Theme.of(context).cardColor.withValues(alpha: 0.8),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-          border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
         ),
         child: Column(
           children: [
@@ -52,7 +52,7 @@ class CharacterSheetWidget extends StatelessWidget {
                                 BoxShadow(
                                   color: Theme.of(
                                     context,
-                                  ).primaryColor.withOpacity(0.4),
+                                  ).primaryColor.withValues(alpha: 0.4),
                                   blurRadius: 20,
                                 ),
                               ],
@@ -78,12 +78,12 @@ class CharacterSheetWidget extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: Theme.of(
                                 context,
-                              ).primaryColor.withOpacity(0.2),
+                              ).primaryColor.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                 color: Theme.of(
                                   context,
-                                ).primaryColor.withOpacity(0.5),
+                                ).primaryColor.withValues(alpha: 0.5),
                               ),
                             ),
                             child: Text(

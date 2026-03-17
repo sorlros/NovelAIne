@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/content_provider.dart';
 import '../../screens/story_screen.dart';
 
@@ -61,25 +62,28 @@ class MyLibraryTab extends ConsumerWidget {
                               decoration: BoxDecoration(
                                 color: const Color(0xFF1E1E1E),
                                 borderRadius: BorderRadius.circular(16),
-                                image: story.coverImageUrl != null
-                                    ? DecorationImage(
-                                        image: NetworkImage(
-                                          story.coverImageUrl!,
-                                        ),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : null,
                                 border: Border.all(color: Colors.white10),
                               ),
-                              child: story.coverImageUrl == null
-                                  ? const Center(
+                              clipBehavior: Clip.antiAlias,
+                              child: story.coverImageUrl != null
+                                  ? CachedNetworkImage(
+                                      imageUrl: story.coverImageUrl!,
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) => const Center(
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      ),
+                                      errorWidget: (context, url, error) => const Icon(
+                                        Icons.broken_image_outlined,
+                                        color: Colors.white24,
+                                      ),
+                                    )
+                                  : const Center(
                                       child: Icon(
                                         Icons.menu_book,
                                         size: 40,
                                         color: Colors.white24,
                                       ),
-                                    )
-                                  : null,
+                                    ),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -95,7 +99,7 @@ class MyLibraryTab extends ConsumerWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            story.genre ?? "모험",
+                            story.genre,
                             style: const TextStyle(
                               fontSize: 12,
                               color: Colors.white54,

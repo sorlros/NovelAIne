@@ -1,6 +1,8 @@
 import os
 import json
 import httpx
+import re
+import unicodedata
 from typing import List, Dict, Any
 from app.services.rag_service import RagService
 from app.services.memory_service import MemoryService
@@ -15,22 +17,45 @@ class ChatService:
             "HTTP-Referer": "https://novelaine.com",
             "X-Title": "NovelAIne",
         }
-        # self.model = os.getenv("LLM_MODEL", "tngtech/deepseek-r1t2-chimera")
-        self.model = os.getenv("LLM_MODEL", "google/gemini-2.5-flash")
+        self.model = os.getenv("LLM_MODEL", "google/gemini-2.0-flash-001")
         
         self.rag_service = RagService()
         self.memory_service = MemoryService(max_buffer_size=10)
 
+    def _deep_clean_string(self, text: str) -> str:
+        """
+        Removes or escapes characters that break JSON parsing.
+        """
+        if not text:
+            return ""
+        
+        # 1. Remove non-printable control characters (except common ones like \n, \t)
+        text = "".join(ch for ch in text if unicodedata.category(ch)[0] != "C" or ch in "\n\r\t")
+        
+        # 2. Convert actual raw newlines into the string "\n" to be JSON safe
+        # This is the most common cause of "Unterminated string"
+        text = text.replace("\r\n", "\\n").replace("\r", "\\n").replace("\n", "\\n")
+        
+        return text
+
+    def _sanitize_dict(self, data: Any) -> Any:
+        """
+        Recursively cleans all strings in a dictionary or list.
+        """
+        if isinstance(data, dict):
+            return {k: self._sanitize_dict(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            return [self._sanitize_dict(i) for i in data]
+        elif isinstance(data, str):
+            # We don't use _deep_clean_string here because json.loads already handles \n if they are escaped.
+            # But we ensure no weird control characters remain.
+            return "".join(ch for ch in data if unicodedata.category(ch)[0] != "C" or ch in "\n\r\t")
+        return data
+
     async def _compress_to_english_keywords(self, user_message: str) -> str:
-        """
-        Compresses the user's natural language input (Korean) into English keywords.
-        Saves tokens by only sending essential actions/nouns to the main story generation.
-        """
         system_prompt = (
             "You are a summarization AI. Extract only the crucial actions, objects, and emotions "
-            "from the user's input. Translate them into concise English keywords separated by commas. "
-            "Do not write full sentences. Example: '주인공이 검을 뽑아서 드래곤에게 달려간다' -> "
-            "'protagonist draws sword, charges at dragon'"
+            "from the user's input. Translate them into concise English keywords separated by commas."
         )
         
         data = {
@@ -39,135 +64,91 @@ class ChatService:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
             ],
-            "temperature": 0.3, # Low temperature for accurate extraction
+            "temperature": 0.3,
             "max_tokens": 100
         }
         
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    self.base_url, 
-                    headers=self.headers, 
-                    json=data,
-                    timeout=30.0
-                )
-                
+                response = await client.post(self.base_url, headers=self.headers, json=data, timeout=30.0)
                 if response.status_code == 200:
                     compressed = self._extract_response_text(response.json())
-                    print(f"[DEBUG] Original input: {user_message}")
-                    print(f"[DEBUG] Compressed to keywords: {compressed}")
                     return compressed
-                else:
-                    return user_message # Fallback to original if API fails
+                return user_message
         except Exception as e:
             print(f"Compression Error: {e}")
-            return user_message # Fallback
+            return user_message
 
     async def generate_response(self, user_message: str, history: List[Dict[str, str]] = []) -> str:
-        """
-        RAG와 Memory가 결합된 최종 응답 생성 로직
-        """
-        # 1. RAG: 관련 기억 검색 (최적화: 키워드 감지 시에만 호출)
         rag_context = ""
         try:
             if self._should_trigger_rag(user_message):
                 rag_context = await self.rag_service.search_relevant_context(user_message)
         except Exception as e:
-            print(f"RAG Error: {e}") 
-            # RAG 실패해도 대화는 진행
+            print(f"RAG Error: {e}")
             
-        # 2. Token Optimization: Compress User Input to English Keywords
         compressed_message = await self._compress_to_english_keywords(user_message)
 
-        # 3. System Prompt 구성
         base_system_prompt = (
             "당신은 몰입형 인터랙티브 스토리텔링 플랫폼 'NovelAIne'의 베스트셀러 소설 작가입니다.\n"
-            "The user will provide story directions as English keywords to save tokens.\n"
-            "Based on these keywords and the story context, write the next scene in KOREAN (or the user's preferred language).\n"
             "CRITICAL RULES:\n"
-            "1. MUST use rich, literary prose with sensory details (Show, don't just Tell).\n"
-            "2. MUST include realistic and engaging dialogues between characters using double quotes (\"\").\n"
-            "3. DO NOT act like a chatbot or a game master. NEVER ask '무엇을 하시겠습니까?' (What do you want to do?). End the scene naturally like a paragraph in a novel.\n"
-            "4. FORMATTING: You MUST separate every paragraph and every spoken dialogue with a double newline (`\\n\\n`). Do NOT output a single wall of text.\n"
+            "1. MUST use rich, literary prose with sensory details. WRITE A LONG, DETAILED SCENE.\n"
+            "2. MUST include realistic dialogues using double quotes (\"\").\n"
+            "3. FORMATTING: You MUST separate every paragraph with TWO actual newline characters (\\n\\n).\n"
+            "4. LENGTH: Each response should be long enough to feel like a full chapter page (approx 800-1000 characters).\n"
         )
         
         if rag_context:
             base_system_prompt += f"\n[Story Lore/Context]\n{rag_context}\n"
             
-        # 4. Message 구성 (Memory 적용)
         current_messages = [{"role": "system", "content": base_system_prompt}]
-        
         if history:
             current_messages.extend(self.memory_service.format_history(history))
-            
         current_messages.append({"role": "user", "content": f"[Directions]: {compressed_message}"})
 
-        # 5. LLM 호출
         data = {
             "model": self.model,
             "messages": current_messages,
             "temperature": 0.8,
-            "max_tokens": 1000
+            "max_tokens": 2000 # Increased from 1000
         }
         
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    self.base_url, 
-                    headers=self.headers, 
-                    json=data,
-                    timeout=60.0
-                )
-                
+                response = await client.post(self.base_url, headers=self.headers, json=data, timeout=60.0)
                 if response.status_code == 200:
-                    resp_json = response.json()
-                    return self._extract_response_text(resp_json)
-                else:
-                    error_msg = f"API Error {response.status_code}: {response.text}"
-                    print(error_msg)
-                    raise Exception(error_msg)
-                    
+                    text = self._extract_response_text(response.json())
+                    # Only remove dangerous control characters, keep newlines
+                    return "".join(ch for ch in text if unicodedata.category(ch)[0] != "C" or ch in "\n\r\t")
+                raise Exception(f"API Error {response.status_code}")
         except Exception as e:
-            print(f"LLM Generation Error: {e}")
+            print(f"LLM Error: {e}")
             raise e
 
     async def start_new_story(
-        self,
-        genre: str,
-        tone: str = None,
-        protagonist_name: str = None,
-        traits: List[str] = None,
-        scenario: str = None,
-        language: str = "en_US"
+        self, genre: str, tone: str = None, protagonist_name: str = None,
+        traits: List[str] = None, scenario: str = None, language: str = "en_US"
     ) -> Dict[str, Any]:
-        """
-        초기 설정을 바탕으로 소설의 제목, 개요, 첫 장면, 주인공 설정을 생성합니다.
-        항상 JSON 형식으로 반환합니다.
-        """
         system_prompt = (
-            "You are a bestselling author for an interactive novel app.\n"
-            "Generate the story metadata in valid JSON format ONLY.\n"
-            "Do not include any prose outside the JSON object.\n"
-            "The 'first_scene' MUST be written in a highly engaging, literary novel style, rich with sensory details and realistic character dialogues (\"\").\n"
-            "The keys must be: 'title', 'description', 'first_scene', 'protagonist_bio'.\n"
-            f"CRITICAL: The user's locale is '{language}'. You MUST translate all generated content (title, description, first_scene, protagonist_bio) into this language naturally.\n"
-            "FORMATTING: You MUST separate every paragraph and every spoken dialogue with a double newline (`\\n\\n`) in the 'first_scene'."
+            "You are a bestselling professional novelist. Generate story metadata in strict JSON format.\n"
+            "IMPORTANT: \n"
+            "1. The 'first_scene' MUST be long and descriptive (at least 2000 characters).\n"
+            "2. COMPLETION: You MUST end the 'first_scene' with a complete sentence ending in a period (.), exclamation (!), or question mark (?). NEVER end mid-sentence.\n"
+            "3. Use '\\n\\n' for paragraphs.\n"
+            "4. CRITICAL: Use '「' and '」' for character dialogues. DO NOT use double quotes (\") inside the story text.\n"
+            f"User Locale: {language}. Write all content in this language."
         )
 
         user_prompt = f"""
-        Create a new story with these settings:
-        - Genre: {genre}
-        - Tone: {tone or "Balanced"}
-        - Protagonist Name: {protagonist_name or "Unknown"}
-        - Traits: {", ".join(traits) if traits else "None"}
-        - Opening Scenario: {scenario or "Standard beginning"}
-
-        Response Format (JSON):
+        Create a new immersive story with these settings:
+        Genre: {genre}, Tone: {tone}, Hero: {protagonist_name}, Traits: {traits}, Scenario: {scenario}
+        
+        REQUIRED JSON FORMAT:
         {{
             "title": "Story Title",
-            "description": "Short summary of the premise",
-            "first_scene": "The actual narrative content of the first scene (approx 300 words). MUST include immersive descriptions and character dialogue.",
-            "protagonist_bio": "A short backstory for the character based on the traits and setting."
+            "description": "Short summary",
+            "first_scene": "Extremely long narrative (2000+ chars) using 「dialogue」. Ensure the last sentence is FULLY COMPLETED.",
+            "protagonist_bio": "Character background"
         }}
         """
 
@@ -177,65 +158,138 @@ class ChatService:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            "temperature": 0.9,
-            "max_tokens": 2000,
+            "temperature": 0.8,
+            "max_tokens": 8000,
             "response_format": {"type": "json_object"}
         }
 
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    self.base_url, 
-                    headers=self.headers, 
-                    json=data,
-                    timeout=60.0
-                )
-                
+                response = await client.post(self.base_url, headers=self.headers, json=data, timeout=120.0)
                 if response.status_code == 200:
-                    resp_json = response.json()
-                    content = self._extract_response_text(resp_json)
-                    print(f"[DEBUG] LLM JSON Response: {content}")
+                    raw_text = self._extract_response_text(response.json())
                     
-                    content_str = content.strip()
-                    if content_str.startswith("```json"):
-                        content_str = content_str[7:]
-                    elif content_str.startswith("```"):
-                        content_str = content_str[3:]
-                    if content_str.endswith("```"):
-                        content_str = content_str[:-3]
+                    content = raw_text.strip()
+                    start_idx = content.find('{')
+                    end_idx = content.rfind('}')
+                    if start_idx != -1 and end_idx != -1:
+                        content = content[start_idx:end_idx + 1]
+                    
+                    try:
+                        result = self._sanitize_dict(json.loads(content, strict=False))
+                    except json.JSONDecodeError:
+                        print("[REPAIR] Standard parse failed. Starting advanced slicing...")
                         
-                    return json.loads(content_str.strip())
-                else:
-                    print(f"API Error {response.status_code}: {response.text}")
-                    raise Exception(f"Failed to generate story: {response.status_code}")
+                        keys = ["title", "description", "first_scene", "protagonist_bio"]
+                        extracted = {}
+                        
+                        for i in range(len(keys)):
+                            k_p = f'"{keys[i]}"'
+                            start_p = content.find(k_p)
+                            if start_p == -1:
+                                extracted[keys[i]] = ""
+                                continue
+                            
+                            val_start = content.find(':', start_p)
+                            val_start = content.find('"', val_start) + 1
+                            
+                            if i < len(keys) - 1:
+                                next_k = f'"{keys[i+1]}"'
+                                val_end = content.find(next_k, val_start)
+                                if val_end != -1:
+                                    last_q = content.rfind('"', val_start, val_end)
+                                    while last_q != -1:
+                                        after_q = content[last_q+1:val_end].strip()
+                                        if after_q == "," or after_q == "":
+                                            val_end = last_q
+                                            break
+                                        last_q = content.rfind('"', val_start, last_q - 1)
+                            else:
+                                val_end = content.rfind('"', val_start, content.rfind('}'))
+
+                            if val_end == -1 or val_end <= val_start: val_end = len(content)
+                            extracted[keys[i]] = content[val_start:val_end].replace('\\n', '\n').replace('\\"', '"').strip()
+                        result = self._sanitize_dict(extracted)
+
+                    # --- [추가] 문장 완결성 후처리 로직 ---
+                    if "first_scene" in result and result["first_scene"]:
+                        fs = result["first_scene"].strip()
+                        # 마지막 문장이 마침표나 대화 종료 기호로 끝나지 않았다면, 마지막 문장 제거 (불완전한 문장 제거)
+                        last_punctuation = max(fs.rfind('.'), fs.rfind('!'), fs.rfind('?'), fs.rfind('」'))
+                        if last_punctuation != -1 and last_punctuation < len(fs) - 1:
+                            result["first_scene"] = fs[:last_punctuation + 1]
                     
+                    return result
+                else:
+                    raise Exception(f"API Error {response.status_code}")
         except Exception as e:
-            print(f"Story Generation Error: {e}")
-            # Fallback for error handling
-            return {
-                "title": "새로운 모험",
-                "description": "알 수 없는 이유로 생성에 실패했습니다.",
-                "first_scene": f"당신은 눈을 떴습니다. 주변은 조용합니다. (오류: {e})",
-                "protagonist_bio": "알 수 없음"
-            }
+            print(f"Critical Generation Error: {e}")
+            raise e
+
+    async def stream_generate_response(self, user_message: str, history: List[Dict[str, str]] = []):
+        """
+        AI 응답을 한 글자(토큰)씩 실시간으로 전송하는 제너레이터
+        """
+        rag_context = ""
+        try:
+            if self._should_trigger_rag(user_message):
+                rag_context = await self.rag_service.search_relevant_context(user_message)
+        except: pass
+            
+        compressed_message = await self._compress_to_english_keywords(user_message)
+
+        # 시스템 언어 감지 및 한국어 강제 지시
+        base_system_prompt = (
+            "당신은 베스트셀러 소설 작가입니다. 사용자의 입력을 바탕으로 다음 장면을 서술하세요.\n"
+            "CRITICAL RULES:\n"
+            "1. LANGUAGE: You MUST write in KOREAN. (한국어로 답변하세요)\n"
+            "2. STYLE: Use rich, literary prose with sensory details.\n"
+            "3. DIALOGUE: Use 「 」 for character dialogues.\n"
+            "4. FORMATTING: Separate paragraphs with a double newline (\\n\\n).\n"
+        )
+        if rag_context:
+            base_system_prompt += f"\n[Story Lore/Context]\n{rag_context}\n"
+            
+        current_messages = [{"role": "system", "content": base_system_prompt}]
+        if history:
+            current_messages.extend(self.memory_service.format_history(history))
+        current_messages.append({"role": "user", "content": f"[Directions]: {compressed_message}"})
+
+        data = {
+            "model": self.model,
+            "messages": current_messages,
+            "temperature": 0.8,
+            "stream": True 
+        }
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                async with client.stream("POST", self.base_url, headers=self.headers, json=data, timeout=60.0) as response:
+                    if response.status_code != 200:
+                        yield f"Error: {response.status_code}"
+                        return
+
+                    async for line in response.aiter_lines():
+                        if not line or line.startswith(":"): continue
+                        if line.startswith("data: "):
+                            line = line[6:]
+                        if line == "[DONE]": break
+                        
+                        try:
+                            resp_json = json.loads(line)
+                            if "choices" in resp_json and resp_json["choices"]:
+                                delta = resp_json["choices"][0].get("delta", {})
+                                if "content" in delta:
+                                    yield delta["content"]
+                        except:
+                            continue
+        except Exception as e:
+            yield f"\n(연결 오류 발생: {str(e)})"
 
     def _extract_response_text(self, response: dict) -> str:
-        """Extract the actual message content from the API response"""
         if response and 'choices' in response and len(response['choices']) > 0:
             return response['choices'][0]['message']['content']
         return ""
 
     def _should_trigger_rag(self, message: str) -> bool:
-        """
-        RAG 호출 여부를 결정합니다.
-        모든 대화에 RAG를 쓰면 느리고 비싸므로, '질문'이나 '명사'가 있을 때만 호출합니다.
-        """
-        # 1. 명백한 질문
-        if "?" in message or "누구" in message or "어떤" in message or "왜" in message:
-            return True
-        
-        # 2. 길이가 긴 문장 (복잡한 묘사나 지시일 가능성)
-        if len(message) > 20:
-            return True
-            
-        return False
+        return "?" in message or len(message) > 20

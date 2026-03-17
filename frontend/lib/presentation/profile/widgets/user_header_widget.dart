@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/content_provider.dart';
 import 'package:frontend/l10n/app_localizations.dart';
@@ -16,7 +17,7 @@ class UserHeaderWidget extends ConsumerWidget {
 
     final username = authState.value?.username ?? "Traveler";
     final avatarUrl =
-        authState.value?.avatarUrl ?? "https://i.pravatar.cc/150?u=guest";
+        authState.value?.avatarUrl ?? "https://api.dicebear.com/7.x/avataaars/png?seed=guest";
     final storiesCount = storiesState.when(
       data: (stories) => stories.length.toString(),
       loading: () => "...",
@@ -37,10 +38,31 @@ class UserHeaderWidget extends ConsumerWidget {
                 width: 2,
               ), // Purple border
             ),
-            child: CircleAvatar(
-              radius: 40,
-              backgroundImage: NetworkImage(avatarUrl),
-              backgroundColor: const Color(0xFF1E1E1E),
+            child: ClipOval(
+              child: CachedNetworkImage(
+                imageUrl: avatarUrl,
+                width: 80,
+                height: 80,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  width: 80,
+                  height: 80,
+                  color: const Color(0xFF1E1E1E),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  width: 80,
+                  height: 80,
+                  color: const Color(0xFF1E1E1E),
+                  child: const Icon(Icons.person, color: Colors.white24, size: 40),
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 24),

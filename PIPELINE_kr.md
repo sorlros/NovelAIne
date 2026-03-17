@@ -380,7 +380,6 @@ python -c "from app.services.image_service import ImageService; ImageService().g
 ### 비용 관리
 - **선택적 이미지 생성**: 높은 점수의 장면에 대해서만 생성
 - **벡터 검색**: 전체 문맥 사용 대비 토큰 사용량 감소
-- **효율적인 모델**: 고속 추론을 위한 Groq API 사용
 
 ### 확장성
 - **비동기 작업**: 논블로킹 이미지 생성

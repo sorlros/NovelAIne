@@ -18,7 +18,7 @@ class UserModel {
       email: json['email'],
       username: meta['username'] ?? 'Traveler',
       avatarUrl:
-          meta['avatar_url'] ?? 'https://i.pravatar.cc/150?u=${json['id']}',
+          meta['avatar_url'] ?? 'https://api.dicebear.com/7.x/avataaars/png?seed=${json['id']}',
     );
   }
 }
