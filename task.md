@@ -11,20 +11,20 @@ To revamp the current Login/Registration UI and Story Creation UI so that they m
 ## Checklists
 
 ### UI/UX Design Phase
-- [ ] Define the color palette and layout structure for Auth Screen (Mobile & Desktop).
-- [ ] Define the layout structure for the Story Creation Screens (Mode Selection & Wizard).
-- [ ] Document the design specs in `implementation_plan.md`.
+- [x] Define the color palette and layout structure for Auth Screen (Mobile & Desktop).
+- [x] Define the layout structure for the Story Creation Screens (Mode Selection & Wizard).
+- [x] Document the design specs in `implementation_plan.md`.
 
 ### Frontend Implementation Phase
-- [ ] Update `auth_screen.dart` to apply the new UI/UX guidelines and ensure responsiveness (using `LayoutBuilder` or `ResponsiveLayout`).
-- [ ] Update `mode_selection_screen.dart` and related creation screens to match the new theme.
-- [ ] Verify there are no overflow errors on mobile views.
-- [ ] Verify desktop views do not stretch UI components unnaturally (e.g., max-width constraints on forms).
+- [x] Update `auth_screen.dart` to apply the new UI/UX guidelines and ensure responsiveness (using `LayoutBuilder` or `ResponsiveLayout`).
+- [x] Update `mode_selection_screen.dart` and related creation screens to match the new theme.
+- [x] Verify there are no overflow errors on mobile views.
+- [x] Verify desktop views do not stretch UI components unnaturally (e.g., max-width constraints on forms).
 
 ### QA & Validation Phase
-- [ ] Run `flutter analyze` to ensure no syntax errors.
-- [ ] Verify that UI transitions are smooth and no regressions occurred in the authentication flow or creation state logic.
-- [ ] Confirm visual consistency with `example_web_ui.png` aesthetic.
+- [x] Run `flutter analyze` to ensure no syntax errors.
+- [x] Verify that UI transitions are smooth and no regressions occurred in the authentication flow or creation state logic.
+- [x] Confirm visual consistency with `example_web_ui.png` aesthetic.
 
 ## Edge Cases to Consider
 - Extremely wide desktop screens (forms should have a `maxWidth`).

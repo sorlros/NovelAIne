@@ -3,6 +3,7 @@ import json
 import httpx
 import re
 import unicodedata
+import random
 from typing import List, Dict, Any
 from app.services.rag_service import RagService
 from app.services.memory_service import MemoryService
@@ -22,6 +23,15 @@ class ChatService:
         
         self.rag_service = RagService()
         self.memory_service = MemoryService(max_buffer_size=10)
+
+        # 무작위 테마 시드 리스트 (빠른 시작의 다양성 확보용)
+        self.theme_seeds = [
+            "잊혀진 고대 유물", "몰락한 제국의 마지막 후계자", "심해의 부유하는 도시", 
+            "기계 장치의 심장을 가진 안드로이드", "별의 파편을 수집하는 여행자", "그림자 속에 숨은 비밀 결사",
+            "차원 균열 너머에서 온 방문자", "시간을 되돌리는 시계공", "하늘을 떠다니는 군도",
+            "사라진 기억을 찾는 탐정", "마법과 증기 기관이 공존하는 시대", "꿈 속을 여행하는 유랑단",
+            "금지된 금서를 지키는 사서", "영혼을 울리는 선율의 악기", "숲의 정령과 계약한 사냥꾼"
+        ]
 
     def _deep_clean_string(self, text: str) -> str:
         """
@@ -136,9 +146,21 @@ class ChatService:
         model: str = None
     ) -> Dict[str, Any]:
         target_model = model or self.default_model
+        
+        # [다양성 강화] 시나리오가 없는 경우(빠른 시작) 무작위 시드 주입
+        if not scenario:
+            random_seed = random.choice(self.theme_seeds)
+            scenario = f"Include this secret theme element: {random_seed}"
+
         system_prompt = (
-            "You are a bestselling professional novelist known for detailed and immersive opening chapters.\n"
+            "You are a bestselling professional novelist known for creative and evocative storytelling.\n"
             "Generate story metadata in strict JSON format.\n"
+            "TITLE RULES:\n"
+            "1. Be UNIQUE and CREATIVE. Avoid generic titles like 'The Fantasy Adventure' or 'Shadow of Mystery'.\n"
+            "2. Incorporate specific elements from the provided 'Scenario' and 'Traits' to make the title distinct.\n"
+            "3. Use metaphorical or symbolic language that fits the 'Tone'.\n"
+            "4. NEVER use the genre name directly in the title unless it is essential.\n"
+            "5. Aim for a title that feels like a published novel (e.g., 'The Last Gear of London', 'Echoes from the Abyss').\n"
             "CRITICAL RULES for 'first_scene': \n"
             "1. LENGTH: The 'first_scene' should be around 3000-4000 characters. Detailed but stable for rendering.\n"
             "2. STRUCTURE: Write 8-10 detailed paragraphs.\n"
@@ -151,16 +173,22 @@ class ChatService:
         )
 
         user_prompt = f"""
-        Create a new immersive story with these settings:
-        Genre: {genre}, Tone: {tone}, Hero: {protagonist_name}, Traits: {traits}, Scenario: {scenario}
+        Create a new immersive story with these unique settings:
+        Genre: {genre}
+        Tone: {tone}
+        Hero: {protagonist_name}
+        Traits: {traits}
+        Scenario: {scenario}
+        
+        Task: Create a title that is specifically inspired by the scenario and traits, making it stand out even among other stories of the same genre.
         
         REQUIRED JSON FORMAT:
         {{
-            "title": "Story Title",
-            "description": "Short summary",
+            "title": "A highly creative and specific title",
+            "description": "Short summary that captures the unique twist of this story",
             "first_scene": "Detailed narrative (3500 characters) using 「dialogue」. Ensure the last sentence is FULLY COMPLETED.",
             "protagonist_name": "Suggested character name",
-            "protagonist_bio": "Detailed character background and personality",
+            "protagonist_bio": "Detailed character background and personality based on traits",
             "protagonist_traits": ["trait1", "trait2", "trait3"]
         }}
         """

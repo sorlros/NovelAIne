@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // Added for compute
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:frontend/l10n/app_localizations.dart';
@@ -84,17 +85,40 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
 
       final repository = ref.read(storyRepositoryProvider);
 
-      // 1. [중요] 생성된 스토리를 로컬 DB에 수동으로 즉시 저장
+      // 1. 생성된 스토리를 로컬 DB에 수동으로 즉시 저장
       await repository.cacheStory(createdStory);
 
-      // 2. [중요] 생성된 스토리의 장면들을 서버에서 즉시 가져와 로컬 캐시에 동기화
+      // 2. 생성된 스토리의 장면들을 서버에서 가져와 '사전 파싱' 진행 (Isolate 활용)
+      List<Map<String, dynamic>> processedMessages = [];
       try {
-        await repository.getScenes(createdStory.id, forceRefresh: true);
+        final scenes = await repository.getScenes(createdStory.id, forceRefresh: true);
         
-        // 스토리 리스트 프로바이더 무효화하여 메인 화면 최신화 강제
+        if (scenes.isNotEmpty) {
+          // [성능 핵심] 무거운 맵 변환 작업을 Isolate에서 수행하여 애니메이션 멈춤 방지
+          processedMessages = await compute((List<dynamic> rawScenes) {
+            return rawScenes.map((scene) => {
+              'id': scene['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+              'role': scene['role'] ?? 'ai',
+              'content': scene['content'] ?? "",
+              'imageUrl': scene['imageUrl'] ?? scene['image_url'],
+              'sceneType': scene['sceneType'] ?? scene['scene_type'] ?? 'narrative',
+            }).toList();
+          }, scenes);
+
+          // [성능 핵심] StoryScreen에 진입하기 전, 캐시 및 메시지 프로바이더 미리 채우기
+          ref.read(preWarmedScenesProvider.notifier).update((state) {
+            final newState = Map<String, List<Map<String, dynamic>>>.from(state);
+            newState[createdStory.id] = processedMessages;
+            return newState;
+          });
+          
+          // 전역 메시지 상태 미리 설정 (StoryScreen 진입 시 즉시 렌더링용)
+          ref.read(messageProvider.notifier).state = processedMessages;
+        }
+        
         ref.invalidate(storiesProvider);
       } catch (syncErr) {
-        debugPrint("Initial scene sync failed: $syncErr");
+        debugPrint("Initial scene sync/parsing failed: $syncErr");
       }
 
       // Handle character image upload (existing logic)
@@ -116,6 +140,11 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       }
 
       if (!mounted) return;
+      
+      // [성능 핵심] StoryScreen 상태 제어: 진입하자마자 UI가 보이고 초기화가 완료된 것으로 설정
+      ref.read(isUIReadyProvider.notifier).state = true;
+      ref.read(isInitialLoadDoneProvider.notifier).state = true;
+
       Navigator.pop(context); // Close loading dialog
 
       Navigator.pushReplacement(

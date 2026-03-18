@@ -3,6 +3,7 @@ uvicorn
 supabase
 huggingface_hub
 openai
-supabase
 psycopg2-binary
 python-dotenv
+httpx
+pydantic[email]

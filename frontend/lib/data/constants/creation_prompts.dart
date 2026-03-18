@@ -8,6 +8,8 @@ class CreationPrompts {
     '무협 (Wuxia)': 'Wuxia, martial arts, eastern philosophy, cultivation',
     '호러 (Horror)': 'Horror, psychological thriller, supernatural entities, dark atmosphere',
     '사이버펑크 (Cyberpunk)': 'Cyberpunk, high tech low life, neon lights, mega corporations',
+    '스팀펑크 (Steampunk)': 'Steampunk, steam-powered technology, Victorian aesthetics, alternative history',
+    '스페이스 오페라 (Space Opera)': 'Space Opera, grand scale adventure, alien civilizations, interstellar wars',
     '아포칼립스 (Apocalypse)': 'Post-Apocalyptic, survival, ruined world, scarce resources',
   };
 
@@ -27,6 +29,10 @@ class CreationPrompts {
     '우주 정거장': 'A busy space station on the edge of the galaxy',
     '네온 시티': 'A rain-slicked futuristic city controlled by corporations',
     '폐허가 된 서울': 'The ruins of Seoul overflown with vegetation after the fall',
+    '고대 유적': 'Forgotten ancient ruins with hidden mysteries and traps',
+    '심해 도시': 'An underwater dome city struggling against high pressure',
+    '차원 균열': 'A world torn apart by unstable dimensional portals',
+    '천공의 섬': 'Islands floating in the clouds powered by mysterious crystals',
   };
 
   // 주인공 성격 (Personality Traits)
