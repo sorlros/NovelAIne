@@ -4,9 +4,14 @@ import httpx
 import re
 import unicodedata
 import random
+import logging
+import traceback
 from typing import List, Dict, Any
 from app.services.rag_service import RagService
 from app.services.memory_service import MemoryService
+
+# Logger setup
+logger = logging.getLogger(__name__)
 
 class ChatService:
     def __init__(self):
@@ -88,7 +93,7 @@ class ChatService:
                     return compressed
                 return user_message
         except Exception as e:
-            print(f"Compression Error: {e}")
+            logger.error(f"Compression Error: {e}")
             return user_message
 
     async def generate_response(self, user_message: str, history: List[Dict[str, str]] = [], model: str = None) -> str:
@@ -97,7 +102,7 @@ class ChatService:
             if self._should_trigger_rag(user_message):
                 rag_context = await self.rag_service.search_relevant_context(user_message)
         except Exception as e:
-            print(f"RAG Error: {e}")
+            logger.error(f"RAG Error: {e}")
             
         target_model = model or self.default_model
         compressed_message = await self._compress_to_english_keywords(user_message, model=target_model)
@@ -135,9 +140,9 @@ class ChatService:
                     text = self._extract_response_text(response.json())
                     # Only remove dangerous control characters, keep newlines
                     return "".join(ch for ch in text if unicodedata.category(ch)[0] != "C" or ch in "\n\r\t")
-                raise Exception(f"API Error {response.status_code}")
+                raise Exception(f"API Error {response.status_code}: {response.text}")
         except Exception as e:
-            print(f"LLM Error: {e}")
+            logger.error(f"LLM Generation Error: {e}")
             raise e
 
     async def start_new_story(
@@ -219,7 +224,7 @@ class ChatService:
                     try:
                         result = self._sanitize_dict(json.loads(content, strict=False))
                     except json.JSONDecodeError:
-                        print("[REPAIR] Standard parse failed. Starting advanced key-value extraction...")
+                        logger.info("Standard JSON parse failed. Starting advanced key-value extraction (REPAIR mode)...")
                         
                         keys = ["title", "description", "first_scene", "protagonist_name", "protagonist_bio", "protagonist_traits"]
                         extracted = {}
@@ -279,8 +284,7 @@ class ChatService:
                 else:
                     raise Exception(f"API Error {response.status_code}: {response.text}")
         except Exception as e:
-            print(f"[CRITICAL] Generation Error: {str(e)}")
-            traceback.print_exc()
+            logger.exception(f"Critical Story Generation Error: {str(e)}")
             raise e
 
     async def stream_generate_response(self, user_message: str, history: List[Dict[str, str]] = [], model: str = None):
@@ -292,7 +296,7 @@ class ChatService:
             if self._should_trigger_rag(user_message):
                 rag_context = await self.rag_service.search_relevant_context(user_message)
         except Exception as e:
-            print(f"[WARNING] RAG search failed: {e}")
+            logger.warning(f"RAG search failed: {e}")
             
         target_model = model or self.default_model
         compressed_message = await self._compress_to_english_keywords(user_message, model=target_model)
@@ -329,6 +333,8 @@ class ChatService:
             async with httpx.AsyncClient() as client:
                 async with client.stream("POST", self.base_url, headers=self.headers, json=data, timeout=120.0) as response:
                     if response.status_code != 200:
+                        err_body = await response.aread()
+                        logger.error(f"Streaming API Error {response.status_code}: {err_body.decode()}")
                         yield f"Error: {response.status_code}"
                         return
 
@@ -347,6 +353,7 @@ class ChatService:
                         except:
                             continue
         except Exception as e:
+            logger.error(f"Streaming Exception: {e}")
             yield f"\n(연결 오류 발생: {str(e)})"
 
     def _extract_response_text(self, response: dict) -> str:
@@ -392,9 +399,10 @@ class ChatService:
                 if response.status_code == 200:
                     raw_text = self._extract_response_text(response.json())
                     return json.loads(raw_text)
+                logger.error(f"Character Analysis API Error {response.status_code}: {response.text}")
                 return {"present_characters": [], "important_characters": []}
         except Exception as e:
-            print(f"Analysis Error: {e}")
+            logger.error(f"Character Analysis Exception: {e}")
             return {"present_characters": [], "important_characters": []}
 
     def _should_trigger_rag(self, message: str) -> bool:

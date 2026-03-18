@@ -1,9 +1,9 @@
+import logging
 from fastapi import APIRouter, HTTPException, Query
 from typing import List, Optional
 from uuid import UUID
 from uuid import uuid4 # Added
 from datetime import datetime
-import traceback # Added
 
 from app.services.supabase_client import get_supabase_client
 from app.schemas.models import (
@@ -20,6 +20,9 @@ from app.schemas.models import (
     CharacterCreate # Added
 )
 from app.services.chat_service import ChatService # Added
+
+# Logger setup
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/stories", tags=["stories"])
 
@@ -52,9 +55,11 @@ async def list_stories(
                 meta={"total": len(response.data) if response.data else 0, "limit": limit, "offset": offset},
             )
         except Exception as e:
+            logger.error(f"Failed to list stories: {e}")
             return ApiResponse.fail(str(e))
 
     except Exception as e:
+        logger.error(f"Critical error in list_stories: {e}")
         return ApiResponse.fail(str(e))
 
 
@@ -68,12 +73,12 @@ async def create_story(story: StoryCreate):
         # Use the provided user_id from the request
         user_id = str(story.user_id) if story.user_id else None
         if not user_id:
-            print("[WARNING] Creating story without an explicit user_id.")
+            logger.warning("Creating story without an explicit user_id.")
 
         # Check if we need to generate story content
         generated_data = None
         if not story.title:
-            print(f"[DEBUG] Requesting AI story generation for {story.genre}...")
+            logger.info(f"Requesting AI story generation for {story.genre}...")
             # chat_service.start_new_story handles its own internal parsing and errors
             generated_data = await chat_service.start_new_story(
                 genre=story.genre,
@@ -87,7 +92,7 @@ async def create_story(story: StoryCreate):
             
             story.title = generated_data.get("title", "Untitled Story").strip()
             story.description = generated_data.get("description", "No description").strip()
-            print(f"[DEBUG] AI Story generated: {story.title}")
+            logger.info(f"AI Story generated: {story.title}")
 
         # 1. Insert Story
         story_db_data = story.model_dump(exclude={
@@ -148,7 +153,7 @@ async def create_story(story: StoryCreate):
                 
                 client.table("stories").update({"total_scenes": 1}).eq("id", story_id).execute()
             except Exception as linked_err:
-                print(f"[ERROR] Failed to create linked characters/scenes: {linked_err}")
+                logger.error(f"Failed to create linked characters/scenes: {linked_err}")
 
         # 3. Handle Explicitly Linked Characters
         if story.character_ids:
@@ -156,13 +161,12 @@ async def create_story(story: StoryCreate):
                 links = [{"story_id": story_id, "character_id": cid} for cid in story.character_ids]
                 client.table("story_characters").insert(links).execute()
             except Exception as e:
-                print(f"[ERROR] Failed to link characters: {e}")
+                logger.error(f"Failed to link characters: {e}")
 
         return ApiResponse.ok(data=created_story)
     except Exception as e:
         error_msg = f"Failed to create story: {str(e)}"
-        print(f"[FATAL] {error_msg}")
-        traceback.print_exc()
+        logger.exception(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
 
 
@@ -208,6 +212,7 @@ async def get_story(story_id: UUID):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Failed to fetch story {story_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch story: {str(e)}")
 
 
@@ -216,14 +221,6 @@ async def update_story(story_id: UUID, story_update: dict):
     """Update a story (partial update)."""
     try:
         client = get_supabase_client()
-
-        # [임시 자가 복구 로직] llm_model 컬럼이 없는 경우를 대비
-        try:
-            # 컬럼이 있는지 확인하는 대신, 안전하게 추가 시도 (이미 있으면 무시됨)
-            # Supabase API를 통한 직접적인 컬럼 추가는 제한적일 수 있으므로 
-            # 일반적인 업데이트 시도를 먼저 하고, 에러가 컬럼 미존재 관련이면 로깅합니다.
-            pass
-        except: pass
 
         response = (
             client.table("stories")
@@ -238,7 +235,7 @@ async def update_story(story_id: UUID, story_update: dict):
         return ApiResponse.ok(data=response.data[0])
     except Exception as e:
         error_detail = str(e)
-        print(f"[ERROR] update_story failed: {error_detail}")
+        logger.error(f"update_story failed for {story_id}: {error_detail}")
         # 컬럼 미존재 에러(undefined_column)인 경우 사용자에게 친절한 메시지 반환
         if "column" in error_detail and "llm_model" in error_detail:
             return ApiResponse.fail("데이터베이스에 'llm_model' 컬럼이 없습니다. 스키마 업데이트가 필요합니다.")
@@ -260,6 +257,7 @@ async def delete_story(story_id: UUID):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Failed to delete story {story_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to delete story: {str(e)}")
 
 
@@ -279,6 +277,7 @@ async def add_character_to_story(story_id: UUID, link: StoryCharacterLink):
 
         return ApiResponse.ok(data=response.data[0])
     except Exception as e:
+        logger.error(f"Failed to add character to story {story_id}: {e}")
         raise HTTPException(
             status_code=500, detail=f"Failed to add character: {str(e)}"
         )

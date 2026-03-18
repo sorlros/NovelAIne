@@ -1,13 +1,16 @@
+import logging
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Dict, Optional
+from uuid import UUID
 from app.services.chat_service import ChatService
+from app.services.supabase_client import get_supabase_client
+
+# Logger setup
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
-
-from uuid import UUID
-from app.services.supabase_client import get_supabase_client
 
 class ChatRequest(BaseModel):
     story_id: UUID # Added story_id
@@ -20,7 +23,7 @@ def _get_story_model(client, story_id: UUID) -> Optional[str]:
         story_res = client.table("stories").select("llm_model").eq("id", str(story_id)).single().execute()
         return story_res.data.get("llm_model") if story_res.data else None
     except Exception as e:
-        print(f"[WARNING] Failed to fetch llm_model for story {story_id}: {e}")
+        logger.warning(f"Failed to fetch llm_model for story {story_id}: {e}")
         return None
 
 @router.post("")
