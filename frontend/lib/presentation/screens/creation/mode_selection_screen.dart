@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:math' as math;
 import 'wizard_screen.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../providers/content_provider.dart';

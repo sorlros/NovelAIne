@@ -196,11 +196,15 @@ async def get_story(story_id: UUID):
             .execute()
         )
 
-        story["characters"] = (
-            [item["characters"] for item in characters_response.data]
-            if characters_response.data
-            else []
-        )
+        # 역할 정보(role_in_story)를 캐릭터 데이터 내부에 주입
+        story_characters = []
+        for item in characters_response.data:
+            if item.get("characters"):
+                char_info = item["characters"]
+                char_info["role_in_story"] = item.get("role_in_story")
+                story_characters.append(char_info)
+
+        story["characters"] = story_characters
 
         return ApiResponse.ok(data=story)
     except HTTPException:
