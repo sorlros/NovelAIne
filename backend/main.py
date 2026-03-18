@@ -12,9 +12,18 @@ app = FastAPI(title="NovelAIne API", version="0.1.0")
 
 from fastapi.middleware.cors import CORSMiddleware
 
+# CORS 설정
+allow_origins = [
+    "http://localhost:3000",
+    "http://localhost:19006",
+    "http://localhost:5000",
+    "https://novelaine.vercel.app",  # 향후 Vercel 배포 시
+    "*"  # 일단 개발 편의를 위해 유지하되, 추후 배포 도메인이 결정되면 특정합니다.
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

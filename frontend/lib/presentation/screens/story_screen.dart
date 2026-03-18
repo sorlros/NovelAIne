@@ -356,37 +356,58 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
               headerSliverBuilder: (context, innerBoxIsScrolled) => [
                 _buildSliverAppBar(context, innerBoxIsScrolled),
               ],
-              body: Stack(
+            body: Stack(
                 children: [
-                  // 본문 리스트
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 850),
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.fromLTRB(24, 20, 24, 250), 
-                        itemCount: messages.length + 1,
-                        cacheExtent: 300,
-                        itemBuilder: (context, index) {
-                          if (index == 0) {
-                            return _buildIntegratedCharacterSection(context, visibleCharacters, importantNames);
-                          }
-                          
-                          final msg = messages[index - 1];
-                          return _RefinedNarrativeCard(
-                            key: ValueKey(msg['id'].toString()),
-                            msg: msg,
-                          );
-                        },
+                  // 전체 레이아웃을 Column으로 변경하여 캐릭터 섹션 고정
+                  Column(
+                    children: [
+                      // 1. 고정된 캐릭터 섹션
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0D0D12).withValues(alpha: 0.8),
+                          border: const Border(
+                            bottom: BorderSide(color: Colors.white10, width: 0.5),
+                          ),
+                        ),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 850),
+                            child: _buildIntegratedCharacterSection(context, visibleCharacters, importantNames),
+                          ),
+                        ),
                       ),
-                    ),
+                      
+                      // 2. 스크롤 가능한 본문 리스트
+                      Expanded(
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 850),
+                            child: ListView.builder(
+                              controller: _scrollController,
+                              padding: const EdgeInsets.fromLTRB(24, 20, 24, 250), 
+                              itemCount: messages.length,
+                              cacheExtent: 300,
+                              itemBuilder: (context, index) {
+                                final msg = messages[index];
+                                return _RefinedNarrativeCard(
+                                  key: ValueKey(msg['id'].toString()),
+                                  msg: msg,
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   
-                  // [수정] 상단 페이드 그라데이션을 body의 Stack 최상단으로 이동
-                  // 이제 AppBar(Header) 아래에 위치하게 되어 메뉴 아이콘을 가리지 않습니다.
+                  // [수정] 상단 페이드 그라데이션 - 캐릭터 섹션 바로 아래에 위치하도록 조정
                   Positioned(
-                    top: 0, left: 0, right: 0,
-                    height: 100, // 높이를 적절히 조절 (AppBar 아래 본문만 가리도록)
+                    top: 150, // 캐릭터 섹션 높이만큼 아래로 이동 (추측치, 실제 렌더링에 따라 조정 가능)
+                    left: 0, right: 0,
+                    height: 60,
                     child: IgnorePointer(
                       child: Container(
                         decoration: BoxDecoration(
@@ -395,7 +416,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                             end: Alignment.bottomCenter,
                             colors: [
                               const Color(0xFF0D0D12),
-                              const Color(0xFF0D0D12).withValues(alpha: 0.7),
+                              const Color(0xFF0D0D12).withValues(alpha: 0.5),
                               Colors.transparent,
                             ],
                           ),
