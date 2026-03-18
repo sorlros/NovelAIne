@@ -219,44 +219,52 @@ class ChatService:
                     try:
                         result = self._sanitize_dict(json.loads(content, strict=False))
                     except json.JSONDecodeError:
-                        print("[REPAIR] Standard parse failed. Starting advanced slicing...")
+                        print("[REPAIR] Standard parse failed. Starting advanced key-value extraction...")
                         
                         keys = ["title", "description", "first_scene", "protagonist_name", "protagonist_bio", "protagonist_traits"]
                         extracted = {}
                         
-                        for i in range(len(keys)):
-                            k_p = f'"{keys[i]}"'
+                        for k in keys:
+                            k_p = f'"{k}"'
                             start_p = content.find(k_p)
                             if start_p == -1:
-                                extracted[keys[i]] = [] if "traits" in keys[i] else ""
+                                extracted[k] = [] if "traits" in k else ""
                                 continue
                             
                             val_start = content.find(':', start_p)
-                            if "traits" in keys[i]:
-                                val_start = content.find('[', val_start)
-                                val_end = content.find(']', val_start) + 1
-                                try:
-                                    extracted[keys[i]] = json.loads(content[val_start:val_end])
-                                except:
-                                    extracted[keys[i]] = []
-                            else:
-                                val_start = content.find('"', val_start) + 1
-                                if i < len(keys) - 1:
-                                    next_k = f'"{keys[i+1]}"'
-                                    val_end = content.find(next_k, val_start)
-                                    if val_end != -1:
-                                        last_q = content.rfind('"', val_start, val_end)
-                                        while last_q != -1:
-                                            after_q = content[last_q+1:val_end].strip()
-                                            if after_q == "," or after_q == "":
-                                                val_end = last_q
-                                                break
-                                            last_q = content.rfind('"', val_start, last_q - 1)
-                                else:
-                                    val_end = content.rfind('"', val_start, content.rfind('}'))
+                            if val_start == -1:
+                                extracted[k] = [] if "traits" in k else ""
+                                continue
 
-                                if val_end == -1 or val_end <= val_start: val_end = len(content)
-                                extracted[keys[i]] = content[val_start:val_end].replace('\\n', '\n').replace('\\"', '"').strip()
+                            if "traits" in k:
+                                list_start = content.find('[', val_start)
+                                list_end = content.find(']', list_start)
+                                if list_start != -1 and list_end != -1:
+                                    try:
+                                        extracted[k] = json.loads(content[list_start:list_end + 1])
+                                    except Exception:
+                                        extracted[k] = []
+                                else:
+                                    extracted[k] = []
+                            else:
+                                quote_start = content.find('"', val_start)
+                                if quote_start != -1:
+                                    # Find the matching closing quote, but be careful of escaped quotes
+                                    curr = quote_start + 1
+                                    while curr < len(content):
+                                        quote_end = content.find('"', curr)
+                                        if quote_end == -1:
+                                            quote_end = len(content)
+                                            break
+                                        if content[quote_end - 1] != '\\':
+                                            break
+                                        curr = quote_end + 1
+                                    
+                                    val = content[quote_start + 1:quote_end]
+                                    extracted[k] = val.replace('\\n', '\n').replace('\\"', '"').strip()
+                                else:
+                                    extracted[k] = ""
+                        
                         result = self._sanitize_dict(extracted)
 
                     # --- [추가] 문장 완결성 후처리 로직 ---
@@ -269,9 +277,10 @@ class ChatService:
                     
                     return result
                 else:
-                    raise Exception(f"API Error {response.status_code}")
+                    raise Exception(f"API Error {response.status_code}: {response.text}")
         except Exception as e:
-            print(f"Critical Generation Error: {e}")
+            print(f"[CRITICAL] Generation Error: {str(e)}")
+            traceback.print_exc()
             raise e
 
     async def stream_generate_response(self, user_message: str, history: List[Dict[str, str]] = [], model: str = None):
@@ -282,7 +291,8 @@ class ChatService:
         try:
             if self._should_trigger_rag(user_message):
                 rag_context = await self.rag_service.search_relevant_context(user_message)
-        except: pass
+        except Exception as e:
+            print(f"[WARNING] RAG search failed: {e}")
             
         target_model = model or self.default_model
         compressed_message = await self._compress_to_english_keywords(user_message, model=target_model)

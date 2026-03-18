@@ -59,6 +59,11 @@ const List<String> _fontFallbacks = [
   'sans-serif',
 ];
 
+// Color Constants
+const Color _kBackgroundColor = Color(0xFF0D0D12);
+const Color _kAccentColor = Color(0xFF7C3AED);
+const Color _kSurfaceColor = Color(0xFF1A1A24);
+
 class StoryScreen extends ConsumerStatefulWidget {
   final StoryModel? initialStory;
   const StoryScreen({super.key, this.initialStory});
@@ -88,6 +93,36 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     }
   }
 
+  Future<void> _staggeredLoad(List<Map<String, dynamic>> allMessages) async {
+    if (!mounted) return;
+    
+    // 메시지 초기화 (한 번에 다 넣지 않고 비움)
+    ref.read(messageProvider.notifier).state = [];
+    
+    // UI 준비 상태를 true로 하여 배경 등 기본 틀을 먼저 보여줌
+    ref.read(isUIReadyProvider.notifier).state = true;
+    
+    // 한 프레임당 3개씩 점진적으로 주입하여 프레임 드랍(Jank) 방지
+    const int batchSize = 3;
+    for (int i = 0; i < allMessages.length; i += batchSize) {
+      if (!mounted) return;
+      
+      final end = (i + batchSize < allMessages.length) ? i + batchSize : allMessages.length;
+      final batch = allMessages.sublist(i, end);
+      
+      ref.read(messageProvider.notifier).update((state) => [...state, ...batch]);
+      
+      // 다음 렌더링 프레임을 위해 미세한 지연 추가
+      await Future.delayed(const Duration(milliseconds: 16));
+    }
+    
+    if (mounted) {
+      ref.read(isInitialLoadDoneProvider.notifier).state = true;
+      // 로딩 완료 후 하단으로 스크롤
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    }
+  }
+
   Future<void> _loadInitialData() async {
     if (widget.initialStory == null || _isInitLoaded) return;
 
@@ -97,24 +132,14 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
       
       if (mounted) {
         _isInitLoaded = true;
-        ref.read(messageProvider.notifier).state = preWarmedMessages;
         
         final lastImage = preWarmedMessages.lastWhere((m) => m['imageUrl'] != null, orElse: () => {'imageUrl': null})['imageUrl'];
         if (lastImage != null) ref.read(currentBackdropProvider.notifier).state = lastImage;
 
         _fetchBackgroundDetails();
 
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            Future.delayed(const Duration(milliseconds: 300), () {
-              if (mounted) {
-                ref.read(isInitialLoadDoneProvider.notifier).state = true;
-                ref.read(isUIReadyProvider.notifier).state = true;
-                _scrollToBottom();
-              }
-            });
-          }
-        });
+        // Staggered loading 시작
+        _staggeredLoad(preWarmedMessages);
         return;
       }
     }
@@ -142,8 +167,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
 
       if (mounted) {
         _isInitLoaded = true;
-        ref.read(messageProvider.notifier).state = processedMessages;
-
+        
         final lastImage = processedMessages.lastWhere((m) => m['imageUrl'] != null, orElse: () => {'imageUrl': null})['imageUrl'];
         if (lastImage != null) ref.read(currentBackdropProvider.notifier).state = lastImage;
 
@@ -153,17 +177,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           return newState;
         });
 
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            Future.delayed(const Duration(milliseconds: 500), () {
-              if (mounted) {
-                ref.read(isInitialLoadDoneProvider.notifier).state = true;
-                ref.read(isUIReadyProvider.notifier).state = true;
-                _scrollToBottom();
-              }
-            });
-          }
-        });
+        // Staggered loading 시작
+        _staggeredLoad(processedMessages);
       }
     } catch (e) {
       debugPrint("🚨 StoryScreen Load Error: $e");
