@@ -185,6 +185,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                   controller: _emailController,
                   label: AppLocalizations.of(context)!.email,
                   icon: Icons.email_outlined,
+                  textInputAction: TextInputAction.next,
                 ),
                 ValueListenableBuilder(
                   valueListenable: _tabController.animation!,
@@ -197,6 +198,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                             controller: _usernameController,
                             label: AppLocalizations.of(context)!.username,
                             icon: Icons.person_outline,
+                            textInputAction: TextInputAction.next,
                           ),
                         ],
                       );
@@ -210,6 +212,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                   label: AppLocalizations.of(context)!.password,
                   icon: Icons.lock_outline,
                   obscureText: true,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: isLoading ? null : (_) => _submit(),
                 ),
                 const SizedBox(height: 32),
                 SizedBox(
@@ -279,6 +283,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     required String label,
     required IconData icon,
     bool obscureText = false,
+    TextInputAction? textInputAction,
+    void Function(String)? onSubmitted,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -295,6 +301,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
         TextField(
           controller: controller,
           obscureText: obscureText,
+          textInputAction: textInputAction,
+          onSubmitted: onSubmitted,
           style: const TextStyle(color: Colors.white, fontSize: 15),
           decoration: InputDecoration(
             prefixIcon: Icon(icon, color: Colors.white54, size: 20),

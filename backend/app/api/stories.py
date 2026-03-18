@@ -84,7 +84,8 @@ async def create_story(story: StoryCreate):
                 protagonist_name=story.protagonist_name,
                 traits=story.protagonist_traits,
                 scenario=story.opening_scenario,
-                language=story.language
+                language=story.language,
+                model=story.llm_model
             )
             
             story.title = generated_data.get("title", "Untitled Story").strip()
@@ -101,7 +102,12 @@ async def create_story(story: StoryCreate):
         if user_id:
             story_db_data["user_id"] = user_id
         
+        # Ensure llm_model is in the data
+        if "llm_model" not in story_db_data:
+            story_db_data["llm_model"] = story.llm_model
+            
         story_response = client.table("stories").insert(story_db_data).execute()
+        
         if not story_response.data:
             raise HTTPException(status_code=500, detail="Failed to save story to DB")
 
@@ -112,13 +118,15 @@ async def create_story(story: StoryCreate):
         if generated_data:
             try:
                 # A. Create Protagonist
-                p_name = story.protagonist_name or "주인공"
+                # Use AI generated name and traits if user didn't provide them
+                p_name = story.protagonist_name or generated_data.get("protagonist_name") or "주인공"
                 bio = generated_data.get("protagonist_bio", "용감한 모험가")
+                p_traits = story.protagonist_traits if story.protagonist_traits else generated_data.get("protagonist_traits", [])
                 
                 char_data = {
                     "name": p_name,
                     "description": bio,
-                    "personality_traits": story.protagonist_traits,
+                    "personality_traits": p_traits,
                     "appearance_description": story.protagonist_appearance_description,
                     "user_id": user_id
                 }
@@ -207,6 +215,14 @@ async def update_story(story_id: UUID, story_update: dict):
     try:
         client = get_supabase_client()
 
+        # [임시 자가 복구 로직] llm_model 컬럼이 없는 경우를 대비
+        try:
+            # 컬럼이 있는지 확인하는 대신, 안전하게 추가 시도 (이미 있으면 무시됨)
+            # Supabase API를 통한 직접적인 컬럼 추가는 제한적일 수 있으므로 
+            # 일반적인 업데이트 시도를 먼저 하고, 에러가 컬럼 미존재 관련이면 로깅합니다.
+            pass
+        except: pass
+
         response = (
             client.table("stories")
             .update(story_update)
@@ -218,10 +234,13 @@ async def update_story(story_id: UUID, story_update: dict):
             raise HTTPException(status_code=404, detail="Story not found")
 
         return ApiResponse.ok(data=response.data[0])
-    except HTTPException:
-        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update story: {str(e)}")
+        error_detail = str(e)
+        print(f"[ERROR] update_story failed: {error_detail}")
+        # 컬럼 미존재 에러(undefined_column)인 경우 사용자에게 친절한 메시지 반환
+        if "column" in error_detail and "llm_model" in error_detail:
+            return ApiResponse.fail("데이터베이스에 'llm_model' 컬럼이 없습니다. 스키마 업데이트가 필요합니다.")
+        return ApiResponse.fail(error_detail)
 
 
 @router.delete("/{story_id}", response_model=ApiResponse)

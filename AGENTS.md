@@ -10,7 +10,7 @@ AI-powered Interactive Storytelling Platform - Coding Standards & Guidelines
 - **Frontend**: Flutter (Dart)
 - **Backend**: FastAPI (Python), Pydantic models
 - **Database**: Supabase (PostgreSQL)
-- **AI**: Groq API (Llama 3.3 70B)
+- **AI**: OpenRouter API (Gemini 2.0 Flash)
 - **Deployment**: TBD
 
 **Architecture:**
@@ -23,16 +23,16 @@ AI-powered Interactive Storytelling Platform - Coding Standards & Guidelines
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                      Backend (FastAPI)                      │
-│  Python 3.12 + FastAPI + Pydantic + Groq                   │
+│  Python 3.12 + FastAPI + Pydantic + OpenRouter             │
 └─────────────────────────────────────────────────────────────┘
                               │
               ┌───────────────┼───────────────┐
               ▼               ▼               ▼
-        ┌──────────┐   ┌──────────┐   ┌──────────┐
-        │ Supabase │   │   Groq   │   │  Vector  │
-        │ Database │   │   API    │   │   Store  │
-        │          │   │          │   │ (RAG)    │
-        └──────────┘   └──────────┘   └──────────┘
+        ┌──────────┐   ┌────────────┐   ┌──────────┐
+        │ Supabase │   │ OpenRouter │   │  Vector  │
+        │ Database │   │    API     │   │   Store  │
+        │          │   │            │   │ (RAG)    │
+        └──────────┘   └────────────┘   └──────────┘
 ```
 
 ---
@@ -367,37 +367,50 @@ for scene in scenes:
 
 ## AI Integration Patterns
 
-### Groq API Integration
+### OpenRouter API Integration
 
 ```python
-from groq import AsyncGroq
+import httpx
 import os
+import json
 
-client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 async def generate_story_segment(
     context: str,
     user_choice: str,
     character_profile: dict
 ) -> str:
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://novelaine.com",
+        "X-Title": "NovelAIne",
+    }
+    
+    payload = {
+        "model": "google/gemini-2.0-flash-001",
+        "messages": [
+            {
+                "role": "system",
+                "content": f"You are an interactive storyteller. Character profile: {character_profile}"
+            },
+            {
+                "role": "user",
+                "content": f"Context: {context}\nUser choice: {user_choice}\nContinue the story..."
+            }
+        ],
+        "temperature": 0.8,
+        "max_tokens": 1000
+    }
+    
     try:
-        response = await client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {
-                    "role": "system",
-                    "content": f"You are an interactive storyteller. Character profile: {character_profile}"
-                },
-                {
-                    "role": "user",
-                    "content": f"Context: {context}\nUser choice: {user_choice}\nContinue the story..."
-                }
-            ],
-            temperature=0.8,
-            max_tokens=1000
-        )
-        
-        return response.choices[0].message.content
+        async with httpx.AsyncClient() as client:
+            response = await client.post(OPENROUTER_URL, headers=headers, json=payload, timeout=60.0)
+            response.raise_for_status()
+            result = response.json()
+            return result["choices"][0]["message"]["content"]
     except Exception as e:
         logger.error(f"Story generation failed: {e}")
         raise
@@ -538,7 +551,8 @@ void main() {
 
 ```bash
 # Backend (.env)
-GROQ_API_KEY=gsk_...
+OPENROUTER_API_KEY=sk-or-v1-...
+LLM_MODEL=google/gemini-2.0-flash-001
 SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_KEY=eyJ...
 DATABASE_URL=postgresql://...

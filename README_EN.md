@@ -41,7 +41,7 @@ An AI-powered **interactive story creation and automated imaging service**. By c
 </p>
 
 ### AI & Infrastructure
-*   **LLM Model**: Groq (Llama-3.3-70b) - High-speed inference
+*   **LLM Model**: OpenRouter (Gemini 2.0 Flash) - High-performance/Context-efficient
 *   **Image Gen**: Stable Diffusion (via HuggingFace Inference API)
 *   **Vector DB**: Supabase (pgvector extension)
 *   **Package Management**: pub.dev (Flutter), pip (Python)

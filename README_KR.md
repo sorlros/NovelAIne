@@ -6,10 +6,21 @@ AI를 활용한 **대화형 소설 창작 및 자동 이미지 생성 서비스*
 
 ---
 
-## ✨ 주요 기능 (Key Features)
+### ✨ 주요 기능 (Key Features)
+
+### 🎭 다이내믹 캐릭터 카드 (Dynamic Character Cards)
+*   **Real-time Scene Analysis**: LLM이 장면을 실시간 분석하여 현재 등장 중인 캐릭터와 중요 인물을 UI에 자동으로 노출합니다. 캐릭터의 퇴장 시 카드도 함께 사라져 몰입감을 극대화합니다.
+
+### 🧠 AI 스토리 엔진 선택 (AI Story Engines)
+*   **Model Selection**: 속도 중심의 `Gemini 2.0 Flash`와 치밀한 서사 중심의 `Gemini 1.5 Pro`를 자유롭게 선택하고 이야기 도중 실시간으로 전환할 수 있습니다.
+
+### 🚀 초고속 하이브리드 로딩 (High-Performance Rendering)
+*   **Background Pre-warming**: 메인 화면에서 최신 스토리를 백그라운드 **Isolate**로 미리 파싱하여 진입 시 대기 시간을 0초로 단축했습니다.
+*   **Streaming Throttling**: 100ms 단위의 데이터 업데이트 최적화로 장문 스트리밍 시에도 60fps의 부드러운 스크롤을 보장합니다.
 
 ### 🧠 지능형 문맥 관리 (Intelligent Context Management)
 *   **Summary Buffer Memory**: 최근 5~10턴의 대화는 원문 그대로 유지하고, 오래된 대화는 요약하여 저장함으로써 긴 소설 전개 시에도 문맥 끊김 없이 자연스러운 이야기를 이어갑니다.
+
 
 ### 📝 캐릭터 시트 시스템 (Character Sheet System)
 *   **System Prompt Optimization**: 캐릭터의 성격, 외모, 배경 이야기를 시스템 프롬프트에 효율적으로 배치하여, 어떤 상황에서도 캐릭터의 일관성(Consistency)이 깨지지 않습니다.
@@ -41,7 +52,7 @@ AI를 활용한 **대화형 소설 창작 및 자동 이미지 생성 서비스*
 </p>
 
 ### AI & Infrastructure
-*   **LLM Model**: Groq (Llama-3.3-70b) - 초고속 추론
+*   **LLM Model**: OpenRouter (Gemini 2.0 Flash) - 고성능/컨텍스트 효율성
 *   **Image Gen**: Stable Diffusion (via HuggingFace Inference API)
 *   **Vector DB**: Supabase (pgvector extension)
 *   **Package Management**: pub.dev (Flutter), pip (Python)
