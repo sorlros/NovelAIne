@@ -11,29 +11,39 @@ class AppTheme {
   static const Color _accentGreen = Color(0xFF9ECE6A); // Soft Green
   static const Color _errorRed = Color(0xFFF7768E); // Soft Red
 
+  // Font Fallbacks to prevent Tofu (X in boxes)
+  static const List<String> _fontFallbacks = [
+    'Apple SD Gothic Neo',
+    'Malgun Gothic',
+    'sans-serif',
+  ];
+
   // Text Styles
   static final TextTheme _textTheme = TextTheme(
     displayLarge: GoogleFonts.lato(
       fontSize: 32,
       fontWeight: FontWeight.bold,
       color: _textPrimary,
-    ),
+    ).copyWith(fontFamilyFallback: _fontFallbacks),
     displayMedium: GoogleFonts.lato(
       fontSize: 24,
       fontWeight: FontWeight.bold,
       color: _textPrimary,
-    ),
+    ).copyWith(fontFamilyFallback: _fontFallbacks),
     bodyLarge: GoogleFonts.merriweather(
       fontSize: 18,
       height: 1.6, // Better for reading
       color: _textPrimary,
-    ),
-    bodyMedium: GoogleFonts.lato(fontSize: 16, color: _textSecondary),
+    ).copyWith(fontFamilyFallback: _fontFallbacks),
+    bodyMedium: GoogleFonts.lato(
+      fontSize: 16, 
+      color: _textSecondary
+    ).copyWith(fontFamilyFallback: _fontFallbacks),
     labelLarge: GoogleFonts.lato(
       fontSize: 16,
       fontWeight: FontWeight.w600,
       color: _primaryBlue,
-    ),
+    ).copyWith(fontFamilyFallback: _fontFallbacks),
   );
 
   // Dark Theme
@@ -44,6 +54,7 @@ class AppTheme {
       scaffoldBackgroundColor: _backgroundDark,
       primaryColor: _primaryBlue,
       cardColor: _surfaceDark,
+      fontFamilyFallback: _fontFallbacks, // Global safety net
 
       // Color Scheme
       colorScheme: const ColorScheme.dark(

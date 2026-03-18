@@ -76,6 +76,10 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
 
     try {
       final apiService = ApiService();
+      
+      // 선택된 모델 설정
+      _config.llmModel = ref.read(selectedModelProvider);
+      
       final createdStory = await apiService.createStory(_config);
 
       final repository = ref.read(storyRepositoryProvider);

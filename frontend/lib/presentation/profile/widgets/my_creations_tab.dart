@@ -8,6 +8,7 @@ import '../../../data/services/api_service.dart';
 import '../../../data/repositories/story_repository.dart'; // Added
 import '../../screens/story_screen.dart';
 import '../../screens/profile/character_builder_screen.dart';
+import '../../widgets/custom_toast.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class MyCreationsTab extends ConsumerWidget {
@@ -390,25 +391,20 @@ class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
       
       if (mounted) {
         ref.invalidate(storiesProvider);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('스토리가 삭제되었습니다.'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        CustomToast.show(context, '스토리가 삭제되었습니다.');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('삭제 실패: $e'),
-            backgroundColor: Colors.redAccent,
-          ),
+        CustomToast.show(
+          context, 
+          '삭제 실패: $e', 
+          type: ToastType.error
         );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+
   }
 
   @override

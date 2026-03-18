@@ -12,6 +12,9 @@
 ### 핵심 기능
 - **지능형 문맥 관리**: 매끄러운 이야기 흐름을 위한 요약 버퍼 메모리
 - **RAG 기반 메모리**: 관련 캐릭터 및 스토리 정보를 검색하기 위한 벡터 데이터베이스
+- **다이내믹 캐릭터 시스템**: 실시간 장면 분석을 통한 캐릭터 등장/퇴장 자동 관리
+- **AI 엔진 이원화**: Gemini 2.0 Flash 및 1.5 Pro 모델 선택 및 실시간 전환 지원
+- **고성능 렌더링**: Isolate 기반 사전 파싱 및 스트리밍 스로틀링을 통한 60fps 보장
 - **장면 시각화**: 감정적으로 중요한 순간에 대한 자동 이미지 생성
 - **인터랙티브 스토리텔링**: AI 응답과 함께하는 사용자 주도적 이야기 진행
 
@@ -31,7 +34,7 @@
                                │
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        백엔드 (FastAPI)                            │
-│  Python 3.12 + FastAPI + Pydantic + Groq                           │
+│  Python 3.12 + FastAPI + Pydantic + OpenRouter (Gemini)                           │
 │  • REST API 엔드포인트                                            │
 │  • AI 연동 서비스                                                 │
 │  • 데이터베이스 작업                                               │
@@ -49,7 +52,7 @@
                                │
 ┌────────────────────────────────────────────────────────────────────────┐
 │                           AI 서비스                                │
-│  Groq API (Llama 3.3 70B) + Stable Diffusion                       │
+│  OpenRouter API (Gemini 2.0 Flash) + Stable Diffusion                       │
 │  • 스토리 생성                                                     │
 │  • 문맥 인식 응답                                                  │
 │  • 장면 이미지 생성                                                │
@@ -73,7 +76,7 @@ flowchart TD
     G --> H[벡터 검색]
     H --> I[관련 문맥]
     I --> J[LLM 생성]
-    J --> K[Groq API]
+    J --> K[OpenRouter API]
     K --> L[AI 응답]
     L --> M[이미지 분석]
     M --> N[감정/중요도 점수]
@@ -104,7 +107,7 @@ flowchart TD
    - 시스템 프롬프트에 문맥 포함
 
 4. **AI 생성**
-   - 채팅 서비스가 완전한 프롬프트로 Groq API 호출
+   - 채팅 서비스가 완전한 프롬프트로 OpenRouter API 호출
    - LLM이 이야기의 다음 부분을 생성
    - 응답에 감정 및 중요도 점수 포함
 
@@ -144,7 +147,7 @@ sequenceDiagram
     B->>D: 사용자 세션 확인
     B->>B: 메모리 서비스
     B->>B: RAG 서비스 (필요한 경우)
-    B->>A: Groq API 호출
+    B->>A: OpenRouter API 호출
     A-->>B: AI 응답
     B->>B: 이미지 분석
     B->>A: Stable Diffusion 호출 (필요한 경우)
@@ -218,13 +221,14 @@ flowchart TD
 
 ```
 POST   /api/chat              # 문맥 관리를 갖춘 AI 채팅
+POST   /api/chat/stream       # 실시간 스트리밍 AI 채팅
 GET    /api/stories          # 사용자 스토리 목록 조회
 POST   /api/stories          # 새 스토리 생성
 GET    /api/stories/:id      # 스토리 상세 조회
-PATCH  /api/stories/:id      # 스토리 업데이트
+PATCH  /api/stories/:id      # 스토리 업데이트 (AI 모델 포함)
 DELETE /api/stories/:id      # 스토리 삭제
 
-POST   /api/stories/:id/scenes  # 장면 추가 (이미지 생성 트리거)
+POST   /api/stories/:id/scenes/analyze  # 장면 분석 API
 GET    /api/characters          # 캐릭터 목록 조회
 POST   /api/characters          # 캐릭터 생성 (벡터화)
 POST   /api/auth/login          # 사용자 인증

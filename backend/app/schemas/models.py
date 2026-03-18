@@ -83,6 +83,7 @@ class StoryCreate(BaseModel):
     opening_scenario: Optional[str] = None
     language: Optional[str] = "en_US"
     character_ids: Optional[List[UUID]] = None
+    llm_model: Optional[str] = "google/gemini-2.0-flash-001"
 
 
 class Story(StoryBase):
@@ -92,6 +93,7 @@ class Story(StoryBase):
     total_scenes: int
     current_scene_id: Optional[UUID] = None
     cover_image_url: Optional[str] = None
+    llm_model: str = "google/gemini-2.0-flash-001"
     created_at: datetime
     updated_at: datetime
 

@@ -17,7 +17,8 @@ class ChatService:
             "HTTP-Referer": "https://novelaine.com",
             "X-Title": "NovelAIne",
         }
-        self.model = os.getenv("LLM_MODEL", "google/gemini-2.0-flash-001")
+        # 기본 모델 설정 (기본값: Gemini 2.0 Flash)
+        self.default_model = "google/gemini-2.0-flash-001"
         
         self.rag_service = RagService()
         self.memory_service = MemoryService(max_buffer_size=10)
@@ -52,14 +53,14 @@ class ChatService:
             return "".join(ch for ch in data if unicodedata.category(ch)[0] != "C" or ch in "\n\r\t")
         return data
 
-    async def _compress_to_english_keywords(self, user_message: str) -> str:
+    async def _compress_to_english_keywords(self, user_message: str, model: str = None) -> str:
         system_prompt = (
             "You are a summarization AI. Extract only the crucial actions, objects, and emotions "
             "from the user's input. Translate them into concise English keywords separated by commas."
         )
-        
+
         data = {
-            "model": self.model,
+            "model": model or self.default_model,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
@@ -67,6 +68,7 @@ class ChatService:
             "temperature": 0.3,
             "max_tokens": 100
         }
+
         
         try:
             async with httpx.AsyncClient() as client:
@@ -79,7 +81,7 @@ class ChatService:
             print(f"Compression Error: {e}")
             return user_message
 
-    async def generate_response(self, user_message: str, history: List[Dict[str, str]] = []) -> str:
+    async def generate_response(self, user_message: str, history: List[Dict[str, str]] = [], model: str = None) -> str:
         rag_context = ""
         try:
             if self._should_trigger_rag(user_message):
@@ -87,15 +89,18 @@ class ChatService:
         except Exception as e:
             print(f"RAG Error: {e}")
             
-        compressed_message = await self._compress_to_english_keywords(user_message)
+        target_model = model or self.default_model
+        compressed_message = await self._compress_to_english_keywords(user_message, model=target_model)
 
         base_system_prompt = (
             "당신은 몰입형 인터랙티브 스토리텔링 플랫폼 'NovelAIne'의 베스트셀러 소설 작가입니다.\n"
             "CRITICAL RULES:\n"
-            "1. MUST use rich, literary prose with sensory details. WRITE A LONG, DETAILED SCENE.\n"
+            "1. MUST use rich, literary prose with sensory details.\n"
             "2. MUST include realistic dialogues using double quotes (\"\").\n"
-            "3. FORMATTING: You MUST separate every paragraph with TWO actual newline characters (\\n\\n).\n"
-            "4. LENGTH: Each response should be long enough to feel like a full chapter page (approx 800-1000 characters).\n"
+            "3. FORMATTING: Separate every paragraph with TWO actual newline characters (\\n\\n).\n"
+            "4. DIALOGUE READABILITY: Every dialogue 「...」 MUST be placed on its own new line and separated from narration by double newlines (\\n\\n) before and after. NEVER mix dialogue and narration in the same paragraph.\n"
+            "5. INTERACTIVE LENGTH: Write about 3 to 5 paragraphs (approx 500-800 characters). Describe the direct consequence of the user's action with deep immersion.\n"
+            "6. THE HOOK: NEVER resolve the entire situation. Always end the response at a cliffhanger, a new challenge, a character's question, or a turning point that FORCES the user to decide what to do next.\n"
         )
         
         if rag_context:
@@ -107,15 +112,15 @@ class ChatService:
         current_messages.append({"role": "user", "content": f"[Directions]: {compressed_message}"})
 
         data = {
-            "model": self.model,
+            "model": target_model,
             "messages": current_messages,
             "temperature": 0.8,
-            "max_tokens": 2000 # Increased from 1000
+            "max_tokens": 1500 # Adjusted for optimal interactive length
         }
         
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.post(self.base_url, headers=self.headers, json=data, timeout=60.0)
+                response = await client.post(self.base_url, headers=self.headers, json=data, timeout=90.0)
                 if response.status_code == 200:
                     text = self._extract_response_text(response.json())
                     # Only remove dangerous control characters, keep newlines
@@ -127,15 +132,21 @@ class ChatService:
 
     async def start_new_story(
         self, genre: str, tone: str = None, protagonist_name: str = None,
-        traits: List[str] = None, scenario: str = None, language: str = "en_US"
+        traits: List[str] = None, scenario: str = None, language: str = "en_US",
+        model: str = None
     ) -> Dict[str, Any]:
+        target_model = model or self.default_model
         system_prompt = (
-            "You are a bestselling professional novelist. Generate story metadata in strict JSON format.\n"
-            "IMPORTANT: \n"
-            "1. The 'first_scene' MUST be long and descriptive (at least 2000 characters).\n"
-            "2. COMPLETION: You MUST end the 'first_scene' with a complete sentence ending in a period (.), exclamation (!), or question mark (?). NEVER end mid-sentence.\n"
-            "3. Use '\\n\\n' for paragraphs.\n"
-            "4. CRITICAL: Use '「' and '」' for character dialogues. DO NOT use double quotes (\") inside the story text.\n"
+            "You are a bestselling professional novelist known for detailed and immersive opening chapters.\n"
+            "Generate story metadata in strict JSON format.\n"
+            "CRITICAL RULES for 'first_scene': \n"
+            "1. LENGTH: The 'first_scene' should be around 3000-4000 characters. Detailed but stable for rendering.\n"
+            "2. STRUCTURE: Write 8-10 detailed paragraphs.\n"
+            "3. DETAIL: Use sensory descriptions and focus on world-building.\n"
+            "4. COMPLETION: End with a complete sentence.\n"
+            "5. DIALOGUE FORMATTING: Always place dialogues 「...」 on their own line, separated by double newlines (\\n\\n) from narration for readability. NEVER mix dialogue and narrative in the same paragraph.\n"
+            "6. Use '\\n\\n' for paragraphs.\n"
+            "7. DIALOGUE: Use '「' and '」'.\n"
             f"User Locale: {language}. Write all content in this language."
         )
 
@@ -147,19 +158,21 @@ class ChatService:
         {{
             "title": "Story Title",
             "description": "Short summary",
-            "first_scene": "Extremely long narrative (2000+ chars) using 「dialogue」. Ensure the last sentence is FULLY COMPLETED.",
-            "protagonist_bio": "Character background"
+            "first_scene": "Detailed narrative (3500 characters) using 「dialogue」. Ensure the last sentence is FULLY COMPLETED.",
+            "protagonist_name": "Suggested character name",
+            "protagonist_bio": "Detailed character background and personality",
+            "protagonist_traits": ["trait1", "trait2", "trait3"]
         }}
         """
 
         data = {
-            "model": self.model,
+            "model": target_model,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
             "temperature": 0.8,
-            "max_tokens": 8000,
+            "max_tokens": 12000, 
             "response_format": {"type": "json_object"}
         }
 
@@ -180,35 +193,42 @@ class ChatService:
                     except json.JSONDecodeError:
                         print("[REPAIR] Standard parse failed. Starting advanced slicing...")
                         
-                        keys = ["title", "description", "first_scene", "protagonist_bio"]
+                        keys = ["title", "description", "first_scene", "protagonist_name", "protagonist_bio", "protagonist_traits"]
                         extracted = {}
                         
                         for i in range(len(keys)):
                             k_p = f'"{keys[i]}"'
                             start_p = content.find(k_p)
                             if start_p == -1:
-                                extracted[keys[i]] = ""
+                                extracted[keys[i]] = [] if "traits" in keys[i] else ""
                                 continue
                             
                             val_start = content.find(':', start_p)
-                            val_start = content.find('"', val_start) + 1
-                            
-                            if i < len(keys) - 1:
-                                next_k = f'"{keys[i+1]}"'
-                                val_end = content.find(next_k, val_start)
-                                if val_end != -1:
-                                    last_q = content.rfind('"', val_start, val_end)
-                                    while last_q != -1:
-                                        after_q = content[last_q+1:val_end].strip()
-                                        if after_q == "," or after_q == "":
-                                            val_end = last_q
-                                            break
-                                        last_q = content.rfind('"', val_start, last_q - 1)
+                            if "traits" in keys[i]:
+                                val_start = content.find('[', val_start)
+                                val_end = content.find(']', val_start) + 1
+                                try:
+                                    extracted[keys[i]] = json.loads(content[val_start:val_end])
+                                except:
+                                    extracted[keys[i]] = []
                             else:
-                                val_end = content.rfind('"', val_start, content.rfind('}'))
+                                val_start = content.find('"', val_start) + 1
+                                if i < len(keys) - 1:
+                                    next_k = f'"{keys[i+1]}"'
+                                    val_end = content.find(next_k, val_start)
+                                    if val_end != -1:
+                                        last_q = content.rfind('"', val_start, val_end)
+                                        while last_q != -1:
+                                            after_q = content[last_q+1:val_end].strip()
+                                            if after_q == "," or after_q == "":
+                                                val_end = last_q
+                                                break
+                                            last_q = content.rfind('"', val_start, last_q - 1)
+                                else:
+                                    val_end = content.rfind('"', val_start, content.rfind('}'))
 
-                            if val_end == -1 or val_end <= val_start: val_end = len(content)
-                            extracted[keys[i]] = content[val_start:val_end].replace('\\n', '\n').replace('\\"', '"').strip()
+                                if val_end == -1 or val_end <= val_start: val_end = len(content)
+                                extracted[keys[i]] = content[val_start:val_end].replace('\\n', '\n').replace('\\"', '"').strip()
                         result = self._sanitize_dict(extracted)
 
                     # --- [추가] 문장 완결성 후처리 로직 ---
@@ -226,7 +246,7 @@ class ChatService:
             print(f"Critical Generation Error: {e}")
             raise e
 
-    async def stream_generate_response(self, user_message: str, history: List[Dict[str, str]] = []):
+    async def stream_generate_response(self, user_message: str, history: List[Dict[str, str]] = [], model: str = None):
         """
         AI 응답을 한 글자(토큰)씩 실시간으로 전송하는 제너레이터
         """
@@ -236,7 +256,8 @@ class ChatService:
                 rag_context = await self.rag_service.search_relevant_context(user_message)
         except: pass
             
-        compressed_message = await self._compress_to_english_keywords(user_message)
+        target_model = model or self.default_model
+        compressed_message = await self._compress_to_english_keywords(user_message, model=target_model)
 
         # 시스템 언어 감지 및 한국어 강제 지시
         base_system_prompt = (
@@ -244,8 +265,11 @@ class ChatService:
             "CRITICAL RULES:\n"
             "1. LANGUAGE: You MUST write in KOREAN. (한국어로 답변하세요)\n"
             "2. STYLE: Use rich, literary prose with sensory details.\n"
-            "3. DIALOGUE: Use 「 」 for character dialogues.\n"
+            "3. DIALOGUE: Use 「 」 for character dialogues. ALWAYS place each dialogue on a new paragraph with double newlines (\\n\\n) before and after.\n"
             "4. FORMATTING: Separate paragraphs with a double newline (\\n\\n).\n"
+            "5. DIALOGUE READABILITY: NEVER mix dialogue and narration in the same paragraph for readability.\n"
+            "6. INTERACTIVE LENGTH: Write about 3 to 5 paragraphs (approx 500-800 characters). Describe the direct consequence of the user's action with deep immersion.\n"
+            "7. THE HOOK: NEVER resolve the entire situation. Always end the response at a cliffhanger, a new challenge, a character's question, or a turning point that FORCES the user to decide what to do next.\n"
         )
         if rag_context:
             base_system_prompt += f"\n[Story Lore/Context]\n{rag_context}\n"
@@ -256,15 +280,16 @@ class ChatService:
         current_messages.append({"role": "user", "content": f"[Directions]: {compressed_message}"})
 
         data = {
-            "model": self.model,
+            "model": target_model,
             "messages": current_messages,
             "temperature": 0.8,
+            "max_tokens": 1500, # Adjusted for optimal interactive length
             "stream": True 
         }
         
         try:
             async with httpx.AsyncClient() as client:
-                async with client.stream("POST", self.base_url, headers=self.headers, json=data, timeout=60.0) as response:
+                async with client.stream("POST", self.base_url, headers=self.headers, json=data, timeout=120.0) as response:
                     if response.status_code != 200:
                         yield f"Error: {response.status_code}"
                         return
@@ -290,6 +315,49 @@ class ChatService:
         if response and 'choices' in response and len(response['choices']) > 0:
             return response['choices'][0]['message']['content']
         return ""
+
+    async def analyze_scene_characters(self, scene_content: str, all_characters: List[str], model: str = None) -> Dict[str, List[str]]:
+        """
+        Analyzes a scene to identify present and important characters.
+        """
+        if not all_characters:
+            return {"present_characters": [], "important_characters": []}
+
+        target_model = model or self.default_model
+
+        system_prompt = (
+            "You are a literary analyst for an interactive story platform.\n"
+            "Analyze the given scene and the list of characters to determine who is physically present.\n"
+            "RULES:\n"
+            "1. A character is 'present' only if they are in the same physical space as the protagonist.\n"
+            "2. If a character leaves, moves to another room, or says goodbye and exits, they are NO LONGER present.\n"
+            "3. 'important_characters' are those who have a significant role in the current scene (talking, acting, or being the focus).\n"
+            "4. Return strictly in JSON format."
+        )
+        
+        user_prompt = f"Scene: {scene_content}\nCharacters to check: {', '.join(all_characters)}\n\n"
+        user_prompt += "Output JSON format: {\"present_characters\": [], \"important_characters\": []}"
+
+        data = {
+            "model": target_model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"}
+        }
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(self.base_url, headers=self.headers, json=data, timeout=30.0)
+                if response.status_code == 200:
+                    raw_text = self._extract_response_text(response.json())
+                    return json.loads(raw_text)
+                return {"present_characters": [], "important_characters": []}
+        except Exception as e:
+            print(f"Analysis Error: {e}")
+            return {"present_characters": [], "important_characters": []}
 
     def _should_trigger_rag(self, message: str) -> bool:
         return "?" in message or len(message) > 20

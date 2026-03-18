@@ -6,7 +6,11 @@ from app.services.chat_service import ChatService
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
+from uuid import UUID
+from app.services.supabase_client import get_supabase_client
+
 class ChatRequest(BaseModel):
+    story_id: UUID # Added story_id
     message: str
     history: Optional[List[Dict[str, str]]] = []
 
@@ -14,8 +18,12 @@ class ChatRequest(BaseModel):
 async def chat(request: ChatRequest):
     """일반 채팅 (한 번에 응답)"""
     try:
+        client = get_supabase_client()
+        story_res = client.table("stories").select("llm_model").eq("id", str(request.story_id)).single().execute()
+        model = story_res.data.get("llm_model") if story_res.data else None
+
         chat_service = ChatService()
-        response = await chat_service.generate_response(request.message, request.history)
+        response = await chat_service.generate_response(request.message, request.history, model=model)
         return {"response": response}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -23,10 +31,14 @@ async def chat(request: ChatRequest):
 @router.post("/stream")
 async def chat_stream(request: ChatRequest):
     """스트리밍 채팅 (한 글자씩 응답)"""
+    client = get_supabase_client()
+    story_res = client.table("stories").select("llm_model").eq("id", str(request.story_id)).single().execute()
+    model = story_res.data.get("llm_model") if story_res.data else None
+
     chat_service = ChatService()
     
     async def event_generator():
-        async for chunk in chat_service.stream_generate_response(request.message, request.history):
+        async for chunk in chat_service.stream_generate_response(request.message, request.history, model=model):
             if chunk:
                 # SSE(Server-Sent Events) 형식이 아닌 순수 텍스트 스트림으로 전송
                 yield chunk

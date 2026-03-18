@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Body
 from typing import List, Optional
 from uuid import UUID
 
 from app.services.supabase_client import get_supabase_client
+from app.services.chat_service import ChatService
 from app.schemas.models import (
     Scene,
     SceneCreate,
@@ -14,6 +15,20 @@ from app.schemas.models import (
 )
 
 router = APIRouter(prefix="/stories/{story_id}/scenes", tags=["scenes"])
+
+@router.post("/analyze", response_model=ApiResponse)
+async def analyze_scene(
+    story_id: UUID,
+    content: str = Body(..., embed=True),
+    character_names: List[str] = Body(..., embed=True)
+):
+    """Analyze a scene for character presence and importance."""
+    try:
+        chat_service = ChatService()
+        result = await chat_service.analyze_scene_characters(content, character_names)
+        return ApiResponse.ok(data=result)
+    except Exception as e:
+        return ApiResponse.fail(str(e))
 
 
 @router.get("", response_model=ApiResponse)

@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:math' as math;
 import 'wizard_screen.dart';
 import '../../widgets/responsive_layout.dart';
+import '../../providers/content_provider.dart';
 
-class CreationModeSelectionScreen extends StatelessWidget {
+class CreationModeSelectionScreen extends ConsumerWidget {
   const CreationModeSelectionScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedModel = ref.watch(selectedModelProvider);
     return ResponsiveLayout(
       currentIndex: 1,
       child: Scaffold(
@@ -69,7 +72,12 @@ class CreationModeSelectionScreen extends StatelessWidget {
                           ),
                         ).animate().fadeIn(delay: 200.ms, duration: 600.ms),
                         
-                        const SizedBox(height: 48),
+                        const SizedBox(height: 40),
+
+                        // Model Selection
+                        _buildModelSelector(context, ref, selectedModel),
+                        
+                        const SizedBox(height: 40),
 
                         // LayoutBuilder to handle side-by-side on desktop vs column on mobile
                         LayoutBuilder(
@@ -154,6 +162,103 @@ class CreationModeSelectionScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModelSelector(BuildContext context, WidgetRef ref, String selectedModel) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.psychology, color: Color(0xFF6B4EFF), size: 20),
+            const SizedBox(width: 10),
+            Text(
+              "AI 스토리 엔진",
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.9),
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _ModelOptionTile(
+                title: "Gemini 2.0 Flash",
+                subtitle: "빠르고 가벼운 전개",
+                isSelected: selectedModel == 'google/gemini-2.0-flash-001',
+                onTap: () => ref.read(selectedModelProvider.notifier).state = 'google/gemini-2.0-flash-001',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _ModelOptionTile(
+                title: "Gemini 1.5 Pro",
+                subtitle: "치밀하고 풍부한 서사",
+                isSelected: selectedModel == 'google/gemini-pro-1.5',
+                onTap: () => ref.read(selectedModelProvider.notifier).state = 'google/gemini-pro-1.5',
+              ),
+            ),
+          ],
+        ),
+      ],
+    ).animate().fadeIn(delay: 300.ms);
+  }
+}
+
+class _ModelOptionTile extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ModelOptionTile({
+    required this.title,
+    required this.subtitle,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF6B4EFF).withValues(alpha: 0.15) : const Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF6B4EFF) : Colors.white.withValues(alpha: 0.05),
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.white70,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                color: isSelected ? const Color(0xFF6B4EFF).withValues(alpha: 0.8) : Colors.white38,
+                fontSize: 11,
               ),
             ),
           ],

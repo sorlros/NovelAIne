@@ -29,6 +29,7 @@ create table stories (
     total_scenes integer default 0,
     current_scene_id uuid,
     cover_image_url text,
+    llm_model text default 'google/gemini-2.0-flash-001',
     created_at timestamptz default now(),
     updated_at timestamptz default now()
 );

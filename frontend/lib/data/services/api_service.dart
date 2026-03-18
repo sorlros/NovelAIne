@@ -82,21 +82,24 @@ class ApiService {
   }
 
   // Streaming Chat API
-  Stream<String> streamChat(String message, {List<Map<String, String>>? history}) async* {
+  Stream<String> streamChat(String storyId, String message, {List<Map<String, String>>? history}) async* {
+    final client = http.Client();
     final request = http.Request('POST', Uri.parse('$_baseUrl/chat/stream'));
     request.headers['Content-Type'] = 'application/json';
     request.body = jsonEncode({
+      'story_id': storyId,
       'message': message,
       'history': history ?? [],
     });
 
-    final response = await http.Client().send(request);
+    // Custom request sending with longer timeout
+    final response = await client.send(request).timeout(const Duration(seconds: 150));
 
     if (response.statusCode == 200) {
       // 바이트 스트림을 문자열 스트림으로 변환
       yield* response.stream
           .transform(utf8.decoder)
-          .transform(const LineSplitter()); // 줄바꿈 단위로 끊어줄 수도 있지만, 여기서는 실시간성을 위해 유지
+          .transform(const LineSplitter()); 
     } else {
       throw Exception('Streaming failed: ${response.statusCode}');
     }
@@ -246,16 +249,50 @@ class ApiService {
     throw Exception('Failed to upload image: ${response.body}');
   }
 
-  // Update Story (Rename/Status)
-  Future<void> updateStory(String storyId, Map<String, dynamic> updates) async {
+  // Update Story API
+  Future<Map<String, dynamic>> updateStory(String storyId, Map<String, dynamic> updates) async {
     final response = await http.patch(
       Uri.parse('$_baseUrl/stories/$storyId'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(updates),
     );
 
-    if (response.statusCode != 200) {
-      throw Exception('Failed to update story: ${response.body}');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(utf8.decoder.convert(response.bodyBytes));
+      if (data['success'] == true) {
+        return data['data'];
+      } else {
+        throw Exception(data['error']);
+      }
+    } else {
+      throw Exception('Failed to update story: ${response.statusCode}');
+    }
+  }
+
+  // Analyze Scene API for characters
+  Future<Map<String, dynamic>> analyzeScene(
+    String storyId,
+    String content,
+    List<String> characterNames,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/stories/$storyId/scenes/analyze'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'content': content,
+        'character_names': characterNames,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      if (data['success'] == true) {
+        return data['data'];
+      } else {
+        throw Exception(data['error']);
+      }
+    } else {
+      throw Exception('Failed to analyze scene: ${response.statusCode}');
     }
   }
 
@@ -290,6 +327,7 @@ class ApiService {
       // "opening_scenario": ...
       "language": ui.PlatformDispatcher.instance.locale
           .toLanguageTag(), // e.g., 'ko-KR', 'en-US'
+      "llm_model": config.llmModel ?? "google/gemini-2.0-flash-001",
     };
 
     final response = await http.post(

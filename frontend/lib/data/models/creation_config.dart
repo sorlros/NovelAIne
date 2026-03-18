@@ -23,6 +23,7 @@ class CreationConfig {
   
   String? imageStyle; // e.g., "Anime", "Realistic"
   String? appearanceDescription; // Visual consistency tags
+  String? llmModel; // Added
 
   // Step 3: Hook
   String? openingScenario;
