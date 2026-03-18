@@ -14,13 +14,21 @@ class ChatRequest(BaseModel):
     message: str
     history: Optional[List[Dict[str, str]]] = []
 
+def _get_story_model(client, story_id: UUID) -> Optional[str]:
+    """Helper to fetch the llm_model for a specific story."""
+    try:
+        story_res = client.table("stories").select("llm_model").eq("id", str(story_id)).single().execute()
+        return story_res.data.get("llm_model") if story_res.data else None
+    except Exception as e:
+        print(f"[WARNING] Failed to fetch llm_model for story {story_id}: {e}")
+        return None
+
 @router.post("")
 async def chat(request: ChatRequest):
     """일반 채팅 (한 번에 응답)"""
     try:
         client = get_supabase_client()
-        story_res = client.table("stories").select("llm_model").eq("id", str(request.story_id)).single().execute()
-        model = story_res.data.get("llm_model") if story_res.data else None
+        model = _get_story_model(client, request.story_id)
 
         chat_service = ChatService()
         response = await chat_service.generate_response(request.message, request.history, model=model)
@@ -32,8 +40,7 @@ async def chat(request: ChatRequest):
 async def chat_stream(request: ChatRequest):
     """스트리밍 채팅 (한 글자씩 응답)"""
     client = get_supabase_client()
-    story_res = client.table("stories").select("llm_model").eq("id", str(request.story_id)).single().execute()
-    model = story_res.data.get("llm_model") if story_res.data else None
+    model = _get_story_model(client, request.story_id)
 
     chat_service = ChatService()
     

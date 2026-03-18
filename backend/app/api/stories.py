@@ -65,13 +65,10 @@ async def create_story(story: StoryCreate):
         client = get_supabase_client()
         chat_service = ChatService()
 
-        # 0. User check logic (same as before)
-        user_id = None
-        try:
-            users_response = client.table("users").select("id").limit(1).execute()
-            if users_response.data:
-                user_id = users_response.data[0]["id"]
-        except: pass
+        # Use the provided user_id from the request
+        user_id = str(story.user_id) if story.user_id else None
+        if not user_id:
+            print("[WARNING] Creating story without an explicit user_id.")
 
         # Check if we need to generate story content
         generated_data = None
@@ -158,7 +155,8 @@ async def create_story(story: StoryCreate):
             try:
                 links = [{"story_id": story_id, "character_id": cid} for cid in story.character_ids]
                 client.table("story_characters").insert(links).execute()
-            except: pass
+            except Exception as e:
+                print(f"[ERROR] Failed to link characters: {e}")
 
         return ApiResponse.ok(data=created_story)
     except Exception as e:
