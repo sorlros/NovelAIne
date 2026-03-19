@@ -4,7 +4,7 @@ import 'side_menu.dart';
 class ResponsiveLayout extends StatelessWidget {
   final Widget child;
   final int currentIndex;
-  final Widget? bottomNavigationBar;
+  final Widget? bottomNavigationBar; // Keep for backward compatibility, but discourage nesting
 
   const ResponsiveLayout({
     super.key,
@@ -20,26 +20,19 @@ class ResponsiveLayout extends StatelessWidget {
         if (constraints.maxWidth >= 900) {
           // Desktop: Show Sidebar + Content
           return Scaffold(
-            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            backgroundColor: const Color(0xFF121212),
             body: Row(
               children: [
                 SideMenu(currentIndex: currentIndex),
                 Expanded(
-                  // Hide the bottom navigation bar on desktop by not passing it
                   child: child,
                 ),
               ],
             ),
           );
         } else {
-          // Mobile/Tablet: Show Content + Bottom Navigation Bar
-          if (bottomNavigationBar != null) {
-            return Scaffold(
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-              body: child,
-              bottomNavigationBar: bottomNavigationBar,
-            );
-          }
+          // Mobile/Tablet: Just show the child.
+          // The child (e.g. HomeScreen) should manage its own Scaffold and BottomNavBar.
           return child;
         }
       },

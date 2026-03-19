@@ -12,6 +12,7 @@ import '../profile/profile_screen.dart';
 import 'explore_screen.dart';
 import 'community_screen.dart';
 import '../widgets/responsive_layout.dart';
+import '../widgets/crisp_bottom_nav_bar.dart'; // 추가
 import '../providers/content_provider.dart';
 import '../widgets/custom_toast.dart';
 import '../widgets/custom_loading_indicator.dart';
@@ -37,7 +38,6 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return ResponsiveLayout(
       currentIndex: 0,
-      bottomNavigationBar: const _CrispBottomNavBar(),
       child: Scaffold(
         backgroundColor: const Color(0xFF121212),
         body: SafeArea(
@@ -62,7 +62,7 @@ class HomeScreen extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 24.0),
                         child: const _RecommendedThemes(),
                       ),
-                      // 모바일 하단 바 높이만큼 추가 여백 (스크롤 끝까지 되게 함)
+                      // 모바일 하단 바 높이만큼 추가 여백
                       const SizedBox(height: 100),
                     ],
                   ),
@@ -71,6 +71,9 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
         ),
+        bottomNavigationBar: MediaQuery.of(context).size.width < 900 
+            ? const CrispBottomNavBar(currentIndex: 0)
+            : null,
       ),
     );
   }
@@ -432,76 +435,6 @@ class _RecommendedThemes extends StatelessWidget {
           const SizedBox(width: 10),
           Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
         ],
-      ),
-    );
-  }
-}
-
-class _CrispBottomNavBar extends StatelessWidget {
-  const _CrispBottomNavBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF151515),
-        border: Border(top: BorderSide(color: Colors.white10, width: 1)),
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 12), // 하단 여백 추가
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 800),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _NavBarIcon(Icons.home_outlined, Icons.home, true, () {}),
-                  _NavBarIcon(Icons.search, Icons.search, false, () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const ExploreScreen()));
-                  }),
-                  _NavBarIcon(Icons.add_circle_outline, Icons.add_circle, false, () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const creation_screen.CreationModeSelectionScreen()));
-                  }),
-                  _NavBarIcon(Icons.forum_outlined, Icons.forum, false, () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const CommunityScreen()));
-                  }),
-                  _NavBarIcon(Icons.person_outline, Icons.person, false, () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
-                  }),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavBarIcon extends StatelessWidget {
-  final IconData iconOutlined;
-  final IconData iconSolid;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _NavBarIcon(this.iconOutlined, this.iconSolid, this.isSelected, this.onTap);
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Icon(
-            isSelected ? iconSolid : iconOutlined,
-            color: isSelected ? const Color(0xFF7C3AED) : Colors.white54,
-            size: 24, // 아이콘 크기 미세 축소
-          ),
-        ),
       ),
     );
   }

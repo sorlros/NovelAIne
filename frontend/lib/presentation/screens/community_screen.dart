@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/responsive_layout.dart';
+import '../widgets/crisp_bottom_nav_bar.dart';
 
 class CommunityScreen extends StatelessWidget {
   const CommunityScreen({super.key});
@@ -14,6 +15,10 @@ class CommunityScreen extends StatelessWidget {
           title: const Text('커뮤니티'),
           backgroundColor: Colors.transparent,
           elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
         body: Center(
           child: Column(
@@ -22,7 +27,7 @@ class CommunityScreen extends StatelessWidget {
               const Icon(Icons.forum_outlined, size: 80, color: Colors.white24),
               const SizedBox(height: 24),
               Text(
-                "독자 및 작가들과 의견을 나누고\\n세계관을 공유하는 공간입니다.",
+                "독자 및 작가들과 의견을 나누고\n세계관을 공유하는 공간입니다.",
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: Colors.white54,
@@ -50,6 +55,9 @@ class CommunityScreen extends StatelessWidget {
             ],
           ),
         ),
+        bottomNavigationBar: MediaQuery.of(context).size.width < 900 
+            ? const CrispBottomNavBar(currentIndex: 3)
+            : null,
       ),
     );
   }

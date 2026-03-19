@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/responsive_layout.dart';
+import '../widgets/crisp_bottom_nav_bar.dart';
 
 class ExploreScreen extends StatelessWidget {
   const ExploreScreen({super.key});
@@ -7,13 +8,17 @@ class ExploreScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ResponsiveLayout(
-      currentIndex: 2,
+      currentIndex: 1,
       child: Scaffold(
         backgroundColor: const Color(0xFF121212),
         appBar: AppBar(
           title: const Text('탐색'),
           backgroundColor: Colors.transparent,
           elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
         body: Center(
           child: Column(
@@ -22,7 +27,7 @@ class ExploreScreen extends StatelessWidget {
               const Icon(Icons.explore_outlined, size: 80, color: Colors.white24),
               const SizedBox(height: 24),
               Text(
-                "다른 작가들의 이야기를\\n탐색할 수 있는 공간입니다.",
+                "다른 작가들의 이야기를\n탐색할 수 있는 공간입니다.",
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: Colors.white54,
@@ -50,6 +55,9 @@ class ExploreScreen extends StatelessWidget {
             ],
           ),
         ),
+        bottomNavigationBar: MediaQuery.of(context).size.width < 900 
+            ? const CrispBottomNavBar(currentIndex: 1)
+            : null,
       ),
     );
   }
