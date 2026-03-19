@@ -21,11 +21,15 @@ class StoryRepository {
   // 1. Stories Caching
   Future<List<StoryModel>> getStories({String? userId, bool forceRefresh = false}) async {
     try {
-      // Check local DB first
-      final localStories = await database.select(database.stories).get();
+      // Check local DB first with userId filtering
+      final query = database.select(database.stories);
+      if (userId != null) {
+        query.where((t) => t.userId.equals(userId));
+      }
+      final localStories = await query.get();
       
       if (localStories.isNotEmpty && !forceRefresh) {
-        debugPrint("🟢 [Cache] Found ${localStories.length} stories in Local DB.");
+        debugPrint("🟢 [Cache] Found ${localStories.length} stories for user $userId in Local DB.");
         return localStories.map((s) => StoryModel(
           id: s.id,
           title: s.title,
@@ -41,7 +45,7 @@ class StoryRepository {
       if (forceRefresh) {
         debugPrint("🔄 [Cache] Force refresh requested. Fetching from API...");
       } else {
-        debugPrint("🟡 [Cache] Local DB is empty. Fetching from API...");
+        debugPrint("🟡 [Cache] Local DB is empty or user mismatch. Fetching from API...");
       }
     } catch (e) {
       debugPrint("❌ [Cache] Database read failed or not supported: $e");
