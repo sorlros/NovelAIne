@@ -31,6 +31,10 @@
 
   <title>frontend</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    // Force canvaskit renderer to prevent icon/font rendering issues (X in a square)
+    window.flutterWebRenderer = "canvaskit";
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
