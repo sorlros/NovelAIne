@@ -24,16 +24,19 @@ jobs:
         run: |
           cd frontend
           flutter pub get
+- name: Build Web
+  run: |
+    cd frontend
+    flutter pub get
+    # --no-tree-shake-icons: 아이콘 깨짐 방지
+    # --web-renderer canvaskit: 렌더링 일관성 확보
+    flutter build web --release --no-tree-shake-icons --web-renderer canvaskit
 
-      - name: Build Web
-        run: |
-          cd frontend
-          flutter build web --release
-          
-          # Vercel의 Root Directory 설정(frontend)과 맞추기 위해 dist/frontend 구조 생성
-          mkdir -p ../dist/frontend
-          cp -r build/web/* ../dist/frontend/
-          cp vercel.json ../dist/frontend/
+    # Vercel의 Root Directory 설정(frontend)과 맞추기 위해 dist/frontend 구조 생성
+    mkdir -p ../dist/frontend
+    cp -r build/web/* ../dist/frontend/
+    cp vercel.json ../dist/frontend/
+
 
       - name: Deploy to Vercel
         uses: amondnet/vercel-action@v25
