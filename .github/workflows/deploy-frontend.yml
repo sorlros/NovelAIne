@@ -29,7 +29,11 @@ jobs:
         run: |
           cd frontend
           flutter build web --release
-          cp vercel.json build/web/
+          
+          # Vercel의 Root Directory 설정(frontend)과 맞추기 위해 dist/frontend 구조 생성
+          mkdir -p ../dist/frontend
+          cp -r build/web/* ../dist/frontend/
+          cp vercel.json ../dist/frontend/
 
       - name: Deploy to Vercel
         uses: amondnet/vercel-action@v20
@@ -37,4 +41,5 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: 'frontend/build/web --prod'
+          working-directory: dist
+          vercel-args: '--prod'
