@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 import 'story_screen.dart';
 import 'creation/mode_selection_screen.dart' as creation_screen;
+import 'vault/vault_screen.dart'; // 추가
 import '../profile/profile_screen.dart';
 import 'explore_screen.dart';
 import 'community_screen.dart';
@@ -37,27 +38,33 @@ class HomeScreen extends StatelessWidget {
     return ResponsiveLayout(
       currentIndex: 0,
       bottomNavigationBar: const _CrispBottomNavBar(),
-      child: const Scaffold(
-        backgroundColor: Color(0xFF121212),
+      child: Scaffold(
+        backgroundColor: const Color(0xFF121212),
         body: SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24.0),
-                    child: _HeaderSection(),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 24.0),
+                        child: _HeaderSection(),
+                      ),
+                      const SizedBox(height: 32),
+                      const _HorizontalStoryList(),
+                      const SizedBox(height: 48),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                        child: const _RecommendedThemes(),
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 32),
-                  _HorizontalStoryList(),
-                  SizedBox(height: 48),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24.0),
-                    child: _RecommendedThemes(),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -75,21 +82,44 @@ class _HeaderSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          "계속 쓰기",
-          style: GoogleFonts.notoSerif(
-            fontWeight: FontWeight.bold,
-            fontSize: 32,
-            color: Colors.white,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          "당신의 상상력이 현실이 되는 곳입니다.",
-          style: GoogleFonts.lato(
-            color: Colors.white54,
-            fontSize: 15,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "계속 쓰기",
+                    style: GoogleFonts.notoSerif(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 32,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    "당신의 상상력이 현실이 되는 곳입니다.",
+                    style: GoogleFonts.lato(
+                      color: Colors.white54,
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CharacterVaultScreen()),
+                );
+              },
+              icon: const Icon(Icons.archive_outlined, color: Color(0xFF00E5FF), size: 28),
+              tooltip: "캐릭터 보관함",
+            ),
+          ],
         ),
         const SizedBox(height: 24),
         SizedBox(
@@ -186,6 +216,7 @@ class _HorizontalStoryListState extends ConsumerState<_HorizontalStoryList> {
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
+            physics: const BouncingScrollPhysics(),
             itemCount: stories.length,
             itemBuilder: (context, index) {
               return _StoryCard(story: stories[index], index: index);
@@ -193,7 +224,10 @@ class _HorizontalStoryListState extends ConsumerState<_HorizontalStoryList> {
           ),
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const SizedBox(
+        height: 320,
+        child: Center(child: CircularProgressIndicator(color: Color(0xFF6B4EFF))),
+      ),
       error: (error, _) => Center(child: Text('Error: $error', style: const TextStyle(color: Colors.red))),
     );
   }
@@ -392,23 +426,28 @@ class _CrispBottomNavBar extends StatelessWidget {
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _NavBarIcon(Icons.home_outlined, Icons.home, true, () {}),
-              _NavBarIcon(Icons.search, Icons.search, false, () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const ExploreScreen()));
-              }),
-              _NavBarIcon(Icons.add_circle_outline, Icons.add_circle, false, () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const creation_screen.CreationModeSelectionScreen()));
-              }),
-              _NavBarIcon(Icons.forum_outlined, Icons.forum, false, () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const CommunityScreen()));
-              }),
-              _NavBarIcon(Icons.person_outline, Icons.person, false, () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
-              }),
-            ],
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _NavBarIcon(Icons.home_outlined, Icons.home, true, () {}),
+                  _NavBarIcon(Icons.search, Icons.search, false, () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const ExploreScreen()));
+                  }),
+                  _NavBarIcon(Icons.add_circle_outline, Icons.add_circle, false, () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const creation_screen.CreationModeSelectionScreen()));
+                  }),
+                  _NavBarIcon(Icons.forum_outlined, Icons.forum, false, () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const CommunityScreen()));
+                  }),
+                  _NavBarIcon(Icons.person_outline, Icons.person, false, () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
+                  }),
+                ],
+              ),
+            ),
           ),
         ),
       ),

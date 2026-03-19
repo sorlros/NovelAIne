@@ -29,6 +29,9 @@ final storyCharactersProvider = StateProvider.autoDispose<List<Map<String, dynam
 final presentCharacterNamesProvider = StateProvider.autoDispose<List<String>>((ref) => []);
 final importantCharacterNamesProvider = StateProvider.autoDispose<List<String>>((ref) => []);
 
+// [개선] 캐릭터 등장 지속성 관리를 위한 상태 (이름: 남은 장면 수)
+final characterPersistenceProvider = StateProvider.autoDispose<Map<String, int>>((ref) => {});
+
 // 폰트 상태 관리 추가
 final selectedFontProvider = StateProvider.autoDispose<String>((ref) => 'Noto Serif KR');
 // 현재 이야기의 AI 모델 상태 관리
@@ -232,15 +235,29 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
 
         ref.read(presentCharacterNamesProvider.notifier).state = present;
         ref.read(importantCharacterNamesProvider.notifier).state = important;
+
+        // [개선] 등장 인물의 지속성(TTL) 업데이트
+        ref.read(characterPersistenceProvider.notifier).update((state) {
+          final newState = Map<String, int>.from(state);
+          
+          // 1. 기존 인물들의 TTL 감소
+          newState.updateAll((name, ttl) => ttl - 1);
+          
+          // 2. 현재 장면에 등장한 인물들의 TTL 설정/갱신
+          for (var name in present) {
+            // 중요 인물은 더 오래(5장면), 일반 인물은 3장면 동안 유지
+            final int ttl = important.contains(name) ? 5 : 3;
+            newState[name] = ttl;
+          }
+          
+          // 3. TTL이 0 이하인 인물 제거 (소멸)
+          newState.removeWhere((name, ttl) => ttl <= 0);
+          
+          return newState;
+        });
       }
     } catch (e) {
       debugPrint("🚨 Character Analysis Error: $e");
-      if (mounted && ref.read(presentCharacterNamesProvider).isEmpty) {
-        final protagonist = characters.firstWhere((c) => c['role_in_story'] == 'protagonist', orElse: () => {});
-        if (protagonist.isNotEmpty) {
-          ref.read(presentCharacterNamesProvider.notifier).state = [protagonist['name']];
-        }
-      }
     }
   }
 
@@ -330,13 +347,17 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     final characters = ref.watch(storyCharactersProvider);
     final presentNames = ref.watch(presentCharacterNamesProvider);
     final importantNames = ref.watch(importantCharacterNamesProvider);
+    final persistence = ref.watch(characterPersistenceProvider);
 
     final visibleCharacters = characters.where((c) {
       final name = c['name'].toString();
       final isProtagonist = c['role_in_story'] == 'protagonist';
       if (isProtagonist) return true;
+      
+      // 현재 장면에 있거나, 지속성(TTL)이 남아있는 경우 표시
       return presentNames.any((pn) => name.contains(pn) || pn.contains(name)) ||
-             importantNames.any((inm) => name.contains(inm) || inm.contains(name));
+             importantNames.any((inm) => name.contains(inm) || inm.contains(name)) ||
+             persistence.containsKey(name);
     }).toList();
 
     return Scaffold(
