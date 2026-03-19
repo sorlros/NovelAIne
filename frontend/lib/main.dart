@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:frontend/l10n/app_localizations.dart';
+import 'core/constants.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/screens/auth/auth_screen.dart';
 import 'data/local/app_database.dart';
@@ -11,15 +13,18 @@ void main() async {
   // 1. Flutter 바인딩 초기화
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 2. [성능 최적화] 엔진 예열 (Pre-warming)
+  // 2. [성능 최적화] 엔진 및 서버 예열 (Pre-warming)
   final database = AppDatabase();
   final apiService = ApiService();
   final repository = StoryRepository(apiService: apiService, database: database);
   
-  // 가벼운 쿼리를 날려 Isolate 풀과 DB 커넥션을 미리 활성화 (Warming up)
-  try {
-    await database.select(database.stories).get();
-  } catch (_) {}
+  // 서버와 로컬 DB를 미리 활성화 (Warming up)
+  Future.wait([
+    // 백엔드 서버(Render) 및 Supabase 깨우기
+    http.get(Uri.parse(AppConstants.baseUrl.replaceFirst('/api', ''))).catchError((_) => http.Response('', 500)),
+    // 로컬 DB 커넥션 예열
+    database.select(database.stories).get().catchError((_) => []),
+  ]);
 
   runApp(
     ProviderScope(

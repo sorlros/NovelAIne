@@ -31,8 +31,15 @@ app.add_middleware(
 
 
 @app.get("/")
-def read_root():
-    return {"status": "서버가 정상적으로 작동중", "version": "0.1.0"}
+async def read_root():
+    # Warm up Supabase connection on root request to mitigate cold start issues
+    from app.services.supabase_client import check_connection
+    is_db_ready = await check_connection()
+    return {
+        "status": "서버가 정상적으로 작동중", 
+        "version": "0.1.0",
+        "database": "ready" if is_db_ready else "initializing"
+    }
 
 
 app.include_router(chat_router, prefix="/api")
