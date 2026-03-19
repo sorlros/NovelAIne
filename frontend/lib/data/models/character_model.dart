@@ -2,7 +2,7 @@ class CharacterModel {
   final String id;
   final String name;
   final String description;
-  final Map<String, dynamic> personalityTraits;
+  final List<String> personalityTraits;
   final String? backgroundStory;
   final String? imageUrl;
 
@@ -21,12 +21,10 @@ class CharacterModel {
       name: json['name'],
       description:
           (json['description'] as String?)?.replaceAll('\\n', '\n') ?? '',
-      // Ensure we parse correctly whether it's a Map or a List from the backend
-      personalityTraits: json['personality_traits'] is Map
-          ? Map<String, dynamic>.from(json['personality_traits'])
-          : json['personality_traits'] is List
-          ? {'traits': List<String>.from(json['personality_traits'])}
-          : {},
+      // Ensure we parse correctly from the backend's text array (List<dynamic>)
+      personalityTraits: json['personality_traits'] != null
+          ? List<String>.from(json['personality_traits'])
+          : [],
       backgroundStory: json['background_story'],
       imageUrl: json['image_url'],
     );

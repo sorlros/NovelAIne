@@ -81,7 +81,11 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       // 선택된 모델 설정
       _config.llmModel = ref.read(selectedModelProvider);
       
-      final createdStory = await apiService.createStory(_config);
+      // [수정] 현재 로그인된 사용자 ID 가져오기
+      final authState = ref.read(authProvider);
+      final userId = authState.value?.id;
+      
+      final createdStory = await apiService.createStory(_config, userId: userId);
 
       final repository = ref.read(storyRepositoryProvider);
 

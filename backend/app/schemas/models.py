@@ -66,13 +66,14 @@ class StoryCharacterLink(BaseModel):
 class StoryBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     genre: str = Field(
-        ..., pattern="^(fantasy|scifi|mystery|romance|horror|adventure)$"
+        ..., pattern="^(fantasy|scifi|mystery|romance|horror|adventure|wuxia|apocalypse|cyberpunk|other)$"
     )
     description: Optional[str] = Field(None, max_length=2000)
 
 
 class StoryCreate(BaseModel):
     title: Optional[str] = Field(None, max_length=200)  # Optional, can be generated
+    user_id: Optional[UUID] = None
     genre: str = Field(..., pattern="^(fantasy|scifi|mystery|romance|horror|adventure|wuxia|apocalypse|cyberpunk|other)$")
     description: Optional[str] = Field(None, max_length=2000)
     # Generation params

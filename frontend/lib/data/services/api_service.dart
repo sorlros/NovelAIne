@@ -311,11 +311,12 @@ class ApiService {
   }
 
   // Create Story (Wizard)
-  Future<StoryModel> createStory(CreationConfig config) async {
+  Future<StoryModel> createStory(CreationConfig config, {String? userId}) async {
     final url = Uri.parse('$_baseUrl/stories');
 
     // Map Config to Backend Request
     final Map<String, dynamic> body = {
+      "user_id": userId,
       "genre": _mapGenreToBackend(config.genreLabel),
       "tone": config.toneLabel,
       "protagonist_name": config.userName,
