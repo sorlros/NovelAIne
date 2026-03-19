@@ -31,6 +31,7 @@ app.add_middleware(
 
 
 @app.get("/")
+@app.head("/")
 async def read_root():
     # Warm up Supabase connection on root request to mitigate cold start issues
     from app.services.supabase_client import check_connection
