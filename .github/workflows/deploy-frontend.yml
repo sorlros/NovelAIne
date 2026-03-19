@@ -3,10 +3,11 @@ name: Deploy Frontend to Vercel
 on:
   push:
     branches:
-      - main
+      - release
     paths:
       - 'frontend/**'
       - '.github/workflows/**'
+  workflow_dispatch: # Allows manual triggering from GitHub UI
 
 jobs:
   deploy:

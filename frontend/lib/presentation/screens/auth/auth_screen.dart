@@ -36,18 +36,50 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
 
   Future<void> _submit() async {
     final isLogin = _tabController.index == 0;
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final username = _usernameController.text.trim();
+
+    // 1. 공통 유효성 검사
+    if (email.isEmpty) {
+      _showError("이메일을 입력해주세요.");
+      return;
+    }
+    if (password.isEmpty) {
+      _showError("비밀번호를 입력해주세요.");
+      return;
+    }
+
+    // 2. 한국어 포함 여부 검사 (아이디/이메일에 한국어 금지)
+    final koreanRegex = RegExp(r'[ㄱ-ㅎㅏ-ㅣ가-힣]');
+    if (koreanRegex.hasMatch(email)) {
+      _showError("아이디(이메일)에 한국어를 포함할 수 없습니다.");
+      return;
+    }
+
+    // 3. 이메일 형식 검사 (간단한 정규식)
+    final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    if (!emailRegex.hasMatch(email)) {
+      _showError("유효한 이메일 형식이 아닙니다.");
+      return;
+    }
+
+    // 4. 회원가입 시 추가 검사
+    if (!isLogin) {
+      if (username.isEmpty) {
+        _showError("사용자 이름을 입력해주세요.");
+        return;
+      }
+      if (password.length < 6) {
+        _showError("비밀번호는 최소 6자 이상이어야 합니다.");
+        return;
+      }
+    }
 
     if (isLogin) {
-      await ref.read(authProvider.notifier).login(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-      );
+      await ref.read(authProvider.notifier).login(email, password);
     } else {
-      await ref.read(authProvider.notifier).signup(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-        _usernameController.text.trim(),
-      );
+      await ref.read(authProvider.notifier).signup(email, password, username);
     }
 
     final authState = ref.read(authProvider);
@@ -58,13 +90,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
       );
     } else if (authState.hasError) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("인증 실패: ${authState.error}"),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      _showError("${authState.error}");
     }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
