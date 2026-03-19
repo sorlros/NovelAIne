@@ -6,6 +6,7 @@ import 'package:frontend/l10n/app_localizations.dart';
 import '../../../../data/models/creation_config.dart';
 import '../../../../data/services/api_service.dart';
 import '../../../../data/repositories/story_repository.dart';
+import '../../providers/auth_provider.dart'; // Added
 import '../../providers/content_provider.dart'; // Added
 import '../../widgets/custom_loading_indicator.dart';
 import '../story_screen.dart';

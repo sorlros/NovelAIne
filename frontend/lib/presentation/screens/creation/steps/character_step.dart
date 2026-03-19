@@ -145,11 +145,9 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
                                     _appearanceController.text = fullDesc;
                                     widget.config.appearanceDescription = fullDesc;
                                     widget.config.personalityTraits.clear();
-                                    if (char.personalityTraits.containsKey('traits') && char.personalityTraits['traits'] is List) {
-                                      final traitsList = List<String>.from(char.personalityTraits['traits']);
-                                      for (var t in traitsList.take(3)) {
-                                        widget.config.personalityTraits.add(t);
-                                      }
+                                    // [수정] personalityTraits는 이제 직접 List<String> 임
+                                    for (var t in char.personalityTraits.take(3)) {
+                                      widget.config.personalityTraits.add(t);
                                     }
                                   });
                                 },
