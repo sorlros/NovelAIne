@@ -11,17 +11,18 @@ router = APIRouter(prefix="/characters", tags=["characters"])
 
 @router.get("", response_model=ApiResponse)
 async def list_characters(
+    user_id: Optional[str] = None,
     limit: int = Query(default=10, ge=1, le=100), offset: int = Query(default=0, ge=0)
 ):
-    """List all characters."""
+    """List all characters with optional user_id filtering."""
     try:
         client = get_supabase_client()
-        response = (
-            client.table("characters")
-            .select("*")
-            .range(offset, offset + limit - 1)
-            .execute()
-        )
+        query = client.table("characters").select("*")
+        
+        if user_id:
+            query = query.eq("user_id", user_id)
+            
+        response = query.range(offset, offset + limit - 1).execute()
 
         return ApiResponse.ok(
             data=response.data,

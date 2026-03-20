@@ -111,93 +111,102 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D12),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth >= 800) {
-            return Row(
-              children: [
-                Expanded(
-                  flex: 5,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          const Color(0xFF151515),
-                          const Color(0xFF0D0D12),
-                          const Color(0xFF6B4EFF).withValues(alpha: 0.1),
-                        ],
-                      ),
-                    ),
-                    child: const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.auto_stories, color: Colors.white, size: 80),
-                          SizedBox(height: 24),
-                          Text(
-                            "NovelAIne",
-                            style: TextStyle(
-                              fontSize: 48,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              letterSpacing: -1,
-                            ),
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            "당신의 상상력이 현실이 되는 곳",
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: Colors.white54,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ).animate().fadeIn(duration: 800.ms),
-                  ),
-                ),
-                Expanded(
-                  flex: 4,
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 400),
-                      child: _buildFormCard(isLoading),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          } else {
-            return Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 400),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.auto_stories, color: Colors.white, size: 48),
-                      const SizedBox(height: 16),
-                      const Text(
-                        "NovelAIne",
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          letterSpacing: -1,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth >= 800) {
+              return Row(
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            const Color(0xFF151515),
+                            const Color(0xFF0D0D12),
+                            const Color(0xFF6B4EFF).withValues(alpha: 0.1),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 32),
-                      _buildFormCard(isLoading),
-                    ],
+                      child: const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.auto_stories, color: Colors.white, size: 80),
+                            SizedBox(height: 24),
+                            Text(
+                              "NovelAIne",
+                              style: TextStyle(
+                                fontSize: 48,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: -1,
+                              ),
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              "당신의 상상력이 현실이 되는 곳",
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.white54,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ).animate().fadeIn(duration: 800.ms),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 4,
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 40.0),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 400),
+                            child: _buildFormCard(isLoading),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            } else {
+              return Center(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.auto_stories, color: Colors.white, size: 48),
+                        const SizedBox(height: 16),
+                        const Text(
+                          "NovelAIne",
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: -1,
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        _buildFormCard(isLoading),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          }
-        },
+              );
+            }
+          },
+        ),
       ),
     );
   }

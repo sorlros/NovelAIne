@@ -1,47 +1,55 @@
 import 'package:flutter/material.dart';
 import 'side_menu.dart';
+import 'crisp_bottom_nav_bar.dart';
 
 class ResponsiveLayout extends StatelessWidget {
-  final Widget child;
+  final Widget body;
   final int currentIndex;
-  final Widget? bottomNavigationBar;
+  final PreferredSizeWidget? appBar;
+  final Widget? floatingActionButton;
+  final Color backgroundColor;
+  final bool showBottomNav;
+  final bool extendBodyBehindAppBar;
 
   const ResponsiveLayout({
     super.key,
-    required this.child,
+    required this.body,
     required this.currentIndex,
-    this.bottomNavigationBar,
+    this.appBar,
+    this.floatingActionButton,
+    this.backgroundColor = const Color(0xFF121212),
+    this.showBottomNav = true,
+    this.extendBodyBehindAppBar = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth >= 900) {
-          // Desktop: Show Sidebar + Content
-          return Scaffold(
-            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-            body: Row(
-              children: [
-                SideMenu(currentIndex: currentIndex),
-                Expanded(
-                  // Hide the bottom navigation bar on desktop by not passing it
-                  child: child,
-                ),
-              ],
-            ),
-          );
-        } else {
-          // Mobile/Tablet: Show Content + Bottom Navigation Bar
-          if (bottomNavigationBar != null) {
-            return Scaffold(
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-              body: child,
-              bottomNavigationBar: bottomNavigationBar,
-            );
-          }
-          return child;
-        }
+        final bool isDesktop = constraints.maxWidth >= 900;
+
+        return Scaffold(
+          backgroundColor: backgroundColor,
+          extendBodyBehindAppBar: extendBodyBehindAppBar,
+          // Desktop: SideMenu handles the navigation, so we typically don't show the top appBar 
+          // unless it's specifically needed for the screen's internal actions.
+          // Mobile: Show the passed appBar if any.
+          appBar: isDesktop ? null : appBar,
+          body: isDesktop
+              ? Row(
+                  children: [
+                    SideMenu(currentIndex: currentIndex),
+                    Expanded(
+                      child: body,
+                    ),
+                  ],
+                )
+              : body,
+          floatingActionButton: floatingActionButton,
+          bottomNavigationBar: (!isDesktop && showBottomNav)
+              ? CrispBottomNavBar(currentIndex: currentIndex)
+              : null,
+        );
       },
     );
   }

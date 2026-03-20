@@ -173,8 +173,12 @@ class ApiService {
   }
 
   // Characters API
-  Future<List<dynamic>> fetchCharacters() async {
-    final response = await http.get(Uri.parse('$_baseUrl/characters'));
+  Future<List<dynamic>> fetchCharacters({String? userId}) async {
+    final uri = userId != null
+        ? Uri.parse('$_baseUrl/characters?user_id=$userId')
+        : Uri.parse('$_baseUrl/characters');
+        
+    final response = await http.get(uri);
 
     if (response.statusCode == 200) {
       final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
@@ -216,6 +220,29 @@ class ApiService {
       }
     } else {
       throw Exception('Failed to create character: ${response.body}');
+    }
+  }
+
+  // Update Character API
+  Future<Map<String, dynamic>> updateCharacter(
+    String characterId,
+    Map<String, dynamic> updates,
+  ) async {
+    final response = await http.patch(
+      Uri.parse('$_baseUrl/characters/$characterId'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(updates),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      if (data['success'] == true) {
+        return data['data'];
+      } else {
+        throw Exception(data['error']);
+      }
+    } else {
+      throw Exception('Failed to update character: ${response.statusCode}');
     }
   }
 

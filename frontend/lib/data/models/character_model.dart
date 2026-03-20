@@ -4,7 +4,9 @@ class CharacterModel {
   final String description;
   final List<String> personalityTraits;
   final String? backgroundStory;
+  final String? appearanceDescription;
   final String? imageUrl;
+  final bool isInVault;
 
   CharacterModel({
     required this.id,
@@ -12,7 +14,9 @@ class CharacterModel {
     required this.description,
     required this.personalityTraits,
     this.backgroundStory,
+    this.appearanceDescription,
     this.imageUrl,
+    this.isInVault = false,
   });
 
   factory CharacterModel.fromJson(Map<String, dynamic> json) {
@@ -26,7 +30,9 @@ class CharacterModel {
           ? List<String>.from(json['personality_traits'])
           : [],
       backgroundStory: json['background_story'],
+      appearanceDescription: json['appearance_description'],
       imageUrl: json['image_url'],
+      isInVault: json['is_in_vault'] ?? false,
     );
   }
 }

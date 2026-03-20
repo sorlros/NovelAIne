@@ -30,6 +30,9 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
   final TextEditingController _appearanceController = TextEditingController();
   Uint8List? _selectedImageBytes;
   final ImagePicker _imagePicker = ImagePicker();
+  
+  // 필터 상태 추가
+  bool _showOnlyVaulted = false;
 
   @override
   void initState() {
@@ -111,25 +114,51 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
                 ).animate().fadeIn(delay: 100.ms, duration: 400.ms),
                 const SizedBox(height: 32),
 
-                // ── My Characters Selection ──
-                _SectionHeader(
-                  title: "저장된 캐릭터 불러오기",
-                  accentColor: accentColor,
+                // ── My Characters Selection with Filter ──
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _SectionHeader(
+                      title: "저장된 캐릭터 불러오기",
+                      accentColor: accentColor,
+                    ),
+                    TextButton.icon(
+                      onPressed: () => setState(() => _showOnlyVaulted = !_showOnlyVaulted),
+                      icon: Icon(
+                        _showOnlyVaulted ? Icons.star_rounded : Icons.star_outline_rounded,
+                        size: 18,
+                        color: _showOnlyVaulted ? Colors.amber : Colors.white30,
+                      ),
+                      label: Text(
+                        "보관함만",
+                        style: TextStyle(
+                          color: _showOnlyVaulted ? Colors.amber : Colors.white30,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
-                  height: 100,
+                  height: 110,
                   child: ref.watch(charactersProvider).when(
                         data: (characters) {
-                          if (characters.isEmpty) {
-                            return _EmptyCharacterState();
+                          final filteredList = _showOnlyVaulted 
+                              ? characters.where((c) => c.isInVault).toList()
+                              : characters;
+
+                          if (filteredList.isEmpty) {
+                            return _EmptyCharacterState(
+                              message: _showOnlyVaulted ? "보관된 캐릭터가 없습니다." : "저장된 캐릭터가 없습니다.",
+                            );
                           }
                           return ListView.builder(
                             scrollDirection: Axis.horizontal,
                             physics: const BouncingScrollPhysics(),
-                            itemCount: characters.length,
+                            itemCount: filteredList.length,
                             itemBuilder: (context, index) {
-                              final char = characters[index];
+                              final char = filteredList[index];
                               return _CharacterListItem(
                                 char: char,
                                 isSelected: widget.config.userName == char.name,
@@ -145,7 +174,6 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
                                     _appearanceController.text = fullDesc;
                                     widget.config.appearanceDescription = fullDesc;
                                     widget.config.personalityTraits.clear();
-                                    // [수정] personalityTraits는 이제 직접 List<String> 임
                                     for (var t in char.personalityTraits.take(3)) {
                                       widget.config.personalityTraits.add(t);
                                     }
@@ -376,31 +404,40 @@ class _CharacterListItem extends StatelessWidget {
             width: 1.5,
           ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
           children: [
-            if (char.imageUrl != null && char.imageUrl!.isNotEmpty)
-              CircleAvatar(
-                radius: 20,
-                backgroundImage: CachedNetworkImageProvider(char.imageUrl!),
-              )
-            else
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: accentColor.withValues(alpha: 0.1),
-                child: Icon(Icons.person_rounded, size: 20, color: accentColor),
-              ),
-            const SizedBox(height: 8),
-            Text(
-              char.name,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isSelected ? accentColor : Colors.white,
-                fontSize: 13,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (char.imageUrl != null && char.imageUrl!.isNotEmpty)
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundImage: CachedNetworkImageProvider(char.imageUrl!),
+                  )
+                else
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: accentColor.withValues(alpha: 0.1),
+                    child: Icon(Icons.person_rounded, size: 20, color: accentColor),
+                  ),
+                const SizedBox(height: 8),
+                Text(
+                  char.name,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? accentColor : Colors.white,
+                    fontSize: 13,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
+            if (char.isInVault)
+              const Positioned(
+                top: 0, right: 0,
+                child: Icon(Icons.star_rounded, color: Colors.amber, size: 12),
+              ),
           ],
         ),
       ),
@@ -409,6 +446,9 @@ class _CharacterListItem extends StatelessWidget {
 }
 
 class _EmptyCharacterState extends StatelessWidget {
+  final String message;
+  const _EmptyCharacterState({this.message = "저장된 캐릭터가 없습니다."});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -418,10 +458,10 @@ class _EmptyCharacterState extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
-      child: const Center(
+      child: Center(
         child: Text(
-          "저장된 캐릭터가 없습니다.",
-          style: TextStyle(color: Colors.white24, fontSize: 12),
+          message,
+          style: const TextStyle(color: Colors.white24, fontSize: 12),
         ),
       ),
     );

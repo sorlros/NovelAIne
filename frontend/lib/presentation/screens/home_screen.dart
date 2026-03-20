@@ -1,16 +1,20 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 import 'story_screen.dart';
 import 'creation/mode_selection_screen.dart' as creation_screen;
+import 'vault/vault_screen.dart'; // 추가
 import '../profile/profile_screen.dart';
 import 'explore_screen.dart';
 import 'community_screen.dart';
 import '../widgets/responsive_layout.dart';
+import '../widgets/crisp_bottom_nav_bar.dart'; // 추가
 import '../providers/content_provider.dart';
 import '../widgets/custom_toast.dart';
 import '../widgets/custom_loading_indicator.dart';
@@ -36,28 +40,32 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return ResponsiveLayout(
       currentIndex: 0,
-      bottomNavigationBar: const _CrispBottomNavBar(),
-      child: const Scaffold(
-        backgroundColor: Color(0xFF121212),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24.0),
-                    child: _HeaderSection(),
-                  ),
-                  SizedBox(height: 32),
-                  _HorizontalStoryList(),
-                  SizedBox(height: 48),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24.0),
-                    child: _RecommendedThemes(),
-                  ),
-                ],
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 24.0),
+                      child: _HeaderSection(),
+                    ),
+                    const SizedBox(height: 32),
+                    const _HorizontalStoryList(),
+                    const SizedBox(height: 48),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      child: const _RecommendedThemes(),
+                    ),
+                    // 모바일 하단 바 높이만큼 추가 여백
+                    const SizedBox(height: 100),
+                  ],
+                ),
               ),
             ),
           ),
@@ -72,30 +80,61 @@ class _HeaderSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isMobile = MediaQuery.of(context).size.width < 600;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          "계속 쓰기",
-          style: GoogleFonts.notoSerif(
-            fontWeight: FontWeight.bold,
-            fontSize: 32,
-            color: Colors.white,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          "당신의 상상력이 현실이 되는 곳입니다.",
-          style: GoogleFonts.lato(
-            color: Colors.white54,
-            fontSize: 15,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "계속 쓰기",
+                    style: GoogleFonts.notoSerif(
+                      fontWeight: FontWeight.bold,
+                      fontSize: isMobile ? 28 : 32, // 모바일에서 폰트 축소
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    "당신의 상상력이 현실이 되는 곳입니다.",
+                    style: GoogleFonts.lato(
+                      color: Colors.white54,
+                      fontSize: isMobile ? 14 : 15,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CharacterVaultScreen()),
+                );
+              },
+              icon: Icon(
+                Icons.archive_outlined, 
+                color: const Color(0xFF00E5FF), 
+                size: isMobile ? 24 : 28
+              ),
+              tooltip: "캐릭터 보관함",
+            ),
+          ],
         ),
         const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: () {
+              HapticFeedback.mediumImpact();
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -167,6 +206,7 @@ class _HorizontalStoryListState extends ConsumerState<_HorizontalStoryList> {
   @override
   Widget build(BuildContext context) {
     final storiesState = ref.watch(storiesProvider);
+    final bool isMobile = MediaQuery.of(context).size.width < 600;
 
     return storiesState.when(
       data: (stories) {
@@ -182,10 +222,11 @@ class _HorizontalStoryListState extends ConsumerState<_HorizontalStoryList> {
         });
 
         return SizedBox(
-          height: 320,
+          height: isMobile ? 280 : 320, // 모바일에서 높이 축소
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
+            physics: const BouncingScrollPhysics(),
             itemCount: stories.length,
             itemBuilder: (context, index) {
               return _StoryCard(story: stories[index], index: index);
@@ -193,8 +234,31 @@ class _HorizontalStoryListState extends ConsumerState<_HorizontalStoryList> {
           ),
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => _buildShimmer(isMobile),
       error: (error, _) => Center(child: Text('Error: $error', style: const TextStyle(color: Colors.red))),
+    );
+  }
+
+  Widget _buildShimmer(bool isMobile) {
+    return SizedBox(
+      height: isMobile ? 280 : 320,
+      child: Shimmer.fromColors(
+        baseColor: Colors.white.withValues(alpha: 0.05),
+        highlightColor: Colors.white.withValues(alpha: 0.1),
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: 3,
+          itemBuilder: (context, index) => Container(
+            width: isMobile ? 170 : 200,
+            margin: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -206,15 +270,18 @@ class _StoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isMobile = MediaQuery.of(context).size.width < 600;
+
     return GestureDetector(
       onTap: () {
+        HapticFeedback.selectionClick();
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => StoryScreen(initialStory: story)),
         );
       },
       child: Container(
-        width: 200,
+        width: isMobile ? 170 : 200, // 모바일에서 가로폭 축소
         margin: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
@@ -230,7 +297,7 @@ class _StoryCard extends StatelessWidget {
         child: Stack(
           children: [
             if (story.coverImageUrl == null)
-              Center(child: Icon(Icons.book, color: Colors.white.withValues(alpha: 0.1), size: 64)),
+              Center(child: Icon(Icons.book, color: Colors.white.withValues(alpha: 0.1), size: isMobile ? 48 : 64)),
             Positioned(
               bottom: 0, left: 0, right: 0,
               child: Container(
@@ -248,14 +315,18 @@ class _StoryCard extends StatelessWidget {
                   children: [
                     Text(
                       story.title,
-                      style: GoogleFonts.notoSerif(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                      style: GoogleFonts.notoSerif(
+                        color: Colors.white, 
+                        fontWeight: FontWeight.bold, 
+                        fontSize: isMobile ? 14 : 16
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       story.genre.toUpperCase(),
-                      style: GoogleFonts.lato(color: const Color(0xFF6B4EFF), fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1),
+                      style: GoogleFonts.lato(color: const Color(0xFF6B4EFF), fontWeight: FontWeight.w900, fontSize: 9, letterSpacing: 1),
                     ),
                   ],
                 ),
@@ -298,6 +369,7 @@ class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
     );
 
     if (confirm != true || !mounted) return;
+    HapticFeedback.vibrate();
     setState(() => _isLoading = true);
 
     try {
@@ -339,6 +411,8 @@ class _RecommendedThemes extends StatelessWidget {
       {'title': '로맨스 스릴러', 'icon': Icons.favorite},
     ];
 
+    final bool isMobile = MediaQuery.of(context).size.width < 600;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -346,7 +420,14 @@ class _RecommendedThemes extends StatelessWidget {
           children: [
             const Icon(Icons.trending_up, color: Color(0xFF6B4EFF), size: 24),
             const SizedBox(width: 12),
-            Text("추천 테마", style: GoogleFonts.notoSerif(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+            Text(
+              "추천 테마", 
+              style: GoogleFonts.notoSerif(
+                fontSize: isMobile ? 18 : 20, 
+                fontWeight: FontWeight.bold, 
+                color: Colors.white
+              )
+            ),
           ],
         ),
         const SizedBox(height: 24),
@@ -360,84 +441,22 @@ class _RecommendedThemes extends StatelessWidget {
   }
 
   Widget _buildThemeChip(String label, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: const Color(0xFF6B4EFF), size: 18),
-          const SizedBox(width: 10),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-}
-
-class _CrispBottomNavBar extends StatelessWidget {
-  const _CrispBottomNavBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF151515),
-        border: Border(top: BorderSide(color: Colors.white10, width: 1)),
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _NavBarIcon(Icons.home_outlined, Icons.home, true, () {}),
-              _NavBarIcon(Icons.search, Icons.search, false, () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const ExploreScreen()));
-              }),
-              _NavBarIcon(Icons.add_circle_outline, Icons.add_circle, false, () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const creation_screen.CreationModeSelectionScreen()));
-              }),
-              _NavBarIcon(Icons.forum_outlined, Icons.forum, false, () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const CommunityScreen()));
-              }),
-              _NavBarIcon(Icons.person_outline, Icons.person, false, () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
-              }),
-            ],
-          ),
+    return GestureDetector(
+      onTap: () => HapticFeedback.lightImpact(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white10),
         ),
-      ),
-    );
-  }
-}
-
-class _NavBarIcon extends StatelessWidget {
-  final IconData iconOutlined;
-  final IconData iconSolid;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _NavBarIcon(this.iconOutlined, this.iconSolid, this.isSelected, this.onTap);
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Icon(
-            isSelected ? iconSolid : iconOutlined,
-            color: isSelected ? const Color(0xFF7C3AED) : Colors.white54,
-            size: 26,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: const Color(0xFF6B4EFF), size: 18),
+            const SizedBox(width: 10),
+            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
+          ],
         ),
       ),
     );

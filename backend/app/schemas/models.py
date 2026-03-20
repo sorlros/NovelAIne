@@ -36,6 +36,7 @@ class CharacterBase(BaseModel):
     background_story: Optional[str] = Field(None, max_length=5000)
     appearance_description: Optional[str] = Field(None, max_length=1000)
     image_url: Optional[str] = None
+    is_in_vault: bool = False # 추가: 보관함 저장 여부
 
 
 class CharacterCreate(CharacterBase):
