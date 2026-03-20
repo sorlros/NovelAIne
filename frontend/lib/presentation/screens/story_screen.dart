@@ -205,83 +205,86 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     showDialog(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.8),
-      builder: (context) => Center(
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.85,
-          constraints: const BoxConstraints(maxWidth: 500),
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A1A24),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white10),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    isEnsemble ? Icons.groups_rounded : Icons.person_rounded,
-                    color: const Color(0xFF7C3AED),
-                    size: 28,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    isEnsemble ? "군상극 가이드" : "주인공 모드 가이드",
-                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Text(
-                isEnsemble 
-                  ? "이 서사에는 고정된 주인공이 없습니다. 당신은 세계의 운명을 결정하는 지휘자입니다."
-                  : "당신은 이 이야기의 주인공입니다. 당신의 선택이 운명을 결정합니다.",
-                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                "💡 이런 식으로 입력해 보세요:",
-                style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (context) => Material(
+        type: MaterialType.transparency,
+        child: Center(
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.85,
+            constraints: const BoxConstraints(maxWidth: 500),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A24),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.white10),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    if (isEnsemble) ...[
-                      const _TipItem(text: "장소의 변화: '갑자기 마을에 거대한 폭풍이 몰아친다'"),
-                      const _TipItem(text: "사건의 발생: '두 가문 사이에 금지된 사랑이 시작된다'"),
-                      const _TipItem(text: "집단 행동: '모든 주민들이 광장에 모여 항의한다'"),
-                    ] else ...[
-                      const _TipItem(text: "직접적인 행동: '조심스럽게 낡은 문을 열고 들어간다'"),
-                      const _TipItem(text: "심리 묘사: '불안한 마음을 감추며 애써 미소 짓는다'"),
-                      const _TipItem(text: "대화 시도: '옆에 있는 기사에게 이름을 묻는다'"),
-                    ],
+                    Icon(
+                      isEnsemble ? Icons.groups_rounded : Icons.person_rounded,
+                      color: const Color(0xFF7C3AED),
+                      size: 28,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      isEnsemble ? "군상극 가이드" : "주인공 모드 가이드",
+                      style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7C3AED),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text("창작 시작하기", style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 20),
+                Text(
+                  isEnsemble 
+                    ? "이 서사에는 고정된 주인공이 없습니다. 당신은 세계의 운명을 결정하는 지휘자입니다."
+                    : "당신은 이 이야기의 주인공입니다. 당신의 선택이 운명을 결정합니다.",
+                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                const Text(
+                  "💡 이런 식으로 입력해 보세요:",
+                  style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (isEnsemble) ...[
+                        const _TipItem(text: "장소의 변화: '갑자기 마을에 거대한 폭풍이 몰아친다'"),
+                        const _TipItem(text: "사건의 발생: '두 가문 사이에 금지된 사랑이 시작된다'"),
+                        const _TipItem(text: "집단 행동: '모든 주민들이 광장에 모여 항의한다'"),
+                      ] else ...[
+                        const _TipItem(text: "직접적인 행동: '조심스럽게 낡은 문을 열고 들어간다'"),
+                        const _TipItem(text: "심리 묘사: '불안한 마음을 감추며 애써 미소 짓는다'"),
+                        const _TipItem(text: "대화 시도: '옆에 있는 기사에게 이름을 묻는다'"),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF7C3AED),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text("창작 시작하기", style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -468,69 +471,46 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                     headerSliverBuilder: (context, innerBoxIsScrolled) => [
                       _buildSliverAppBar(context, innerBoxIsScrolled),
                     ],
-                    body: Stack(
+                    body: Column(
                       children: [
-                        Column(
-                          children: [
-                            if (isMobile && viewMode == StoryViewMode.manuscript)
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF0D0D12).withValues(alpha: 0.8),
-                                  border: const Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
-                                ),
-                                child: Center(
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(maxWidth: 850),
-                                    child: _buildIntegratedCharacterSection(context, visibleCharacters, importantNames),
-                                  ),
-                                ),
-                              ),
-                            Expanded(
-                              child: Center(
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 850),
-                                  child: ListView.builder(
-                                    controller: _scrollController,
-                                    padding: EdgeInsets.fromLTRB(
-                                      isMobile ? 16 : 24, 20, 
-                                      isMobile ? 16 : 24, isMobile ? 180 : 250
-                                    ), 
-                                    itemCount: messages.length,
-                                    cacheExtent: 300,
-                                    itemBuilder: (context, index) {
-                                      final msg = messages[index];
-                                      return _RefinedNarrativeCard(
-                                        key: ValueKey(msg['id'].toString()),
-                                        msg: msg,
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
+                        if (isMobile && viewMode == StoryViewMode.manuscript)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: (viewMode == StoryViewMode.manuscript ? const Color(0xFF16161D) : Colors.black).withValues(alpha: 0.8),
+                              border: const Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
                             ),
-                          ],
-                        ),
-                        if (viewMode == StoryViewMode.manuscript)
-                          Positioned(
-                            top: isMobile ? 120 : 150, 
-                            left: 0, right: 0, height: 60,
-                            child: IgnorePointer(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                                    colors: [
-                                      (viewMode == StoryViewMode.manuscript ? const Color(0xFF16161D) : Colors.black),
-                                      (viewMode == StoryViewMode.manuscript ? const Color(0xFF16161D) : Colors.black).withValues(alpha: 0.5),
-                                      Colors.transparent
-                                    ],
-                                  ),
-                                ),
+                            child: Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 850),
+                                child: _buildIntegratedCharacterSection(context, visibleCharacters, importantNames),
                               ),
                             ),
                           ),
+                        Expanded(
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 850),
+                              child: ListView.builder(
+                                controller: _scrollController,
+                                padding: EdgeInsets.fromLTRB(
+                                  isMobile ? 16 : 24, 20, 
+                                  isMobile ? 16 : 24, isMobile ? 180 : 250
+                                ), 
+                                itemCount: messages.length,
+                                cacheExtent: 300,
+                                itemBuilder: (context, index) {
+                                  final msg = messages[index];
+                                  return _RefinedNarrativeCard(
+                                    key: ValueKey(msg['id'].toString()),
+                                    msg: msg,
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -850,36 +830,6 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     return Positioned.fill(
       child: Container(
         color: bgColor,
-        child: url == null 
-          ? null 
-          : ClipRect(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  CachedNetworkImage(
-                    imageUrl: url, 
-                    fit: BoxFit.cover, 
-                    fadeInDuration: 1.seconds
-                  ),
-                  BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter, 
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withValues(alpha: 0.6), 
-                            bgColor.withValues(alpha: 0.85), 
-                            bgColor
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
       ),
     );
   }
@@ -898,7 +848,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             begin: Alignment.topCenter, end: Alignment.bottomCenter, 
             colors: [
               Colors.transparent, 
-              bgColor.withValues(alpha: 0.7), 
+              bgColor.withValues(alpha: 0.8), 
               bgColor
             ]
           )
@@ -906,43 +856,37 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 850),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(35),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08), 
-                    borderRadius: BorderRadius.circular(35), 
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.12))
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08), 
+                borderRadius: BorderRadius.circular(35), 
+                border: Border.all(color: Colors.white.withValues(alpha: 0.12))
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextField(
+                      controller: _controller, 
+                      style: GoogleFonts.lato(color: Colors.white, fontSize: 15), 
+                      decoration: InputDecoration(
+                        hintText: "어떻게 행동할까요?", 
+                        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 14), 
+                        border: InputBorder.none
+                      ), 
+                      onSubmitted: (_) => _sendMessage()
+                    )
                   ),
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: TextField(
-                          controller: _controller, 
-                          style: GoogleFonts.lato(color: Colors.white, fontSize: 15), 
-                          decoration: InputDecoration(
-                            hintText: "어떻게 행동할까요?", 
-                            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 14), 
-                            border: InputBorder.none
-                          ), 
-                          onSubmitted: (_) => _sendMessage()
-                        )
-                      ),
-                      GestureDetector(
-                        onTap: _sendMessage, 
-                        child: Container(
-                          width: 44, height: 44, 
-                          decoration: const BoxDecoration(color: Color(0xFF7C3AED), shape: BoxShape.circle), 
-                          child: const Icon(Icons.auto_fix_high_rounded, color: Colors.white, size: 20)
-                        )
-                      ),
-                    ],
+                  GestureDetector(
+                    onTap: _sendMessage, 
+                    child: Container(
+                      width: 44, height: 44, 
+                      decoration: const BoxDecoration(color: Color(0xFF7C3AED), shape: BoxShape.circle), 
+                      child: const Icon(Icons.auto_fix_high_rounded, color: Colors.white, size: 20)
+                    )
                   ),
-                ),
+                ],
               ),
             ),
           ),
@@ -1006,7 +950,7 @@ class _RefinedNarrativeCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (msg['imageUrl'] != null && viewMode == StoryViewMode.manuscript) 
+            if (msg['imageUrl'] != null) 
               Padding(
                 padding: const EdgeInsets.only(bottom: 24), 
                 child: ClipRRect(
@@ -1015,7 +959,12 @@ class _RefinedNarrativeCard extends ConsumerWidget {
                     imageUrl: msg['imageUrl'], 
                     fit: BoxFit.cover, 
                     memCacheWidth: 800, 
-                    placeholder: (context, url) => Container(height: 180, color: Colors.white.withValues(alpha: 0.05))
+                    placeholder: (context, url) => Container(
+                      height: 200, 
+                      color: Colors.white.withValues(alpha: 0.05),
+                      child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    ),
+                    errorWidget: (context, url, error) => const SizedBox.shrink(),
                   )
                 )
               ).animate().fadeIn(duration: 800.ms).scale(begin: const Offset(0.98, 0.98)),
