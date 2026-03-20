@@ -4,7 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../providers/auth_provider.dart';
-import '../../../data/models/user_model.dart'; // Added
+import '../../../data/models/user_model.dart'; // 타입 정의 추가
 import '../auth/auth_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -46,7 +46,7 @@ class SettingsScreen extends ConsumerWidget {
                   radius: 60,
                   backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.1),
                   child: const Icon(Icons.person_rounded, size: 60, color: Color(0xFF7C3AED)),
-                ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack), // Fixed Curves.backOut
+                ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
                 const SizedBox(height: 24),
                 Text(
                   user?.username ?? "사용자",

@@ -105,7 +105,7 @@ class MyCreationsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final storiesState = ref.watch(storiesProvider);
-    final charactersState = ref.watch(charactersProvider);
+    final charactersState = ref.watch(vaultCharactersProvider);
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),

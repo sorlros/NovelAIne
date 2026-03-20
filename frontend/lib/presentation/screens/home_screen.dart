@@ -116,6 +116,7 @@ class _HeaderSection extends StatelessWidget {
             IconButton(
               onPressed: () {
                 HapticFeedback.selectionClick();
+                // Navigate to Settings instead if needed, or just remove
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const SettingsScreen()),

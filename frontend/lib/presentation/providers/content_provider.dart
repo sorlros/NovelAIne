@@ -45,6 +45,12 @@ final charactersProvider = FutureProvider<List<CharacterModel>>((ref) async {
       .toList();
 });
 
+// [신규] 보관함에 저장된 캐릭터만 필터링하는 프로바이더
+final vaultCharactersProvider = Provider<AsyncValue<List<CharacterModel>>>((ref) {
+  final charactersAsync = ref.watch(charactersProvider);
+  return charactersAsync.whenData((chars) => chars.where((c) => c.isInVault).toList());
+});
+
 // Provider for Scenes (Cached via Repository)
 final scenesProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, storyId) async {
   final repository = ref.watch(storyRepositoryProvider);
