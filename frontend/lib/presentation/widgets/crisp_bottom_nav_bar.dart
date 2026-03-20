@@ -20,38 +20,40 @@ class CrispBottomNavBar extends StatelessWidget {
       child: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600), // Reduced from 800 for better mobile fit
+            constraints: const BoxConstraints(
+              maxWidth: 600,
+            ), // Reduced from 800 for better mobile fit
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _NavBarIcon(
-                  iconOutlined: Icons.home_outlined, 
-                  iconSolid: Icons.home, 
-                  isSelected: currentIndex == 0, 
+                  iconOutlined: Icons.home_outlined,
+                  iconSolid: Icons.home,
+                  isSelected: currentIndex == 0,
                   onTap: () => _navigateTo(context, 0),
                 ),
                 _NavBarIcon(
-                  iconOutlined: Icons.add_circle_outline, 
-                  iconSolid: Icons.add_circle, 
-                  isSelected: currentIndex == 1, 
+                  iconOutlined: Icons.add_circle_outline,
+                  iconSolid: Icons.add_circle,
+                  isSelected: currentIndex == 1,
                   onTap: () => _navigateTo(context, 1),
                 ),
                 _NavBarIcon(
-                  iconOutlined: Icons.archive_outlined, 
-                  iconSolid: Icons.archive, 
-                  isSelected: currentIndex == 2, 
+                  iconOutlined: Icons.archive_outlined,
+                  iconSolid: Icons.archive,
+                  isSelected: currentIndex == 2,
                   onTap: () => _navigateTo(context, 2),
                 ),
                 _NavBarIcon(
-                  iconOutlined: Icons.settings_outlined, 
-                  iconSolid: Icons.settings, 
-                  isSelected: currentIndex == 3, 
+                  iconOutlined: Icons.settings_outlined,
+                  iconSolid: Icons.settings,
+                  isSelected: currentIndex == 3,
                   onTap: () => _navigateTo(context, 3),
                 ),
                 _NavBarIcon(
-                  iconOutlined: Icons.person_outline, 
-                  iconSolid: Icons.person, 
-                  isSelected: currentIndex == 4, 
+                  iconOutlined: Icons.person_outline,
+                  iconSolid: Icons.person,
+                  isSelected: currentIndex == 4,
                   onTap: () => _navigateTo(context, 4),
                 ),
               ],
@@ -103,10 +105,10 @@ class _NavBarIcon extends StatelessWidget {
   final VoidCallback onTap;
 
   const _NavBarIcon({
-    required this.iconOutlined, 
-    required this.iconSolid, 
-    required this.isSelected, 
-    required this.onTap
+    required this.iconOutlined,
+    required this.iconSolid,
+    required this.isSelected,
+    required this.onTap,
   });
 
   @override
@@ -126,7 +128,7 @@ class _NavBarIcon extends StatelessWidget {
             ),
             if (isSelected)
               Container(
-                margin: const EdgeInsets.top(4),
+                margin: const EdgeInsets.only(top: 4),
                 width: 4,
                 height: 4,
                 decoration: const BoxDecoration(

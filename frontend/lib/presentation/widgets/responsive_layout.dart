@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/constants.dart';
 import 'side_menu.dart';
 import 'crisp_bottom_nav_bar.dart';
 
@@ -26,14 +27,12 @@ class ResponsiveLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Broaden the mobile range slightly to ensure consistent behavior
-        final bool isDesktop = constraints.maxWidth >= 900;
+        final bool isDesktop = constraints.maxWidth >= AppConstants.desktopBreakpoint;
 
         return Scaffold(
           backgroundColor: backgroundColor,
           extendBodyBehindAppBar: extendBodyBehindAppBar,
           appBar: isDesktop ? null : appBar,
-          // Use a Key based on isDesktop to force a rebuild when switching modes
           body: KeyedSubtree(
             key: ValueKey(isDesktop),
             child: isDesktop

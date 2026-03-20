@@ -9,6 +9,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
+import '../../core/constants.dart';
 import '../../data/services/api_service.dart';
 import '../../data/repositories/story_repository.dart';
 import 'character_sheet_widget.dart';
@@ -438,7 +439,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     final importantNames = ref.watch(importantCharacterNamesProvider);
     final persistence = ref.watch(characterPersistenceProvider);
     final viewMode = ref.watch(viewModeProvider);
-    final bool isMobile = MediaQuery.of(context).size.width < 900; // 넓은 화면 기준 변경
+    final bool isMobile = MediaQuery.of(context).size.width < AppConstants.desktopBreakpoint;
 
     final visibleCharacters = characters.where((c) {
       final name = c['name'].toString();
