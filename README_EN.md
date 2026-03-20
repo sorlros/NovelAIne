@@ -1,5 +1,11 @@
 # 📖 NovelAIne - AI Interactive Storytelling & Visualization Service
 
+<p align="center">
+  <a href="README.md">한국어</a> | <b>English</b>
+</p>
+
+---
+
 > **"Crafting immersive narrative experiences through intelligent context management and premium cinematic direction."**
 
 NovelAIne is an AI-powered **interactive storytelling and automated illustration service**. We deliver a unique sense of immersion by combining RAG-based memory systems that prevent narrative inconsistencies even in long-form stories with premium UX features like fountain pen writing animations and real-time scene analysis.
