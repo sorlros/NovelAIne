@@ -369,7 +369,7 @@ class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
     );
 
     if (confirm != true || !mounted) return;
-    HapticFeedback.warningOccurred();
+    HapticFeedback.vibrate();
     setState(() => _isLoading = true);
 
     try {
