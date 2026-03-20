@@ -17,24 +17,31 @@ class ChatRequest(BaseModel):
     message: str
     history: Optional[List[Dict[str, str]]] = []
 
-def _get_story_model(client, story_id: UUID) -> Optional[str]:
-    """Helper to fetch the llm_model for a specific story."""
+def _get_story_metadata(client, story_id: UUID) -> Dict:
+    """Helper to fetch the metadata for a specific story."""
     try:
-        story_res = client.table("stories").select("llm_model").eq("id", str(story_id)).single().execute()
-        return story_res.data.get("llm_model") if story_res.data else None
+        story_res = client.table("stories").select("llm_model, narrative_type").eq("id", str(story_id)).single().execute()
+        return story_res.data if story_res.data else {}
     except Exception as e:
-        logger.warning(f"Failed to fetch llm_model for story {story_id}: {e}")
-        return None
+        logger.warning(f"Failed to fetch metadata for story {story_id}: {e}")
+        return {}
 
 @router.post("")
 async def chat(request: ChatRequest):
     """일반 채팅 (한 번에 응답)"""
     try:
         client = get_supabase_client()
-        model = _get_story_model(client, request.story_id)
+        metadata = _get_story_metadata(client, request.story_id)
+        model = metadata.get("llm_model")
+        narrative_type = metadata.get("narrative_type", "hero")
 
         chat_service = ChatService()
-        response = await chat_service.generate_response(request.message, request.history, model=model)
+        response = await chat_service.generate_response(
+            request.message, 
+            request.history, 
+            model=model,
+            narrative_type=narrative_type # 추가
+        )
         return {"response": response}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -43,12 +50,19 @@ async def chat(request: ChatRequest):
 async def chat_stream(request: ChatRequest):
     """스트리밍 채팅 (한 글자씩 응답)"""
     client = get_supabase_client()
-    model = _get_story_model(client, request.story_id)
+    metadata = _get_story_metadata(client, request.story_id)
+    model = metadata.get("llm_model")
+    narrative_type = metadata.get("narrative_type", "hero")
 
     chat_service = ChatService()
     
     async def event_generator():
-        async for chunk in chat_service.stream_generate_response(request.message, request.history, model=model):
+        async for chunk in chat_service.stream_generate_response(
+            request.message, 
+            request.history, 
+            model=model,
+            narrative_type=narrative_type # 추가
+        ):
             if chunk:
                 # SSE(Server-Sent Events) 형식이 아닌 순수 텍스트 스트림으로 전송
                 yield chunk

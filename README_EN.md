@@ -1,57 +1,106 @@
-# 📖 Solo Dev AI Interactive Novel & Imaging Service
+# 📖 NovelAIne - AI Interactive Storytelling & Visualization Service
 
-> **"Providing an immersive narrative experience through efficient token management and RAG technology."**
+<p align="center">
+  <a href="README.md">한국어</a> | <b>English</b>
+</p>
 
-An AI-powered **interactive story creation and automated imaging service**. By combining an intelligent memory system that maintains context even in long-form stories with automated visualization of key scenes, we deliver a unique and immersive reading experience.
+---
+
+> **"Crafting immersive narrative experiences through intelligent context management and premium cinematic direction."**
+
+NovelAIne is an AI-powered **interactive storytelling and automated illustration service**. We deliver a unique sense of immersion by combining RAG-based memory systems that prevent narrative inconsistencies even in long-form stories with premium UX features like fountain pen writing animations and real-time scene analysis.
 
 ---
 
 ## ✨ Key Features
 
-### 🧠 Intelligent Context Management
-*   **Summary Buffer Memory**: Keeps the most recent 5-10 turns of dialogue verbatim while summarizing older interactions. This ensures a seamless narrative flow without losing context, even in long-running stories.
+### 🎭 Dynamic Character System
+*   **Real-time Scene Analysis**: The LLM analyzes every scene to automatically display character cards for currently present or important figures. It visually manages character entries and exits to ensure narrative continuity.
 
-### 📝 Character Sheet System
-*   **System Prompt Optimization**: Effectively embeds static character data (personality, appearance, background) into the system prompt, ensuring unwavering **Character Consistency** throughout the story.
+### 🧠 Dual AI Engines
+*   **Model Selection & Switching**: Seamlessly switch between speed-optimized `Gemini 2.0 Flash` and narrative-depth-focused `Gemini 1.5 Pro` at any time during your story.
+
+### ✒️ Premium Visual Direction
+*   **Fountain Pen Animation**: Experience an analog touch with the `WritingEffect` that mimics a fountain pen writing on paper as AI responses are generated.
+*   **Immersive View Modes**: Choose between **Manuscript Mode** (highlighting illustrations and character cards) and **Focus Mode** (a minimalist view optimized for reading text).
+
+### 🚀 High-Performance Hybrid Loading
+*   **Background Pre-warming**: Recent stories are pre-parsed using **Isolates** on the home screen, reducing loading times to near zero when entering a story.
+*   **Local Caching (Drift SQL)**: Implements a 'Zero-Latency' UI by fetching data from the local database before server synchronization. Leveraging **Drift (WASM)**, we provide powerful SQL persistence and data integrity across both Web and Mobile platforms.
+*   **Shimmer UI**: Sophisticated skeleton loading effects maintain a premium feel even during data retrieval.
 
 ### 📚 RAG-based Memory
-*   **Vector DB (Supabase pgvector)**: Retrieves only the **most relevant information** from vast world settings or past events using vector search. This significantly reduces token costs while maintaining deep and context-aware interactions.
-
-### ⚡ Prompt Compression
-*   **Efficiency First**: Maximizes token efficiency by removing unnecessary fluff and using keyword-centric prompt engineering optimized for LLM comprehension.
+*   **Vector Database (Supabase pgvector)**: Uses **vector search** to retrieve only the most relevant information from vast world-building data or past events, ensuring unwavering narrative consistency.
 
 ### 🎨 Scene Visualization
-*   **Automatic Image Generation**: Analyzes the narrative text in real-time to calculate **'Emotion Scores' and 'Importance Scores'**. Stable Diffusion is triggered only during pivotal moments with high scores to automatically generate dramatic illustrations.
+*   **Automated Illustration**: Real-time analysis of **'Emotion' and 'Importance' scores** triggers Stable Diffusion to generate dramatic illustrations only for pivotal moments.
+
+---
+
+## ⚡ Token Optimization & Cost Reduction
+
+### 🧠 Intelligent Context Management
+*   **Summary Buffer Memory**: Maintains recent 5-10 dialogue turns verbatim while summarizing older interactions into concise bullet points. This ensures narrative continuity across long stories without bloating token usage.
+
+### 📚 RAG-based Selective Memory
+*   **Vector Database (Supabase pgvector)**: Uses **vector search** to retrieve only the most relevant world-building data or past events for the current context. By injecting only necessary information into the prompt, it significantly lowers operational costs.
+
+### ⚡ Prompt Compression & Engineering
+*   **English-Centric Prompting**: By internally **optimizing prompts in English**, we maximize the LLM's reasoning performance and improve token efficiency by 2-3x compared to Korean-only prompts.
+*   **Structural Keyword Division**: Information is delivered in **structured keyword blocks** rather than natural language sentences. This ensures the AI understands world settings more clearly while eliminating token waste from redundant descriptions.
+
+### 🖼️ Selective Image Generation
+*   **Scoring Logic**: Instead of generating images for every scene, our system analyzes 'Importance Scores' and only calls image models for **defining narrative moments**, ensuring optimal resource allocation.
 
 ---
 
 ## 🛠 Tech Stack
 
-### Backend
-<p>
-  <img src="https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi&logoColor=white"/>
-  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white"/>
-  <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white"/>
-</p>
-
 ### Frontend
-<p>
-  <img src="https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=Flutter&logoColor=white"/>
-  <img src="https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=Dart&logoColor=white"/>
-</p>
+- **Framework**: Flutter (Web & Mobile)
+- **State Management**: Riverpod
+- **Local Database**: Drift (SQL) with WASM (for Web support)
+- **Animation**: Flutter Animate, Custom Painters
+
+### Backend
+- **Framework**: FastAPI (Python)
+- **Database**: Supabase (PostgreSQL + pgvector)
+- **Authentication**: Supabase Auth (Email/Password)
 
 ### AI & Infrastructure
-*   **LLM Model**: OpenRouter (Gemini 2.0 Flash) - High-performance/Context-efficient
-*   **Image Gen**: Stable Diffusion (via HuggingFace Inference API)
-*   **Vector DB**: Supabase (pgvector extension)
-*   **Package Management**: pub.dev (Flutter), pip (Python)
+- **LLM**: OpenRouter (Gemini 2.0 Flash / 1.5 Pro)
+- **Image Generation**: Stable Diffusion (via HuggingFace Inference)
+- **Real-time**: HTTP Streaming (Line-splitter parsing)
+
+---
+
+## 📱 Service Screens
+
+1.  **Home Screen**: Story library and recommended genre themes.
+2.  **Creation Wizard**: A 3-step process for world-building and character setup.
+3.  **Story Screen**: Immersive creative space (Manuscript/Focus modes, Desktop side panel).
+4.  **Character Vault**: Management of frequently used characters and world settings.
 
 ---
 
 ## 🚀 Getting Started
-For detailed installation and execution instructions, please refer to the `run_server.sh` script or check the Wiki.
+
+### Frontend
+```bash
+cd frontend
+flutter pub get
+flutter run -d chrome # To run on web
+```
+
+### Backend
+```bash
+cd backend
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
 
 ---
 
 ## 📅 Changelog
-You can always check the latest updates, bug fixes, and UI/UX design improvements in the [CHANGELOG.md](./CHANGELOG.md) file!
+Check out latest features and UI/UX improvements in the [CHANGELOG.md](./CHANGELOG.md) file!

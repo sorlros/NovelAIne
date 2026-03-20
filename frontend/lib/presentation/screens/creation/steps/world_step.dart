@@ -55,6 +55,33 @@ class _WorldStepState extends State<WorldStep> {
                 ).animate().fadeIn(delay: 100.ms, duration: 400.ms),
                 const SizedBox(height: 40),
 
+                // Narrative Type Selection
+                _SectionTitle(title: "서사 유형"),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _CustomChoiceChip(
+                        label: "1인 주인공",
+                        isSelected: widget.config.narrativeType == 'hero',
+                        accentColor: accentColor,
+                        onSelected: (_) => setState(() => widget.config.narrativeType = 'hero'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _CustomChoiceChip(
+                        label: "군상극",
+                        isSelected: widget.config.narrativeType == 'ensemble',
+                        accentColor: accentColor,
+                        onSelected: (_) => setState(() => widget.config.narrativeType = 'ensemble'),
+                      ),
+                    ),
+                  ],
+                ).animate().fadeIn(delay: 250.ms).slideY(begin: 0.05, end: 0),
+
+                const SizedBox(height: 40),
+
                 // Genre Selection
                 _SectionTitle(title: AppLocalizations.of(context)!.genreLabel),
                 const SizedBox(height: 16),

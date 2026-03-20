@@ -30,6 +30,7 @@ create table stories (
     current_scene_id uuid,
     cover_image_url text,
     llm_model text default 'google/gemini-2.0-flash-001',
+    narrative_type text default 'hero' check (narrative_type in ('hero', 'ensemble')),
     created_at timestamptz default now(),
     updated_at timestamptz default now()
 );

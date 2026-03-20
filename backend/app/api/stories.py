@@ -78,7 +78,7 @@ async def create_story(story: StoryCreate):
         # Check if we need to generate story content
         generated_data = None
         if not story.title:
-            logger.info(f"Requesting AI story generation for {story.genre}...")
+            logger.info(f"Requesting AI story generation for {story.genre} (Type: {story.narrative_type})...")
             # chat_service.start_new_story handles its own internal parsing and errors
             generated_data = await chat_service.start_new_story(
                 genre=story.genre,
@@ -87,7 +87,8 @@ async def create_story(story: StoryCreate):
                 traits=story.protagonist_traits,
                 scenario=story.opening_scenario,
                 language=story.language,
-                model=story.llm_model
+                model=story.llm_model,
+                narrative_type=story.narrative_type # 추가
             )
             
             story.title = generated_data.get("title", "Untitled Story").strip()

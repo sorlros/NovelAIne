@@ -346,6 +346,7 @@ class ApiService {
       "user_id": userId,
       "genre": _mapGenreToBackend(config.genreLabel),
       "tone": config.toneLabel,
+      "narrative_type": config.narrativeType, // 추가
       "protagonist_name": config.userName,
       "protagonist_traits": config.personalityTraits,
       if (config.appearanceDescription != null &&
