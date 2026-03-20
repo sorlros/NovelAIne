@@ -17,83 +17,77 @@ class ProfileScreen extends ConsumerWidget {
 
     return ResponsiveLayout(
       currentIndex: 4,
-      child: Scaffold(
-        backgroundColor: const Color(0xFF121212),
-        appBar: AppBar(
-          title: const Text("프로필"),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-              onPressed: () {
-                ref.read(authProvider.notifier).logout();
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const AuthScreen()),
-                  (route) => false,
-                );
-              },
-            ),
-          ],
-        ),
-        body: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  const SizedBox(height: 20),
-                  CircleAvatar(
-                    radius: 60,
-                    backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.1),
-                    child: const Icon(Icons.person_rounded, size: 60, color: Color(0xFF7C3AED)),
-                  ).animate().scale(duration: 400.ms, curve: Curves.backOut),
-                  const SizedBox(height: 24),
-                  Text(
-                    user?.username ?? "사용자",
-                    style: GoogleFonts.notoSerif(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+      appBar: AppBar(
+        title: const Text("프로필"),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+            onPressed: () {
+              ref.read(authProvider.notifier).logout();
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const AuthScreen()),
+                (route) => false,
+              );
+            },
+          ),
+        ],
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                CircleAvatar(
+                  radius: 60,
+                  backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+                  child: const Icon(Icons.person_rounded, size: 60, color: Color(0xFF7C3AED)),
+                ).animate().scale(duration: 400.ms, curve: Curves.backOut),
+                const SizedBox(height: 24),
+                Text(
+                  user?.username ?? "사용자",
+                  style: GoogleFonts.notoSerif(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
-                  Text(
-                    user?.email ?? "",
-                    style: GoogleFonts.lato(
-                      fontSize: 16,
-                      color: Colors.white54,
-                    ),
+                ),
+                Text(
+                  user?.email ?? "",
+                  style: GoogleFonts.lato(
+                    fontSize: 16,
+                    color: Colors.white54,
                   ),
-                  const SizedBox(height: 48),
-                  _buildProfileMenuItem(
-                    icon: Icons.edit_outlined,
-                    title: "회원 정보 수정",
-                    onTap: () {},
-                  ),
-                  _buildProfileMenuItem(
-                    icon: Icons.notifications_none_rounded,
-                    title: "알림 설정",
-                    onTap: () {},
-                  ),
-                  _buildProfileMenuItem(
-                    icon: Icons.security_rounded,
-                    title: "보안 및 개인정보",
-                    onTap: () {},
-                  ),
-                  _buildProfileMenuItem(
-                    icon: Icons.help_outline_rounded,
-                    title: "고객 센터",
-                    onTap: () {},
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 48),
+                _buildProfileMenuItem(
+                  icon: Icons.edit_outlined,
+                  title: "회원 정보 수정",
+                  onTap: () {},
+                ),
+                _buildProfileMenuItem(
+                  icon: Icons.notifications_none_rounded,
+                  title: "알림 설정",
+                  onTap: () {},
+                ),
+                _buildProfileMenuItem(
+                  icon: Icons.security_rounded,
+                  title: "보안 및 개인정보",
+                  onTap: () {},
+                ),
+                _buildProfileMenuItem(
+                  icon: Icons.help_outline_rounded,
+                  title: "고객 센터",
+                  onTap: () {},
+                ),
+              ],
             ),
           ),
         ),
-        bottomNavigationBar: MediaQuery.of(context).size.width < 900 
-            ? const CrispBottomNavBar(currentIndex: 4)
-            : null,
       ),
     );
   }

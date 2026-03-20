@@ -52,6 +52,7 @@ dependencies:
   sqlite3_flutter_libs: ^0.5.20 # For mobile
   path_provider: ^2.1.2 # For mobile
   path: ^1.9.0
+  shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_test:

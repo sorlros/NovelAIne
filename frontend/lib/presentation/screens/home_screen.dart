@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 import 'story_screen.dart';
 import 'creation/mode_selection_screen.dart' as creation_screen;
@@ -38,42 +40,36 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return ResponsiveLayout(
       currentIndex: 0,
-      child: Scaffold(
-        backgroundColor: const Color(0xFF121212),
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1200),
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 24.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 24.0),
-                        child: _HeaderSection(),
-                      ),
-                      const SizedBox(height: 32),
-                      const _HorizontalStoryList(),
-                      const SizedBox(height: 48),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                        child: const _RecommendedThemes(),
-                      ),
-                      // 모바일 하단 바 높이만큼 추가 여백
-                      const SizedBox(height: 100),
-                    ],
-                  ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 24.0),
+                      child: _HeaderSection(),
+                    ),
+                    const SizedBox(height: 32),
+                    const _HorizontalStoryList(),
+                    const SizedBox(height: 48),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      child: const _RecommendedThemes(),
+                    ),
+                    // 모바일 하단 바 높이만큼 추가 여백
+                    const SizedBox(height: 100),
+                  ],
                 ),
               ),
             ),
           ),
         ),
-        bottomNavigationBar: MediaQuery.of(context).size.width < 900 
-            ? const CrispBottomNavBar(currentIndex: 0)
-            : null,
       ),
     );
   }
@@ -118,6 +114,7 @@ class _HeaderSection extends StatelessWidget {
             ),
             IconButton(
               onPressed: () {
+                HapticFeedback.selectionClick();
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const CharacterVaultScreen()),
@@ -137,6 +134,7 @@ class _HeaderSection extends StatelessWidget {
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: () {
+              HapticFeedback.mediumImpact();
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -236,11 +234,31 @@ class _HorizontalStoryListState extends ConsumerState<_HorizontalStoryList> {
           ),
         );
       },
-      loading: () => SizedBox(
-        height: isMobile ? 280 : 320,
-        child: const Center(child: CircularProgressIndicator(color: Color(0xFF6B4EFF))),
-      ),
+      loading: () => _buildShimmer(isMobile),
       error: (error, _) => Center(child: Text('Error: $error', style: const TextStyle(color: Colors.red))),
+    );
+  }
+
+  Widget _buildShimmer(bool isMobile) {
+    return SizedBox(
+      height: isMobile ? 280 : 320,
+      child: Shimmer.fromColors(
+        baseColor: Colors.white.withValues(alpha: 0.05),
+        highlightColor: Colors.white.withValues(alpha: 0.1),
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: 3,
+          itemBuilder: (context, index) => Container(
+            width: isMobile ? 170 : 200,
+            margin: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -256,6 +274,7 @@ class _StoryCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
+        HapticFeedback.selectionClick();
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => StoryScreen(initialStory: story)),
@@ -350,6 +369,7 @@ class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
     );
 
     if (confirm != true || !mounted) return;
+    HapticFeedback.warningOccurred();
     setState(() => _isLoading = true);
 
     try {
@@ -421,20 +441,23 @@ class _RecommendedThemes extends StatelessWidget {
   }
 
   Widget _buildThemeChip(String label, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: const Color(0xFF6B4EFF), size: 18),
-          const SizedBox(width: 10),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
-        ],
+    return GestureDetector(
+      onTap: () => HapticFeedback.lightImpact(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: const Color(0xFF6B4EFF), size: 18),
+            const SizedBox(width: 10),
+            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500)),
+          ],
+        ),
       ),
     );
   }
