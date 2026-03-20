@@ -77,6 +77,7 @@ class StoryCreate(BaseModel):
     user_id: Optional[UUID] = None
     genre: str = Field(..., pattern="^(fantasy|scifi|mystery|romance|horror|adventure|wuxia|apocalypse|cyberpunk|other)$")
     description: Optional[str] = Field(None, max_length=2000)
+    narrative_type: Optional[str] = Field(default="hero", pattern="^(hero|ensemble)$") # 추가
     # Generation params
     tone: Optional[str] = None
     protagonist_name: Optional[str] = None
@@ -92,6 +93,7 @@ class Story(StoryBase):
     id: UUID
     user_id: UUID
     status: str
+    narrative_type: str = "hero" # 추가
     total_scenes: int
     current_scene_id: Optional[UUID] = None
     cover_image_url: Optional[str] = None
