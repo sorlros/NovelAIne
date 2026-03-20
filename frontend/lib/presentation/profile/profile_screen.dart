@@ -46,25 +46,23 @@ class _ProfileScreenState extends State<ProfileScreen>
   Widget build(BuildContext context) {
     return ResponsiveLayout(
       currentIndex: 3,
-      child: Scaffold(
-        backgroundColor: const Color(0xFF121212), // Deep dark background
-        appBar: AppBar(
-          title: const Text(
-            "내 프로필",
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-          ),
-          backgroundColor: const Color(0xFF121212),
-          elevation: 0,
-          iconTheme: const IconThemeData(color: Colors.white),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.logout, color: Colors.white70),
-              onPressed: _logout,
-              tooltip: '로그아웃',
-            ),
-          ],
+      appBar: AppBar(
+        title: const Text(
+          "내 프로필",
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
-        body: NestedScrollView(
+        backgroundColor: const Color(0xFF121212),
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white70),
+            onPressed: _logout,
+            tooltip: '로그아웃',
+          ),
+        ],
+      ),
+      body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverToBoxAdapter(
@@ -105,7 +103,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           children: const [MyLibraryTab(), MyCreationsTab()],
         ),
       ),
-    ));
+    );
   }
 }
 

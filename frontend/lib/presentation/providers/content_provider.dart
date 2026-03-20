@@ -37,10 +37,7 @@ final charactersProvider = FutureProvider<List<CharacterModel>>((ref) async {
   final userId = authState.value?.id;
   if (userId == null) return [];
 
-  // Assuming fetchCharacters can take a userId or the backend already filters by token/session
-  // For now, if backend doesn't support userId param, we'll fetch all and the RLS should handle it,
-  // but adding the param if supported is better.
-  final data = await apiService.fetchCharacters(); 
+  final data = await apiService.fetchCharacters(userId: userId); 
   return data
       .map<CharacterModel>(
         (json) => CharacterModel.fromJson(json as Map<String, dynamic>),

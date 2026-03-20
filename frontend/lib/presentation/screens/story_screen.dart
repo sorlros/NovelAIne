@@ -1,12 +1,14 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../data/services/api_service.dart';
 import '../../data/repositories/story_repository.dart';
 import 'character_sheet_widget.dart';
@@ -15,6 +17,7 @@ import '../providers/content_provider.dart';
 import '../widgets/character_card.dart';
 import '../widgets/custom_loading_indicator.dart';
 import '../widgets/custom_toast.dart';
+import '../widgets/writing_effect.dart';
 
 // 화면 전용 상태 관리
 final messageProvider = StateProvider.autoDispose<List<Map<String, dynamic>>>((ref) => []);
@@ -37,6 +40,10 @@ final selectedFontProvider = StateProvider.autoDispose<String>((ref) => 'Noto Se
 // 현재 이야기의 AI 모델 상태 관리
 final currentStoryModelProvider = StateProvider.autoDispose<String>((ref) => 'google/gemini-2.0-flash-001');
 
+// [신규] 원고 모드 vs 집중 모드 상태 관리
+enum StoryViewMode { manuscript, focus }
+final viewModeProvider = StateProvider.autoDispose<StoryViewMode>((ref) => StoryViewMode.manuscript);
+
 // 데이터 변환을 위한 Isolate용 최상단 함수
 List<Map<String, dynamic>> _processScenesIsolate(List<dynamic> scenes) {
   return scenes.map((scene) => {
@@ -50,6 +57,8 @@ List<Map<String, dynamic>> _processScenesIsolate(List<dynamic> scenes) {
 
 final List<String> availableFonts = [
   'Noto Serif KR',
+  'EB Garamond',
+  'JetBrains Mono',
   'Gowun Batang',
   'Nanum Myeongjo',
   'Song Myung',
@@ -251,6 +260,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
+    // 햅틱 피드백 추가
+    HapticFeedback.mediumImpact();
+
     final aiMessageId = DateTime.now().millisecondsSinceEpoch.toString();
 
     ref.read(messageProvider.notifier).update((state) => [
@@ -320,7 +332,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     final presentNames = ref.watch(presentCharacterNamesProvider);
     final importantNames = ref.watch(importantCharacterNamesProvider);
     final persistence = ref.watch(characterPersistenceProvider);
-    final bool isMobile = MediaQuery.of(context).size.width < 600;
+    final viewMode = ref.watch(viewModeProvider);
+    final bool isMobile = MediaQuery.of(context).size.width < 900; // 넓은 화면 기준 변경
 
     final visibleCharacters = characters.where((c) {
       final name = c['name'].toString();
@@ -332,82 +345,95 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     }).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D12),
+      backgroundColor: viewMode == StoryViewMode.manuscript ? const Color(0xFF16161D) : const Color(0xFF000000),
       resizeToAvoidBottomInset: true,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          _buildBackdrop(backdropUrl),
+          _buildBackdrop(backdropUrl, viewMode),
           AnimatedOpacity(
             opacity: isUIReady ? 1.0 : 0.0,
             duration: 800.ms,
             curve: Curves.easeIn,
-            child: NestedScrollView(
-              headerSliverBuilder: (context, innerBoxIsScrolled) => [
-                _buildSliverAppBar(context, innerBoxIsScrolled),
-              ],
-            body: Stack(
-                children: [
-                  Column(
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isMobile ? 16 : 24, 
-                          vertical: isMobile ? 12 : 16
+            child: Row(
+              children: [
+                // [데스크탑 전용] 사이드 패널
+                if (!isMobile && viewMode == StoryViewMode.manuscript)
+                  _buildDesktopSidePanel(context, visibleCharacters, importantNames),
+                
+                Expanded(
+                  child: NestedScrollView(
+                    headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                      _buildSliverAppBar(context, innerBoxIsScrolled),
+                    ],
+                    body: Stack(
+                      children: [
+                        Column(
+                          children: [
+                            if (isMobile && viewMode == StoryViewMode.manuscript)
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0D0D12).withValues(alpha: 0.8),
+                                  border: const Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
+                                ),
+                                child: Center(
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(maxWidth: 850),
+                                    child: _buildIntegratedCharacterSection(context, visibleCharacters, importantNames),
+                                  ),
+                                ),
+                              ),
+                            Expanded(
+                              child: Center(
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(maxWidth: 850),
+                                  child: ListView.builder(
+                                    controller: _scrollController,
+                                    padding: EdgeInsets.fromLTRB(
+                                      isMobile ? 16 : 24, 20, 
+                                      isMobile ? 16 : 24, isMobile ? 180 : 250
+                                    ), 
+                                    itemCount: messages.length,
+                                    cacheExtent: 300,
+                                    itemBuilder: (context, index) {
+                                      final msg = messages[index];
+                                      return _RefinedNarrativeCard(
+                                        key: ValueKey(msg['id'].toString()),
+                                        msg: msg,
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0D0D12).withValues(alpha: 0.8),
-                          border: const Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
-                        ),
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 850),
-                            child: _buildIntegratedCharacterSection(context, visibleCharacters, importantNames),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 850),
-                            child: ListView.builder(
-                              controller: _scrollController,
-                              padding: EdgeInsets.fromLTRB(
-                                isMobile ? 16 : 24, 20, 
-                                isMobile ? 16 : 24, isMobile ? 180 : 250
-                              ), 
-                              itemCount: messages.length,
-                              cacheExtent: 300,
-                              itemBuilder: (context, index) {
-                                final msg = messages[index];
-                                return _RefinedNarrativeCard(
-                                  key: ValueKey(msg['id'].toString()),
-                                  msg: msg,
-                                );
-                              },
+                        if (viewMode == StoryViewMode.manuscript)
+                          Positioned(
+                            top: isMobile ? 120 : 150, 
+                            left: 0, right: 0, height: 60,
+                            child: IgnorePointer(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                                    colors: [
+                                      (viewMode == StoryViewMode.manuscript ? const Color(0xFF16161D) : Colors.black),
+                                      (viewMode == StoryViewMode.manuscript ? const Color(0xFF16161D) : Colors.black).withValues(alpha: 0.5),
+                                      Colors.transparent
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Positioned(
-                    top: isMobile ? 120 : 150, 
-                    left: 0, right: 0, height: 60,
-                    child: IgnorePointer(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                            colors: [const Color(0xFF0D0D12), const Color(0xFF0D0D12).withValues(alpha: 0.5), Colors.transparent],
-                          ),
-                        ),
-                      ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           if (isUIReady) _buildFloatingControls(context),
@@ -415,6 +441,96 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildDesktopSidePanel(BuildContext context, List<Map<String, dynamic>> visibleCharacters, List<String> importantNames) {
+    return Container(
+      width: 300,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D0D12).withValues(alpha: 0.6),
+        border: const Border(right: BorderSide(color: Colors.white10, width: 1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 80),
+          Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "인물 정보",
+                  style: GoogleFonts.notoSerif(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "현재 장면에 등장하거나 중요한 인물들입니다.",
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: visibleCharacters.length,
+              itemBuilder: (context, index) {
+                final char = visibleCharacters[index];
+                final isProtagonist = char['role_in_story'] == 'protagonist';
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      showModalBottomSheet(
+                        context: context,
+                        backgroundColor: Colors.transparent,
+                        isScrollControlled: true,
+                        builder: (context) => CharacterSheetWidget(character: char, isProtagonist: isProtagonist),
+                      );
+                    },
+                    leading: CircleAvatar(
+                      radius: 20,
+                      backgroundImage: char['image_url'] != null ? CachedNetworkImageProvider(char['image_url']) : null,
+                      backgroundColor: Colors.white10,
+                      child: char['image_url'] == null ? const Icon(Icons.person, color: Colors.white24) : null,
+                    ),
+                    title: Text(char['name'], style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                    subtitle: Text(isProtagonist ? "주인공" : "조연", style: TextStyle(color: Colors.white54, fontSize: 11)),
+                    trailing: isProtagonist ? const Icon(Icons.star, color: Color(0xFF7C3AED), size: 16) : null,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    tileColor: Colors.white.withValues(alpha: 0.03),
+                  ),
+                );
+              },
+            ),
+          ),
+          const Divider(color: Colors.white10, height: 1),
+          Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("AI 어시스턴트", style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                Consumer(builder: (context, ref, _) {
+                  final currentModel = ref.watch(currentStoryModelProvider);
+                  return Column(
+                    children: [
+                      _buildModelToggleOption(ref, "Gemini 2.0 Flash", "빠른 전개", 'google/gemini-2.0-flash-001', currentModel == 'google/gemini-2.0-flash-001'),
+                      const SizedBox(height: 12),
+                      _buildModelToggleOption(ref, "Gemini 1.5 Pro", "치밀한 묘사", 'google/gemini-pro-1.5', currentModel == 'google/gemini-pro-1.5'),
+                    ],
+                  );
+                }),
+              ],
+            ),
+          ),
+          const SizedBox(height: 100),
+        ],
+      ),
+    ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.05, end: 0);
   }
 
   Widget _buildIntegratedCharacterSection(BuildContext context, List<Map<String, dynamic>> visibleCharacters, List<String> importantNames) {
@@ -475,13 +591,27 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
 
   Widget _buildSliverAppBar(BuildContext context, bool isScrolled) {
     final bool isMobile = MediaQuery.of(context).size.width < 600;
+    final viewMode = ref.watch(viewModeProvider);
+
     return SliverAppBar(
       expandedHeight: isMobile ? 140.0 : 180.0,
       floating: false, pinned: true,
-      backgroundColor: isScrolled ? const Color(0xFF0D0D12).withValues(alpha: 0.9) : Colors.transparent,
+      backgroundColor: isScrolled ? (viewMode == StoryViewMode.manuscript ? const Color(0xFF0D0D12).withValues(alpha: 0.9) : Colors.black) : Colors.transparent,
       elevation: 0, centerTitle: true,
       leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18), onPressed: () => Navigator.pop(context)),
       actions: [
+        IconButton(
+          icon: Icon(
+            viewMode == StoryViewMode.manuscript ? Icons.visibility_outlined : Icons.edit_note_rounded, 
+            color: Colors.white, size: 20
+          ), 
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            ref.read(viewModeProvider.notifier).state = 
+                viewMode == StoryViewMode.manuscript ? StoryViewMode.focus : StoryViewMode.manuscript;
+          },
+          tooltip: viewMode == StoryViewMode.manuscript ? "집중 모드" : "원고 모드",
+        ),
         IconButton(icon: const Icon(Icons.psychology_rounded, color: Colors.white, size: 20), onPressed: () => _showModelSettings(context), tooltip: "AI 엔진 변경"),
         IconButton(icon: const Icon(Icons.text_fields_rounded, color: Colors.white, size: 20), onPressed: () => _showFontSettings(context), tooltip: "서체 설정"),
         IconButton(icon: const Icon(Icons.history_edu_rounded, color: Colors.white, size: 20), onPressed: () {}),
@@ -516,7 +646,10 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   children: availableFonts.map((font) {
                     final isSelected = currentFont == font;
                     return GestureDetector(
-                      onTap: () => ref.read(selectedFontProvider.notifier).state = font,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        ref.read(selectedFontProvider.notifier).state = font;
+                      },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(color: isSelected ? const Color(0xFF7C3AED) : Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(12), border: Border.all(color: isSelected ? Colors.transparent : Colors.white10)),
@@ -607,15 +740,49 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     );
   }
 
-  Widget _buildBackdrop(String? url) => Positioned.fill(child: Stack(fit: StackFit.expand, children: [Container(color: const Color(0xFF0D0D12)), if (url != null) CachedNetworkImage(imageUrl: url, fit: BoxFit.cover, fadeInDuration: 1.seconds), BackdropFilter(filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50), child: Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black.withValues(alpha: 0.6), const Color(0xFF0D0D12).withValues(alpha: 0.85), const Color(0xFF0D0D12)]))))]));
+  Widget _buildBackdrop(String? url, StoryViewMode mode) {
+    if (mode == StoryViewMode.focus) return const SizedBox.shrink();
+    
+    return Positioned.fill(
+      child: Stack(
+        fit: StackFit.expand, 
+        children: [
+          Container(color: const Color(0xFF0D0D12)), 
+          if (url != null) CachedNetworkImage(imageUrl: url, fit: BoxFit.cover, fadeInDuration: 1.seconds), 
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50), 
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter, end: Alignment.bottomCenter, 
+                  colors: [Colors.black.withValues(alpha: 0.6), const Color(0xFF0D0D12).withValues(alpha: 0.85), const Color(0xFF0D0D12)]
+                )
+              )
+            )
+          )
+        ]
+      )
+    );
+  }
 
   Widget _buildFloatingControls(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 600;
+    final viewMode = ref.watch(viewModeProvider);
+
     return Positioned(
       bottom: 0, left: 0, right: 0,
       child: Container(
         padding: EdgeInsets.fromLTRB(isMobile ? 12 : 20, isMobile ? 12 : 20, isMobile ? 12 : 20, isMobile ? 30 : 40),
-        decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, const Color(0xFF0D0D12).withValues(alpha: 0.7), const Color(0xFF0D0D12)])),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter, end: Alignment.bottomCenter, 
+            colors: [
+              Colors.transparent, 
+              (viewMode == StoryViewMode.manuscript ? const Color(0xFF0D0D12) : Colors.black).withValues(alpha: 0.7), 
+              (viewMode == StoryViewMode.manuscript ? const Color(0xFF0D0D12) : Colors.black)
+            ]
+          )
+        ),
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 850),
@@ -625,12 +792,34 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                 filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(35), border: Border.all(color: Colors.white.withValues(alpha: 0.12))),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08), 
+                    borderRadius: BorderRadius.circular(35), 
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.12))
+                  ),
                   child: Row(
                     children: [
                       const SizedBox(width: 16),
-                      Expanded(child: TextField(controller: _controller, style: GoogleFonts.lato(color: Colors.white, fontSize: 15), decoration: InputDecoration(hintText: "어떻게 행동할까요?", hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 14), border: InputBorder.none), onSubmitted: (_) => _sendMessage())),
-                      GestureDetector(onTap: _sendMessage, child: Container(width: 44, height: 44, decoration: const BoxDecoration(color: Color(0xFF7C3AED), shape: BoxShape.circle), child: const Icon(Icons.auto_fix_high_rounded, color: Colors.white, size: 20))),
+                      Expanded(
+                        child: TextField(
+                          controller: _controller, 
+                          style: GoogleFonts.lato(color: Colors.white, fontSize: 15), 
+                          decoration: InputDecoration(
+                            hintText: "어떻게 행동할까요?", 
+                            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 14), 
+                            border: InputBorder.none
+                          ), 
+                          onSubmitted: (_) => _sendMessage()
+                        )
+                      ),
+                      GestureDetector(
+                        onTap: _sendMessage, 
+                        child: Container(
+                          width: 44, height: 44, 
+                          decoration: const BoxDecoration(color: Color(0xFF7C3AED), shape: BoxShape.circle), 
+                          child: const Icon(Icons.auto_fix_high_rounded, color: Colors.white, size: 20)
+                        )
+                      ),
                     ],
                   ),
                 ),
@@ -652,15 +841,25 @@ class _RefinedNarrativeCard extends ConsumerWidget {
     final selectedFont = ref.watch(selectedFontProvider);
     final isInitialLoadDone = ref.watch(isInitialLoadDoneProvider);
     final streamingMessageId = ref.watch(streamingMessageIdProvider);
+    final viewMode = ref.watch(viewModeProvider);
     final isStreaming = streamingMessageId == msg['id'];
     final isUser = msg['role'] == 'user';
     final bool isMobile = MediaQuery.of(context).size.width < 600;
     
     TextStyle getBaseStyle({double fontSize = 19, FontStyle fontStyle = FontStyle.normal, double height = 2.0}) {
-      return GoogleFonts.getFont(selectedFont, color: Colors.white.withValues(alpha: 0.92), fontSize: isMobile ? fontSize - 2 : fontSize, height: height, fontStyle: fontStyle, letterSpacing: 0.4).copyWith(fontFamilyFallback: _fontFallbacks);
+      return GoogleFonts.getFont(
+        selectedFont, 
+        color: Colors.white.withValues(alpha: 0.92), 
+        fontSize: isMobile ? fontSize - 2 : fontSize, 
+        height: height, 
+        fontStyle: fontStyle, 
+        letterSpacing: 0.4
+      ).copyWith(fontFamilyFallback: _fontFallbacks);
     }
 
     if (isUser) {
+      if (viewMode == StoryViewMode.focus) return const SizedBox.shrink();
+
       return RepaintBoundary(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -679,15 +878,58 @@ class _RefinedNarrativeCard extends ConsumerWidget {
       );
     }
 
-    final bool useSimpleText = isStreaming || !isInitialLoadDone;
+    final bool isPlaceholder = msg['content'] == '...';
+
     return RepaintBoundary(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (msg['imageUrl'] != null) Padding(padding: const EdgeInsets.only(bottom: 24), child: ClipRRect(borderRadius: BorderRadius.circular(24), child: CachedNetworkImage(imageUrl: msg['imageUrl'], fit: BoxFit.cover, memCacheWidth: 800, placeholder: (context, url) => Container(height: 180, color: Colors.white.withValues(alpha: 0.05))))).animate().fadeIn(duration: 800.ms).scale(begin: const Offset(0.98, 0.98)),
-            if (useSimpleText) Text(msg['content'], style: getBaseStyle()) else MarkdownBody(data: msg['content'], selectable: true, styleSheet: MarkdownStyleSheet(p: getBaseStyle(), strong: getBaseStyle().copyWith(color: const Color(0xFF7C3AED), fontWeight: FontWeight.bold), blockquoteDecoration: BoxDecoration(border: const Border(left: BorderSide(color: Color(0xFF7C3AED), width: 4)), color: Colors.white.withValues(alpha: 0.03)), blockquote: getBaseStyle(fontStyle: FontStyle.italic).copyWith(color: Colors.white.withValues(alpha: 0.7)))),
+            if (msg['imageUrl'] != null && viewMode == StoryViewMode.manuscript) 
+              Padding(
+                padding: const EdgeInsets.only(bottom: 24), 
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24), 
+                  child: CachedNetworkImage(
+                    imageUrl: msg['imageUrl'], 
+                    fit: BoxFit.cover, 
+                    memCacheWidth: 800, 
+                    placeholder: (context, url) => Container(height: 180, color: Colors.white.withValues(alpha: 0.05))
+                  )
+                )
+              ).animate().fadeIn(duration: 800.ms).scale(begin: const Offset(0.98, 0.98)),
+            
+            if (isPlaceholder)
+              Shimmer.fromColors(
+                baseColor: Colors.white10,
+                highlightColor: Colors.white24,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(width: double.infinity, height: 20, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
+                    const SizedBox(height: 12),
+                    Container(width: double.infinity, height: 20, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
+                    const SizedBox(height: 12),
+                    Container(width: 200, height: 20, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(4))),
+                  ],
+                ),
+              )
+            else if (isStreaming) 
+              Text(msg['content'], style: getBaseStyle()) 
+            else if (!isInitialLoadDone)
+              WritingEffect(text: msg['content'], style: getBaseStyle())
+            else 
+              MarkdownBody(
+                data: msg['content'], 
+                selectable: true, 
+                styleSheet: MarkdownStyleSheet(
+                  p: getBaseStyle(), 
+                  strong: getBaseStyle().copyWith(color: const Color(0xFF7C3AED), fontWeight: FontWeight.bold), 
+                  blockquoteDecoration: BoxDecoration(border: const Border(left: BorderSide(color: Color(0xFF7C3AED), width: 4)), color: Colors.white.withValues(alpha: 0.03)), 
+                  blockquote: getBaseStyle(fontStyle: FontStyle.italic).copyWith(color: Colors.white.withValues(alpha: 0.7))
+                )
+              ),
           ],
         ),
       ).animate().fadeIn(duration: isStreaming ? 0.ms : 600.ms),

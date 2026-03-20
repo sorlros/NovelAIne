@@ -13,116 +13,77 @@ class CreationModeSelectionScreen extends ConsumerWidget {
     final selectedModel = ref.watch(selectedModelProvider);
     return ResponsiveLayout(
       currentIndex: 1,
-      child: Scaffold(
-        backgroundColor: const Color(0xFF121212), // Match unified dark theme
-        extendBodyBehindAppBar: true,
-        appBar: AppBar(
-          title: const Text(""),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70),
-            onPressed: () => Navigator.pop(context),
-          ),
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        title: const Text(""),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70),
+          onPressed: () => Navigator.pop(context),
         ),
-        body: Stack(
-          children: [
-            // Background Subtle Effects
-            const _SubtleBackgroundGlow(),
-            
-            SafeArea(
-              child: Center(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24.0,
-                    vertical: 24.0,
-                  ),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 800),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 20),
-                        const Icon(Icons.edit_note, color: Color(0xFF6B4EFF), size: 48)
-                            .animate()
-                            .fadeIn()
-                            .slideY(begin: -0.2, end: 0),
-                        const SizedBox(height: 16),
-                        
-                        const Text(
-                          "어떻게 시작할까요?",
-                          style: TextStyle(
-                            fontSize: 34,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: -1.0,
-                          ),
-                        ).animate().fadeIn(duration: 600.ms).slideX(begin: -0.05, end: 0),
-                        
-                        const SizedBox(height: 12),
-                        
-                        Text(
-                          "상상 속의 세계를 펼칠 준비가 되었습니다.\n원하는 창작 방식을 선택해 주세요.",
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.6),
-                            fontSize: 16,
-                            height: 1.6,
-                          ),
-                        ).animate().fadeIn(delay: 200.ms, duration: 600.ms),
-                        
-                        const SizedBox(height: 40),
+      ),
+      body: Stack(
+        children: [
+          // Background Subtle Effects
+          const _SubtleBackgroundGlow(),
+          
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24.0,
+                  vertical: 24.0,
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 850), // Slightly adjusted
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 20),
+                      const Icon(Icons.edit_note, color: Color(0xFF6B4EFF), size: 48)
+                          .animate()
+                          .fadeIn()
+                          .slideY(begin: -0.2, end: 0),
+                      const SizedBox(height: 16),
+                      
+                      const Text(
+                        "어떻게 시작할까요?",
+                        style: TextStyle(
+                          fontSize: 34,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: -1.0,
+                        ),
+                      ).animate().fadeIn(duration: 600.ms).slideX(begin: -0.05, end: 0),
+                      
+                      const SizedBox(height: 12),
+                      
+                      Text(
+                        "상상 속의 세계를 펼칠 준비가 되었습니다.\n원하는 창작 방식을 선택해 주세요.",
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: 16,
+                          height: 1.6,
+                        ),
+                      ).animate().fadeIn(delay: 200.ms, duration: 600.ms),
+                      
+                      const SizedBox(height: 40),
 
-                        // Model Selection
-                        _buildModelSelector(context, ref, selectedModel),
-                        
-                        const SizedBox(height: 40),
+                      // Model Selection
+                      _buildModelSelector(context, ref, selectedModel),
+                      
+                      const SizedBox(height: 40),
 
-                        // LayoutBuilder to handle side-by-side on desktop vs column on mobile
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            if (constraints.maxWidth > 600) {
-                              return Row(
-                                children: [
-                                  Expanded(
-                                    child: _ModernModeCard(
-                                      title: "빠른 시작",
-                                      subtitle: "Quick Start",
-                                      description: "장르와 몇 가지 키워드만 고르면 AI가 즉시 흥미로운 서막을 만들어냅니다.",
-                                      iconData: Icons.bolt,
-                                      accentColor: const Color(0xFFFFBE0B),
-                                      delay: 400,
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(builder: (context) => const WizardScreen(isQuickStart: true)),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 24),
-                                  Expanded(
-                                    child: _ModernModeCard(
-                                      title: "상세 설정",
-                                      subtitle: "World Builder",
-                                      description: "세계의 법칙, 다면적인 캐릭터, 복잡한 설정들을 직접 설계하고 지휘합니다.",
-                                      iconData: Icons.architecture,
-                                      accentColor: const Color(0xFF6B4EFF),
-                                      delay: 600,
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(builder: (context) => const WizardScreen(isQuickStart: false)),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              );
-                            } else {
-                              return Column(
-                                children: [
-                                  _ModernModeCard(
+                      // LayoutBuilder to handle side-by-side on desktop vs column on mobile
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          if (constraints.maxWidth > 600) {
+                            return Row(
+                              children: [
+                                Expanded(
+                                  child: _ModernModeCard(
                                     title: "빠른 시작",
                                     subtitle: "Quick Start",
                                     description: "장르와 몇 가지 키워드만 고르면 AI가 즉시 흥미로운 서막을 만들어냅니다.",
@@ -136,8 +97,10 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                                       );
                                     },
                                   ),
-                                  const SizedBox(height: 24),
-                                  _ModernModeCard(
+                                ),
+                                const SizedBox(width: 24),
+                                Expanded(
+                                  child: _ModernModeCard(
                                     title: "상세 설정",
                                     subtitle: "World Builder",
                                     description: "세계의 법칙, 다면적인 캐릭터, 복잡한 설정들을 직접 설계하고 지휘합니다.",
@@ -151,20 +114,54 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                                       );
                                     },
                                   ),
-                                ],
-                              );
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 48),
-                      ],
-                    ),
+                                ),
+                              ],
+                            );
+                          } else {
+                            return Column(
+                              children: [
+                                _ModernModeCard(
+                                  title: "빠른 시작",
+                                  subtitle: "Quick Start",
+                                  description: "장르와 몇 가지 키워드만 고르면 AI가 즉시 흥미로운 서막을 만들어냅니다.",
+                                  iconData: Icons.bolt,
+                                  accentColor: const Color(0xFFFFBE0B),
+                                  delay: 400,
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => const WizardScreen(isQuickStart: true)),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 24),
+                                _ModernModeCard(
+                                  title: "상세 설정",
+                                  subtitle: "World Builder",
+                                  description: "세계의 법칙, 다면적인 캐릭터, 복잡한 설정들을 직접 설계하고 지휘합니다.",
+                                  iconData: Icons.architecture,
+                                  accentColor: const Color(0xFF6B4EFF),
+                                  delay: 600,
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => const WizardScreen(isQuickStart: false)),
+                                    );
+                                  },
+                                ),
+                              ],
+                            );
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 48),
+                    ],
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

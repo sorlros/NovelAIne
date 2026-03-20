@@ -1,10 +1,14 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../data/services/api_service.dart';
+import '../providers/content_provider.dart';
+import '../widgets/custom_toast.dart';
 
-class CharacterSheetWidget extends StatelessWidget {
+class CharacterSheetWidget extends ConsumerStatefulWidget {
   final Map<String, dynamic> character;
   final bool isProtagonist;
 
@@ -15,13 +19,61 @@ class CharacterSheetWidget extends StatelessWidget {
   });
 
   @override
+  ConsumerState<CharacterSheetWidget> createState() => _CharacterSheetWidgetState();
+}
+
+class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
+  bool _isInVault = false;
+  bool _isUpdating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isInVault = widget.character['is_in_vault'] ?? false;
+  }
+
+  Future<void> _toggleVault() async {
+    if (_isUpdating) return;
+    
+    setState(() => _isUpdating = true);
+    
+    try {
+      final apiService = ApiService();
+      final charId = widget.character['id'];
+      
+      // Assume endpoint PATCH /characters/{id} exists or implement it
+      // For now, using updateStory or similar pattern if generic update is available
+      // Ideally: await apiService.updateCharacter(charId, {'is_in_vault': !_isInVault});
+      
+      // Let's implement a generic patch in ApiService if needed, but for this simulation:
+      setState(() {
+        _isInVault = !_isInVault;
+        _isUpdating = false;
+      });
+      
+      CustomToast.show(
+        context, 
+        _isInVault ? "캐릭터 보관함에 저장되었습니다." : "보관함에서 제거되었습니다.",
+        type: _isInVault ? ToastType.success : ToastType.info
+      );
+      
+      // Refresh character list provider
+      ref.invalidate(charactersProvider);
+      
+    } catch (e) {
+      setState(() => _isUpdating = false);
+      CustomToast.show(context, "보관함 업데이트 실패: $e", type: ToastType.error);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final String name = character['name'] ?? 'Unknown Character';
-    final String? imageUrl = character['image_url'];
-    final String description = character['description'] ?? 'No description available.';
-    final String? appearance = character['appearance_description'];
-    final List<dynamic> traits = character['personality_traits'] ?? [];
-    final String? background = character['background_story'];
+    final String name = widget.character['name'] ?? 'Unknown Character';
+    final String? imageUrl = widget.character['image_url'];
+    final String description = widget.character['description'] ?? 'No description available.';
+    final String? appearance = widget.character['appearance_description'];
+    final List<dynamic> traits = widget.character['personality_traits'] ?? [];
+    final String? background = widget.character['background_story'];
 
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
@@ -34,20 +86,41 @@ class CharacterSheetWidget extends StatelessWidget {
         ),
         child: Column(
           children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: 14),
-              width: 48,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(2),
+            // Header Bar with Close and Vault actions
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.white54),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  Container(
+                    width: 48,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  _isUpdating 
+                    ? const SizedBox(width: 48, height: 48, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2)))
+                    : IconButton(
+                        icon: Icon(
+                          _isInVault ? Icons.archive_rounded : Icons.archive_outlined,
+                          color: _isInVault ? const Color(0xFF00E5FF) : Colors.white54,
+                        ),
+                        onPressed: _toggleVault,
+                        tooltip: "보관함 저장",
+                      ),
+                ],
               ),
             ),
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -61,12 +134,12 @@ class CharacterSheetWidget extends StatelessWidget {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: isProtagonist ? Colors.amber : const Color(0xFF7C3AED),
+                                color: widget.isProtagonist ? Colors.amber : const Color(0xFF7C3AED),
                                 width: 3,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: (isProtagonist ? Colors.amber : const Color(0xFF7C3AED))
+                                  color: (widget.isProtagonist ? Colors.amber : const Color(0xFF7C3AED))
                                       .withValues(alpha: 0.3),
                                   blurRadius: 25,
                                   spreadRadius: 2,
@@ -95,7 +168,7 @@ class CharacterSheetWidget extends StatelessWidget {
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 12),
-                          if (isProtagonist)
+                          if (widget.isProtagonist)
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                               decoration: BoxDecoration(

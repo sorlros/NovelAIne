@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:shimmer/shimmer.dart';
 
 class CharacterCard extends StatelessWidget {
   final String name;
@@ -70,8 +71,10 @@ class CharacterCard extends StatelessWidget {
                         ? CachedNetworkImage(
                             imageUrl: imageUrl!,
                             fit: BoxFit.cover,
-                            placeholder: (context, url) => const Center(
-                              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                            placeholder: (context, url) => Shimmer.fromColors(
+                              baseColor: Colors.white.withValues(alpha: 0.05),
+                              highlightColor: Colors.white.withValues(alpha: 0.1),
+                              child: Container(color: Colors.black),
                             ),
                             errorWidget: (context, url, error) => const Icon(Icons.person, color: Colors.white24),
                           )
