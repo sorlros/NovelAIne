@@ -471,47 +471,34 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                     headerSliverBuilder: (context, innerBoxIsScrolled) => [
                       _buildSliverAppBar(context, innerBoxIsScrolled),
                     ],
-                    body: Column(
-                      children: [
-                        if (isMobile && viewMode == StoryViewMode.manuscript)
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: (viewMode == StoryViewMode.manuscript ? const Color(0xFF16161D) : Colors.black).withValues(alpha: 0.8),
-                              border: const Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
-                            ),
-                            child: Center(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 850),
-                                child: _buildIntegratedCharacterSection(context, visibleCharacters, importantNames),
-                              ),
-                            ),
-                          ),
-                        Expanded(
-                          child: Center(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 850),
-                              child: ListView.builder(
-                                controller: _scrollController,
-                                padding: EdgeInsets.fromLTRB(
-                                  isMobile ? 16 : 24, 20, 
-                                  isMobile ? 16 : 24, isMobile ? 180 : 250
-                                ), 
-                                itemCount: messages.length,
-                                cacheExtent: 300,
-                                itemBuilder: (context, index) {
-                                  final msg = messages[index];
-                                  return _RefinedNarrativeCard(
-                                    key: ValueKey(msg['id'].toString()),
-                                    msg: msg,
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
+                    body: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 850),
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          padding: EdgeInsets.fromLTRB(
+                            isMobile ? 16 : 24, 20, 
+                            isMobile ? 16 : 24, isMobile ? 180 : 250
+                          ), 
+                          itemCount: messages.length + 1, // +1 for the character section header
+                          cacheExtent: 300,
+                          itemBuilder: (context, index) {
+                            if (index == 0) {
+                              // Integrated Character Section as the first item in the list
+                              if (isMobile && viewMode == StoryViewMode.manuscript) {
+                                return _buildIntegratedCharacterSection(context, visibleCharacters, importantNames);
+                              }
+                              return const SizedBox.shrink();
+                            }
+                            
+                            final msg = messages[index - 1];
+                            return _RefinedNarrativeCard(
+                              key: ValueKey(msg['id'].toString()),
+                              msg: msg,
+                            );
+                          },
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
