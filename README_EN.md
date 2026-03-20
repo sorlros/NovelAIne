@@ -44,6 +44,7 @@ NovelAIne is an AI-powered **interactive storytelling and automated illustration
 
 ### 📚 RAG-based Selective Memory
 *   **Vector Database (Supabase pgvector)**: Uses **vector search** to retrieve only the most relevant world-building data or past events for the current context. By injecting only necessary information into the prompt, it significantly lowers operational costs.
+*   **Smart RAG Triggers**: Instead of triggering RAG for every input, the system intelligently detects questions (`?`), sentence length (25+ chars), and narrative keywords (memory, identity, transitions) to fetch lore only when necessary. This optimizes response latency and significantly reduces API costs.
 
 ### ⚡ Prompt Compression & Engineering
 *   **English-Centric Prompting**: By internally **optimizing prompts in English**, we maximize the LLM's reasoning performance and improve token efficiency by 2-3x compared to Korean-only prompts.
