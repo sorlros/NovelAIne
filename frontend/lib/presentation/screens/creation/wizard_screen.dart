@@ -91,7 +91,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       final repository = ref.read(storyRepositoryProvider);
 
       // 1. 생성된 스토리를 로컬 DB에 수동으로 즉시 저장
-      await repository.cacheStory(createdStory);
+      await repository.cacheStory(createdStory, userId: userId);
 
       // 2. 생성된 스토리의 장면들을 서버에서 가져와 '사전 파싱' 진행 (Isolate 활용)
       List<Map<String, dynamic>> processedMessages = [];
@@ -121,6 +121,8 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
           ref.read(messageProvider.notifier).state = processedMessages;
         }
         
+        // [수정] 스토리 목록 동기화 강제 수행 및 프로바이더 무효화
+        await repository.getStories(userId: userId, forceRefresh: true);
         ref.invalidate(storiesProvider);
       } catch (syncErr) {
         debugPrint("Initial scene sync/parsing failed: $syncErr");

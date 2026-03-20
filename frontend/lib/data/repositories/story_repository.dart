@@ -217,19 +217,23 @@ class StoryRepository {
 
   // 5. [추가] 단일 스토리 수동 캐싱 (생성 직후 사용)
   Future<void> cacheStory(StoryModel s, {String? userId}) async {
-    await database.into(database.stories).insertOnConflictUpdate(
-      StoriesCompanion.insert(
-        id: s.id,
-        title: s.title,
-        description: Value(s.description),
-        genre: Value(s.genre),
-        status: Value(s.status),
-        totalScenes: Value(s.totalScenes),
-        coverImageUrl: Value(s.coverImageUrl),
-        createdAt: Value(s.createdAt),
-        userId: Value(userId),
-      )
-    );
-    debugPrint("💾 [Cache] Manually cached new story: ${s.title}");
+    try {
+      await database.into(database.stories).insertOnConflictUpdate(
+        StoriesCompanion.insert(
+          id: s.id,
+          title: s.title,
+          description: Value(s.description),
+          genre: Value(s.genre),
+          status: Value(s.status),
+          totalScenes: Value(s.totalScenes),
+          coverImageUrl: Value(s.coverImageUrl),
+          createdAt: Value(s.createdAt),
+          userId: Value(userId),
+        )
+      );
+      debugPrint("💾 [Cache] Manually cached new story: ${s.title}");
+    } catch (e) {
+      debugPrint("⚠️ [Cache] Manual cache failed: $e");
+    }
   }
 }
