@@ -30,12 +30,13 @@ class StoryRepository {
       
       if (localStories.isNotEmpty && !forceRefresh) {
         debugPrint("🟢 [Cache] Found ${localStories.length} stories for user $userId in Local DB.");
-        return localStories.map((s) => StoryModel(
+        return localStories.map<StoryModel>((s) => StoryModel(
           id: s.id,
           title: s.title,
           genre: s.genre ?? 'fantasy',
           description: s.description ?? '',
           status: s.status,
+          narrativeType: s.narrativeType, // Added
           totalScenes: s.totalScenes,
           coverImageUrl: s.coverImageUrl,
           createdAt: s.createdAt,
@@ -67,6 +68,7 @@ class StoryRepository {
               description: Value(s.description),
               genre: Value(s.genre),
               status: Value(s.status),
+              narrativeType: Value(s.narrativeType), // Added
               totalScenes: Value(s.totalScenes),
               coverImageUrl: Value(s.coverImageUrl),
               createdAt: Value(s.createdAt),
@@ -175,6 +177,7 @@ class StoryRepository {
         description: Value(storyData['description']),
         genre: Value(storyData['genre']),
         status: Value(storyData['status']),
+        narrativeType: Value(storyData['narrative_type'] ?? 'hero'), // Added
         coverImageUrl: Value(storyData['cover_image_url']),
       )
     );
@@ -225,6 +228,7 @@ class StoryRepository {
           description: Value(s.description),
           genre: Value(s.genre),
           status: Value(s.status),
+          narrativeType: Value(s.narrativeType), // Added
           totalScenes: Value(s.totalScenes),
           coverImageUrl: Value(s.coverImageUrl),
           createdAt: Value(s.createdAt),

@@ -60,6 +60,18 @@ class $StoriesTable extends Stories with TableInfo<$StoriesTable, Story> {
     requiredDuringInsert: false,
     defaultValue: const Constant('active'),
   );
+  static const VerificationMeta _narrativeTypeMeta = const VerificationMeta(
+    'narrativeType',
+  );
+  @override
+  late final GeneratedColumn<String> narrativeType = GeneratedColumn<String>(
+    'narrative_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('hero'),
+  );
   static const VerificationMeta _totalScenesMeta = const VerificationMeta(
     'totalScenes',
   );
@@ -111,6 +123,7 @@ class $StoriesTable extends Stories with TableInfo<$StoriesTable, Story> {
     description,
     genre,
     status,
+    narrativeType,
     totalScenes,
     coverImageUrl,
     createdAt,
@@ -160,6 +173,15 @@ class $StoriesTable extends Stories with TableInfo<$StoriesTable, Story> {
       context.handle(
         _statusMeta,
         status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('narrative_type')) {
+      context.handle(
+        _narrativeTypeMeta,
+        narrativeType.isAcceptableOrUnknown(
+          data['narrative_type']!,
+          _narrativeTypeMeta,
+        ),
       );
     }
     if (data.containsKey('total_scenes')) {
@@ -221,6 +243,10 @@ class $StoriesTable extends Stories with TableInfo<$StoriesTable, Story> {
         DriftSqlType.string,
         data['${effectivePrefix}status'],
       )!,
+      narrativeType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}narrative_type'],
+      )!,
       totalScenes: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}total_scenes'],
@@ -252,6 +278,7 @@ class Story extends DataClass implements Insertable<Story> {
   final String? description;
   final String? genre;
   final String status;
+  final String narrativeType;
   final int totalScenes;
   final String? coverImageUrl;
   final DateTime createdAt;
@@ -262,6 +289,7 @@ class Story extends DataClass implements Insertable<Story> {
     this.description,
     this.genre,
     required this.status,
+    required this.narrativeType,
     required this.totalScenes,
     this.coverImageUrl,
     required this.createdAt,
@@ -279,6 +307,7 @@ class Story extends DataClass implements Insertable<Story> {
       map['genre'] = Variable<String>(genre);
     }
     map['status'] = Variable<String>(status);
+    map['narrative_type'] = Variable<String>(narrativeType);
     map['total_scenes'] = Variable<int>(totalScenes);
     if (!nullToAbsent || coverImageUrl != null) {
       map['cover_image_url'] = Variable<String>(coverImageUrl);
@@ -301,6 +330,7 @@ class Story extends DataClass implements Insertable<Story> {
           ? const Value.absent()
           : Value(genre),
       status: Value(status),
+      narrativeType: Value(narrativeType),
       totalScenes: Value(totalScenes),
       coverImageUrl: coverImageUrl == null && nullToAbsent
           ? const Value.absent()
@@ -323,6 +353,7 @@ class Story extends DataClass implements Insertable<Story> {
       description: serializer.fromJson<String?>(json['description']),
       genre: serializer.fromJson<String?>(json['genre']),
       status: serializer.fromJson<String>(json['status']),
+      narrativeType: serializer.fromJson<String>(json['narrativeType']),
       totalScenes: serializer.fromJson<int>(json['totalScenes']),
       coverImageUrl: serializer.fromJson<String?>(json['coverImageUrl']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -338,6 +369,7 @@ class Story extends DataClass implements Insertable<Story> {
       'description': serializer.toJson<String?>(description),
       'genre': serializer.toJson<String?>(genre),
       'status': serializer.toJson<String>(status),
+      'narrativeType': serializer.toJson<String>(narrativeType),
       'totalScenes': serializer.toJson<int>(totalScenes),
       'coverImageUrl': serializer.toJson<String?>(coverImageUrl),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -351,6 +383,7 @@ class Story extends DataClass implements Insertable<Story> {
     Value<String?> description = const Value.absent(),
     Value<String?> genre = const Value.absent(),
     String? status,
+    String? narrativeType,
     int? totalScenes,
     Value<String?> coverImageUrl = const Value.absent(),
     DateTime? createdAt,
@@ -361,6 +394,7 @@ class Story extends DataClass implements Insertable<Story> {
     description: description.present ? description.value : this.description,
     genre: genre.present ? genre.value : this.genre,
     status: status ?? this.status,
+    narrativeType: narrativeType ?? this.narrativeType,
     totalScenes: totalScenes ?? this.totalScenes,
     coverImageUrl: coverImageUrl.present
         ? coverImageUrl.value
@@ -377,6 +411,9 @@ class Story extends DataClass implements Insertable<Story> {
           : this.description,
       genre: data.genre.present ? data.genre.value : this.genre,
       status: data.status.present ? data.status.value : this.status,
+      narrativeType: data.narrativeType.present
+          ? data.narrativeType.value
+          : this.narrativeType,
       totalScenes: data.totalScenes.present
           ? data.totalScenes.value
           : this.totalScenes,
@@ -396,6 +433,7 @@ class Story extends DataClass implements Insertable<Story> {
           ..write('description: $description, ')
           ..write('genre: $genre, ')
           ..write('status: $status, ')
+          ..write('narrativeType: $narrativeType, ')
           ..write('totalScenes: $totalScenes, ')
           ..write('coverImageUrl: $coverImageUrl, ')
           ..write('createdAt: $createdAt, ')
@@ -411,6 +449,7 @@ class Story extends DataClass implements Insertable<Story> {
     description,
     genre,
     status,
+    narrativeType,
     totalScenes,
     coverImageUrl,
     createdAt,
@@ -425,6 +464,7 @@ class Story extends DataClass implements Insertable<Story> {
           other.description == this.description &&
           other.genre == this.genre &&
           other.status == this.status &&
+          other.narrativeType == this.narrativeType &&
           other.totalScenes == this.totalScenes &&
           other.coverImageUrl == this.coverImageUrl &&
           other.createdAt == this.createdAt &&
@@ -437,6 +477,7 @@ class StoriesCompanion extends UpdateCompanion<Story> {
   final Value<String?> description;
   final Value<String?> genre;
   final Value<String> status;
+  final Value<String> narrativeType;
   final Value<int> totalScenes;
   final Value<String?> coverImageUrl;
   final Value<DateTime> createdAt;
@@ -448,6 +489,7 @@ class StoriesCompanion extends UpdateCompanion<Story> {
     this.description = const Value.absent(),
     this.genre = const Value.absent(),
     this.status = const Value.absent(),
+    this.narrativeType = const Value.absent(),
     this.totalScenes = const Value.absent(),
     this.coverImageUrl = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -460,6 +502,7 @@ class StoriesCompanion extends UpdateCompanion<Story> {
     this.description = const Value.absent(),
     this.genre = const Value.absent(),
     this.status = const Value.absent(),
+    this.narrativeType = const Value.absent(),
     this.totalScenes = const Value.absent(),
     this.coverImageUrl = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -473,6 +516,7 @@ class StoriesCompanion extends UpdateCompanion<Story> {
     Expression<String>? description,
     Expression<String>? genre,
     Expression<String>? status,
+    Expression<String>? narrativeType,
     Expression<int>? totalScenes,
     Expression<String>? coverImageUrl,
     Expression<DateTime>? createdAt,
@@ -485,6 +529,7 @@ class StoriesCompanion extends UpdateCompanion<Story> {
       if (description != null) 'description': description,
       if (genre != null) 'genre': genre,
       if (status != null) 'status': status,
+      if (narrativeType != null) 'narrative_type': narrativeType,
       if (totalScenes != null) 'total_scenes': totalScenes,
       if (coverImageUrl != null) 'cover_image_url': coverImageUrl,
       if (createdAt != null) 'created_at': createdAt,
@@ -499,6 +544,7 @@ class StoriesCompanion extends UpdateCompanion<Story> {
     Value<String?>? description,
     Value<String?>? genre,
     Value<String>? status,
+    Value<String>? narrativeType,
     Value<int>? totalScenes,
     Value<String?>? coverImageUrl,
     Value<DateTime>? createdAt,
@@ -511,6 +557,7 @@ class StoriesCompanion extends UpdateCompanion<Story> {
       description: description ?? this.description,
       genre: genre ?? this.genre,
       status: status ?? this.status,
+      narrativeType: narrativeType ?? this.narrativeType,
       totalScenes: totalScenes ?? this.totalScenes,
       coverImageUrl: coverImageUrl ?? this.coverImageUrl,
       createdAt: createdAt ?? this.createdAt,
@@ -536,6 +583,9 @@ class StoriesCompanion extends UpdateCompanion<Story> {
     }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
+    }
+    if (narrativeType.present) {
+      map['narrative_type'] = Variable<String>(narrativeType.value);
     }
     if (totalScenes.present) {
       map['total_scenes'] = Variable<int>(totalScenes.value);
@@ -563,6 +613,7 @@ class StoriesCompanion extends UpdateCompanion<Story> {
           ..write('description: $description, ')
           ..write('genre: $genre, ')
           ..write('status: $status, ')
+          ..write('narrativeType: $narrativeType, ')
           ..write('totalScenes: $totalScenes, ')
           ..write('coverImageUrl: $coverImageUrl, ')
           ..write('createdAt: $createdAt, ')
@@ -1976,6 +2027,7 @@ typedef $$StoriesTableCreateCompanionBuilder =
       Value<String?> description,
       Value<String?> genre,
       Value<String> status,
+      Value<String> narrativeType,
       Value<int> totalScenes,
       Value<String?> coverImageUrl,
       Value<DateTime> createdAt,
@@ -1989,6 +2041,7 @@ typedef $$StoriesTableUpdateCompanionBuilder =
       Value<String?> description,
       Value<String?> genre,
       Value<String> status,
+      Value<String> narrativeType,
       Value<int> totalScenes,
       Value<String?> coverImageUrl,
       Value<DateTime> createdAt,
@@ -2071,6 +2124,11 @@ class $$StoriesTableFilterComposer
 
   ColumnFilters<String> get status => $composableBuilder(
     column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get narrativeType => $composableBuilder(
+    column: $table.narrativeType,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2179,6 +2237,11 @@ class $$StoriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get narrativeType => $composableBuilder(
+    column: $table.narrativeType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get totalScenes => $composableBuilder(
     column: $table.totalScenes,
     builder: (column) => ColumnOrderings(column),
@@ -2225,6 +2288,11 @@ class $$StoriesTableAnnotationComposer
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get narrativeType => $composableBuilder(
+    column: $table.narrativeType,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get totalScenes => $composableBuilder(
     column: $table.totalScenes,
@@ -2326,6 +2394,7 @@ class $$StoriesTableTableManager
                 Value<String?> description = const Value.absent(),
                 Value<String?> genre = const Value.absent(),
                 Value<String> status = const Value.absent(),
+                Value<String> narrativeType = const Value.absent(),
                 Value<int> totalScenes = const Value.absent(),
                 Value<String?> coverImageUrl = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -2337,6 +2406,7 @@ class $$StoriesTableTableManager
                 description: description,
                 genre: genre,
                 status: status,
+                narrativeType: narrativeType,
                 totalScenes: totalScenes,
                 coverImageUrl: coverImageUrl,
                 createdAt: createdAt,
@@ -2350,6 +2420,7 @@ class $$StoriesTableTableManager
                 Value<String?> description = const Value.absent(),
                 Value<String?> genre = const Value.absent(),
                 Value<String> status = const Value.absent(),
+                Value<String> narrativeType = const Value.absent(),
                 Value<int> totalScenes = const Value.absent(),
                 Value<String?> coverImageUrl = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -2361,6 +2432,7 @@ class $$StoriesTableTableManager
                 description: description,
                 genre: genre,
                 status: status,
+                narrativeType: narrativeType,
                 totalScenes: totalScenes,
                 coverImageUrl: coverImageUrl,
                 createdAt: createdAt,

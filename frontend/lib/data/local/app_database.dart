@@ -10,6 +10,7 @@ class Stories extends Table {
   TextColumn get description => text().nullable()();
   TextColumn get genre => text().nullable()();
   TextColumn get status => text().withDefault(const Constant('active'))();
+  TextColumn get narrativeType => text().withDefault(const Constant('hero'))();
   IntColumn get totalScenes => integer().withDefault(const Constant(0))();
   TextColumn get coverImageUrl => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
