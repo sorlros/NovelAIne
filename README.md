@@ -1,36 +1,55 @@
-# NovelAIne (노벨라인)
+# 📖 NovelAIne (노벨라인)
 
-당신의 상상력이 현실이 되는 곳, AI 기반 인터랙티브 스토리텔링 플랫폼입니다.
+<p align="center">
+  <a href="README_EN.md">English</a> | 
+  <a href="README_KR.md">한국어</a>
+</p>
 
-## 🚀 주요 기능
+---
 
-- **다이내믹 캐릭터 시스템**: 실시간 장면 분석을 통해 현재 등장 중인 캐릭터를 카드로 노출하고 정보를 연동합니다.
-- **AI 엔진 이원화**: Gemini 2.0 Flash와 1.5 Pro 모델 중 선택하여 속도와 서사의 깊이를 조절할 수 있습니다.
-- **초고속 하이브리드 로딩**: Isolate 기반 사전 파싱 기술로 대량의 데이터도 지연 없이 즉시 로드합니다.
-- **시네마틱 스토리텔링**: 몰입형 배경 시스템과 프리미엄 타이포그래피를 통한 독창적인 독서 경험.
-- **멀티 플랫폼 캐싱**: Drift(SQL)를 활용한 웹(IndexedDB) 및 앱(SQLite) 데이터 보존 지원.
+> **"Crafting immersive narrative experiences through intelligent context management and premium cinematic direction."**
 
-## 🛠 기술 스택
+NovelAIne is an AI-powered **interactive storytelling and automated illustration service**. We deliver a unique sense of immersion by combining RAG-based memory systems that prevent narrative inconsistencies even in long-form stories with premium UX features like fountain pen writing animations and real-time scene analysis.
 
-### Frontend
-- **Framework**: Flutter (Web & Mobile)
-- **State Management**: Riverpod
-- **Local Database**: Drift (SQL) with WASM
-- **Animation**: Flutter Animate
+---
 
-### Backend
-- **Framework**: FastAPI (Python)
-- **Database**: Supabase (PostgreSQL)
-- **LLM Engine**: Google Gemini 2.0 via OpenRouter
-- **Real-time**: HTTP Streaming (StreamingResponse)
+## ✨ Key Features
 
-## 📦 시작하기
+### 🎭 Dynamic Character System
+*   **Real-time Scene Analysis**: The LLM analyzes every scene to automatically display character cards for currently present or important figures.
+
+### 🧠 Dual AI Engines
+*   **Model Selection & Switching**: Seamlessly switch between speed-optimized `Gemini 2.0 Flash` and narrative-depth-focused `Gemini 1.5 Pro` at any time.
+
+### ✒️ Premium Visual Direction
+*   **Fountain Pen Animation**: Experience an analog touch with the `WritingEffect` that mimics a fountain pen writing on paper.
+*   **Immersive View Modes**: Choose between **Manuscript Mode** (cinematic) and **Focus Mode** (minimalist).
+
+### 🚀 High-Performance Hybrid Loading
+*   **Background Pre-warming**: Recent stories are pre-parsed using **Isolates**, reducing loading times to near zero.
+*   **Local Caching (Drift SQL)**: Implements a 'Zero-Latency' UI by fetching data from the local database (WASM supported).
+
+### ⚡ Token Optimization & Cost Reduction
+*   **English-Centric Prompting**: Maximizes reasoning performance and improves token efficiency by 2-3x.
+*   **RAG-based Selective Memory**: Retrieves only relevant info via **Supabase pgvector**, drastically lowering costs.
+
+---
+
+## 🛠 Tech Stack
+
+- **Frontend**: Flutter (Web & Mobile), Riverpod, Drift (SQL/WASM)
+- **Backend**: FastAPI (Python), Supabase (PostgreSQL + pgvector)
+- **AI**: OpenRouter (Gemini 2.0 Flash / 1.5 Pro), Stable Diffusion XL
+
+---
+
+## 🚀 Quick Start
 
 ### Frontend
 ```bash
 cd frontend
 flutter pub get
-flutter run -d chrome # 웹 실행
+flutter run -d chrome
 ```
 
 ### Backend
@@ -40,3 +59,8 @@ source venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
+
+---
+
+## 📅 Changelog
+Check out latest updates in the [CHANGELOG.md](./CHANGELOG.md) file!
