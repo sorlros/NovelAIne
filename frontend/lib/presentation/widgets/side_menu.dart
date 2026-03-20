@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../screens/home_screen.dart';
-import '../screens/explore_screen.dart';
 import '../screens/vault/vault_screen.dart';
 import '../screens/profile/settings_screen.dart';
 import '../profile/profile_screen.dart';

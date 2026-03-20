@@ -16,7 +16,7 @@ class SettingsScreen extends ConsumerWidget {
     final user = authState.value;
 
     return ResponsiveLayout(
-      currentIndex: 4, // 설정 페이지 인덱스
+      currentIndex: 3, // Settings/Explore index in SideMenu
       appBar: AppBar(
         title: const Text("설정 및 프로필"),
         backgroundColor: Colors.transparent,

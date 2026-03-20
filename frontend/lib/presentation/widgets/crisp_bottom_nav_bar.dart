@@ -81,7 +81,7 @@ class CrispBottomNavBar extends StatelessWidget {
         screen = const CharacterVaultScreen();
         break;
       case 3:
-        screen = const SettingsScreen(); // From side menu mapping
+        screen = const SettingsScreen();
         break;
       case 4:
         screen = const ProfileScreen();

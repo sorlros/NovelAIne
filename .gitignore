@@ -21,3 +21,4 @@ error.log
 
 # System
 .DS_Store
+supabase/.temp/

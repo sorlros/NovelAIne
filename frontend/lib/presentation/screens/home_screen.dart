@@ -15,7 +15,7 @@ import '../profile/profile_screen.dart';
 import 'explore_screen.dart';
 import 'community_screen.dart';
 import '../widgets/responsive_layout.dart';
-import '../widgets/crisp_bottom_nav_bar.dart'; // 추가
+import '../widgets/crisp_bottom_nav_bar.dart';
 import '../providers/content_provider.dart';
 import '../widgets/custom_toast.dart';
 import '../widgets/custom_loading_indicator.dart';
