@@ -471,69 +471,46 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                     headerSliverBuilder: (context, innerBoxIsScrolled) => [
                       _buildSliverAppBar(context, innerBoxIsScrolled),
                     ],
-                    body: Stack(
+                    body: Column(
                       children: [
-                        Column(
-                          children: [
-                            if (isMobile && viewMode == StoryViewMode.manuscript)
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF0D0D12).withValues(alpha: 0.8),
-                                  border: const Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
-                                ),
-                                child: Center(
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(maxWidth: 850),
-                                    child: _buildIntegratedCharacterSection(context, visibleCharacters, importantNames),
-                                  ),
-                                ),
-                              ),
-                            Expanded(
-                              child: Center(
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 850),
-                                  child: ListView.builder(
-                                    controller: _scrollController,
-                                    padding: EdgeInsets.fromLTRB(
-                                      isMobile ? 16 : 24, 20, 
-                                      isMobile ? 16 : 24, isMobile ? 180 : 250
-                                    ), 
-                                    itemCount: messages.length,
-                                    cacheExtent: 300,
-                                    itemBuilder: (context, index) {
-                                      final msg = messages[index];
-                                      return _RefinedNarrativeCard(
-                                        key: ValueKey(msg['id'].toString()),
-                                        msg: msg,
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
+                        if (isMobile && viewMode == StoryViewMode.manuscript)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: (viewMode == StoryViewMode.manuscript ? const Color(0xFF16161D) : Colors.black).withValues(alpha: 0.8),
+                              border: const Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
                             ),
-                          ],
-                        ),
-                        if (viewMode == StoryViewMode.manuscript)
-                          Positioned(
-                            top: isMobile ? 120 : 150, 
-                            left: 0, right: 0, height: 60,
-                            child: IgnorePointer(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                                    colors: [
-                                      (viewMode == StoryViewMode.manuscript ? const Color(0xFF16161D) : Colors.black),
-                                      (viewMode == StoryViewMode.manuscript ? const Color(0xFF16161D) : Colors.black).withValues(alpha: 0.5),
-                                      Colors.transparent
-                                    ],
-                                  ),
-                                ),
+                            child: Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 850),
+                                child: _buildIntegratedCharacterSection(context, visibleCharacters, importantNames),
                               ),
                             ),
                           ),
+                        Expanded(
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 850),
+                              child: ListView.builder(
+                                controller: _scrollController,
+                                padding: EdgeInsets.fromLTRB(
+                                  isMobile ? 16 : 24, 20, 
+                                  isMobile ? 16 : 24, isMobile ? 180 : 250
+                                ), 
+                                itemCount: messages.length,
+                                cacheExtent: 300,
+                                itemBuilder: (context, index) {
+                                  final msg = messages[index];
+                                  return _RefinedNarrativeCard(
+                                    key: ValueKey(msg['id'].toString()),
+                                    msg: msg,
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -853,36 +830,6 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     return Positioned.fill(
       child: Container(
         color: bgColor,
-        child: url == null 
-          ? null 
-          : ClipRect(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  CachedNetworkImage(
-                    imageUrl: url, 
-                    fit: BoxFit.cover, 
-                    fadeInDuration: 1.seconds
-                  ),
-                  BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter, 
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withValues(alpha: 0.6), 
-                            bgColor.withValues(alpha: 0.85), 
-                            bgColor
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
       ),
     );
   }
@@ -901,7 +848,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             begin: Alignment.topCenter, end: Alignment.bottomCenter, 
             colors: [
               Colors.transparent, 
-              bgColor.withValues(alpha: 0.7), 
+              bgColor.withValues(alpha: 0.8), 
               bgColor
             ]
           )
@@ -909,43 +856,37 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 850),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(35),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08), 
-                    borderRadius: BorderRadius.circular(35), 
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.12))
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08), 
+                borderRadius: BorderRadius.circular(35), 
+                border: Border.all(color: Colors.white.withValues(alpha: 0.12))
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextField(
+                      controller: _controller, 
+                      style: GoogleFonts.lato(color: Colors.white, fontSize: 15), 
+                      decoration: InputDecoration(
+                        hintText: "어떻게 행동할까요?", 
+                        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 14), 
+                        border: InputBorder.none
+                      ), 
+                      onSubmitted: (_) => _sendMessage()
+                    )
                   ),
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: TextField(
-                          controller: _controller, 
-                          style: GoogleFonts.lato(color: Colors.white, fontSize: 15), 
-                          decoration: InputDecoration(
-                            hintText: "어떻게 행동할까요?", 
-                            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 14), 
-                            border: InputBorder.none
-                          ), 
-                          onSubmitted: (_) => _sendMessage()
-                        )
-                      ),
-                      GestureDetector(
-                        onTap: _sendMessage, 
-                        child: Container(
-                          width: 44, height: 44, 
-                          decoration: const BoxDecoration(color: Color(0xFF7C3AED), shape: BoxShape.circle), 
-                          child: const Icon(Icons.auto_fix_high_rounded, color: Colors.white, size: 20)
-                        )
-                      ),
-                    ],
+                  GestureDetector(
+                    onTap: _sendMessage, 
+                    child: Container(
+                      width: 44, height: 44, 
+                      decoration: const BoxDecoration(color: Color(0xFF7C3AED), shape: BoxShape.circle), 
+                      child: const Icon(Icons.auto_fix_high_rounded, color: Colors.white, size: 20)
+                    )
                   ),
-                ),
+                ],
               ),
             ),
           ),
@@ -1009,7 +950,7 @@ class _RefinedNarrativeCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (msg['imageUrl'] != null && viewMode == StoryViewMode.manuscript) 
+            if (msg['imageUrl'] != null) 
               Padding(
                 padding: const EdgeInsets.only(bottom: 24), 
                 child: ClipRRect(
@@ -1018,7 +959,12 @@ class _RefinedNarrativeCard extends ConsumerWidget {
                     imageUrl: msg['imageUrl'], 
                     fit: BoxFit.cover, 
                     memCacheWidth: 800, 
-                    placeholder: (context, url) => Container(height: 180, color: Colors.white.withValues(alpha: 0.05))
+                    placeholder: (context, url) => Container(
+                      height: 200, 
+                      color: Colors.white.withValues(alpha: 0.05),
+                      child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    ),
+                    errorWidget: (context, url, error) => const SizedBox.shrink(),
                   )
                 )
               ).animate().fadeIn(duration: 800.ms).scale(begin: const Offset(0.98, 0.98)),
