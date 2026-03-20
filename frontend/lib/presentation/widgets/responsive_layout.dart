@@ -31,7 +31,7 @@ class ResponsiveLayout extends StatelessWidget {
         return Scaffold(
           backgroundColor: backgroundColor,
           extendBodyBehindAppBar: extendBodyBehindAppBar,
-          // Desktop: SideMenu handles the navigation, so we typically don't show the top appBar 
+          // Desktop: SideMenu handles the navigation, so we typically don't show the top appBar
           // unless it's specifically needed for the screen's internal actions.
           // Mobile: Show the passed appBar if any.
           appBar: isDesktop ? null : appBar,
@@ -39,9 +39,7 @@ class ResponsiveLayout extends StatelessWidget {
               ? Row(
                   children: [
                     SideMenu(currentIndex: currentIndex),
-                    Expanded(
-                      child: body,
-                    ),
+                    Expanded(child: body),
                   ],
                 )
               : body,
