@@ -205,83 +205,86 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     showDialog(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.8),
-      builder: (context) => Center(
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.85,
-          constraints: const BoxConstraints(maxWidth: 500),
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A1A24),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white10),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    isEnsemble ? Icons.groups_rounded : Icons.person_rounded,
-                    color: const Color(0xFF7C3AED),
-                    size: 28,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    isEnsemble ? "군상극 가이드" : "주인공 모드 가이드",
-                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Text(
-                isEnsemble 
-                  ? "이 서사에는 고정된 주인공이 없습니다. 당신은 세계의 운명을 결정하는 지휘자입니다."
-                  : "당신은 이 이야기의 주인공입니다. 당신의 선택이 운명을 결정합니다.",
-                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                "💡 이런 식으로 입력해 보세요:",
-                style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (context) => Material(
+        type: MaterialType.transparency,
+        child: Center(
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.85,
+            constraints: const BoxConstraints(maxWidth: 500),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A24),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.white10),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    if (isEnsemble) ...[
-                      const _TipItem(text: "장소의 변화: '갑자기 마을에 거대한 폭풍이 몰아친다'"),
-                      const _TipItem(text: "사건의 발생: '두 가문 사이에 금지된 사랑이 시작된다'"),
-                      const _TipItem(text: "집단 행동: '모든 주민들이 광장에 모여 항의한다'"),
-                    ] else ...[
-                      const _TipItem(text: "직접적인 행동: '조심스럽게 낡은 문을 열고 들어간다'"),
-                      const _TipItem(text: "심리 묘사: '불안한 마음을 감추며 애써 미소 짓는다'"),
-                      const _TipItem(text: "대화 시도: '옆에 있는 기사에게 이름을 묻는다'"),
-                    ],
+                    Icon(
+                      isEnsemble ? Icons.groups_rounded : Icons.person_rounded,
+                      color: const Color(0xFF7C3AED),
+                      size: 28,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      isEnsemble ? "군상극 가이드" : "주인공 모드 가이드",
+                      style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7C3AED),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text("창작 시작하기", style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 20),
+                Text(
+                  isEnsemble 
+                    ? "이 서사에는 고정된 주인공이 없습니다. 당신은 세계의 운명을 결정하는 지휘자입니다."
+                    : "당신은 이 이야기의 주인공입니다. 당신의 선택이 운명을 결정합니다.",
+                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                const Text(
+                  "💡 이런 식으로 입력해 보세요:",
+                  style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (isEnsemble) ...[
+                        const _TipItem(text: "장소의 변화: '갑자기 마을에 거대한 폭풍이 몰아친다'"),
+                        const _TipItem(text: "사건의 발생: '두 가문 사이에 금지된 사랑이 시작된다'"),
+                        const _TipItem(text: "집단 행동: '모든 주민들이 광장에 모여 항의한다'"),
+                      ] else ...[
+                        const _TipItem(text: "직접적인 행동: '조심스럽게 낡은 문을 열고 들어간다'"),
+                        const _TipItem(text: "심리 묘사: '불안한 마음을 감추며 애써 미소 짓는다'"),
+                        const _TipItem(text: "대화 시도: '옆에 있는 기사에게 이름을 묻는다'"),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF7C3AED),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text("창작 시작하기", style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
