@@ -466,4 +466,25 @@ class ChatService:
             return {"present_characters": [], "important_characters": []}
 
     def _should_trigger_rag(self, message: str) -> bool:
-        return "?" in message or len(message) > 20
+        """
+        Enhanced RAG trigger logic based on narrative needs.
+        """
+        # 1. Explicit query (question mark)
+        if "?" in message:
+            return True
+            
+        # 2. Length-based trigger (complex descriptions or instructions)
+        if len(message) > 25:
+            return True
+            
+        # 3. Narrative context keywords (Recall, Identity, Time/Space transitions)
+        # These keywords imply a need to check past events or character/world lore.
+        narrative_keywords = [
+            '기억', '예전', '그때', '당시', '정체', '이유', '누구', '어디', 
+            '무엇', '다음 날', '도착', '이동', '결국', '약속', '비밀'
+        ]
+        
+        if any(word in message for word in narrative_keywords):
+            return True
+            
+        return False
