@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../screens/home_screen.dart';
 import '../screens/explore_screen.dart';
+import '../screens/vault/vault_screen.dart';
+import '../screens/profile/settings_screen.dart';
 import '../profile/profile_screen.dart';
 
 import '../screens/creation/mode_selection_screen.dart' as creation_screen;
@@ -22,9 +24,12 @@ class SideMenu extends StatelessWidget {
         screen = const creation_screen.CreationModeSelectionScreen();
         break;
       case 2:
-        screen = const ExploreScreen(); // Placeholder for settings
+        screen = const CharacterVaultScreen();
         break;
       case 3:
+        screen = const SettingsScreen();
+        break;
+      case 4:
         screen = const ProfileScreen();
         break;
       default:
@@ -82,18 +87,24 @@ class SideMenu extends StatelessWidget {
             onTap: () => _navigateTo(context, 1),
           ),
           _SideMenuItem(
-            icon: Icons.settings,
-            title: "설정",
+            icon: Icons.archive_outlined,
+            title: "캐릭터 보관함",
             isSelected: currentIndex == 2,
             onTap: () => _navigateTo(context, 2),
+          ),
+          _SideMenuItem(
+            icon: Icons.settings,
+            title: "설정",
+            isSelected: currentIndex == 3,
+            onTap: () => _navigateTo(context, 3),
           ),
           const Spacer(),
           const Divider(color: Colors.white10, height: 1),
           _SideMenuItem(
             icon: Icons.person_outline,
             title: "내 프로필",
-            isSelected: currentIndex == 3,
-            onTap: () => _navigateTo(context, 3),
+            isSelected: currentIndex == 4,
+            onTap: () => _navigateTo(context, 4),
           ),
           const SizedBox(height: 24),
         ],

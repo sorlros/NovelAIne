@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/content_provider.dart';
 import '../character_sheet_widget.dart';
 import '../../widgets/character_card.dart';
+import '../../widgets/responsive_layout.dart';
 
 class CharacterVaultScreen extends ConsumerStatefulWidget {
   const CharacterVaultScreen({super.key});
@@ -30,8 +31,8 @@ class _CharacterVaultScreenState extends ConsumerState<CharacterVaultScreen> {
     final double screenWidth = MediaQuery.of(context).size.width;
     final bool isMobile = screenWidth < 600;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D0D12),
+    return ResponsiveLayout(
+      currentIndex: 2, // Character Vault index in SideMenu
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -104,7 +105,7 @@ class _CharacterVaultScreenState extends ConsumerState<CharacterVaultScreen> {
 
                     return GridView.builder(
                       padding: EdgeInsets.fromLTRB(
-                        isMobile ? 16 : 24, 0, isMobile ? 16 : 24, 40
+                        isMobile ? 16 : 24, 0, isMobile ? 16 : 24, 100 // Extra bottom padding
                       ),
                       physics: const BouncingScrollPhysics(),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(

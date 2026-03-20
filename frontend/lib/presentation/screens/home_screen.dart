@@ -9,7 +9,8 @@ import 'package:shimmer/shimmer.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 import 'story_screen.dart';
 import 'creation/mode_selection_screen.dart' as creation_screen;
-import 'vault/vault_screen.dart'; // 추가
+import 'vault/vault_screen.dart';
+import 'profile/settings_screen.dart'; // Added
 import '../profile/profile_screen.dart';
 import 'explore_screen.dart';
 import 'community_screen.dart';
@@ -115,17 +116,18 @@ class _HeaderSection extends StatelessWidget {
             IconButton(
               onPressed: () {
                 HapticFeedback.selectionClick();
+                // Navigate to Settings instead if needed, or just remove
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const CharacterVaultScreen()),
+                  MaterialPageRoute(builder: (context) => const SettingsScreen()),
                 );
               },
               icon: Icon(
-                Icons.archive_outlined, 
-                color: const Color(0xFF00E5FF), 
+                Icons.settings_outlined, 
+                color: Colors.white54, 
                 size: isMobile ? 24 : 28
               ),
-              tooltip: "캐릭터 보관함",
+              tooltip: "설정",
             ),
           ],
         ),
