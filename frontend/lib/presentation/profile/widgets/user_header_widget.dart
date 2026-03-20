@@ -18,8 +18,15 @@ class UserHeaderWidget extends ConsumerWidget {
     final username = authState.value?.username ?? "Traveler";
     final avatarUrl =
         authState.value?.avatarUrl ?? "https://api.dicebear.com/7.x/avataaars/png?seed=guest";
+    
     final storiesCount = storiesState.when(
       data: (stories) => stories.length.toString(),
+      loading: () => "...",
+      error: (_, __) => "0",
+    );
+
+    final readingCount = storiesState.when(
+      data: (stories) => stories.where((s) => s.status == 'active').length.toString(),
       loading: () => "...",
       error: (_, __) => "0",
     );
@@ -91,7 +98,7 @@ class UserHeaderWidget extends ConsumerWidget {
                     _buildStatItem(
                       context,
                       AppLocalizations.of(context)!.reading,
-                      "2",
+                      readingCount,
                     ),
                   ],
                 ),

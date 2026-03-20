@@ -743,25 +743,42 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   Widget _buildBackdrop(String? url, StoryViewMode mode) {
     if (mode == StoryViewMode.focus) return const SizedBox.shrink();
     
+    final bgColor = mode == StoryViewMode.manuscript ? const Color(0xFF16161D) : const Color(0xFF000000);
+
     return Positioned.fill(
-      child: Stack(
-        fit: StackFit.expand, 
-        children: [
-          Container(color: const Color(0xFF0D0D12)), 
-          if (url != null) CachedNetworkImage(imageUrl: url, fit: BoxFit.cover, fadeInDuration: 1.seconds), 
-          BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50), 
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter, end: Alignment.bottomCenter, 
-                  colors: [Colors.black.withValues(alpha: 0.6), const Color(0xFF0D0D12).withValues(alpha: 0.85), const Color(0xFF0D0D12)]
-                )
-              )
-            )
-          )
-        ]
-      )
+      child: Container(
+        color: bgColor,
+        child: url == null 
+          ? null 
+          : ClipRect(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  CachedNetworkImage(
+                    imageUrl: url, 
+                    fit: BoxFit.cover, 
+                    fadeInDuration: 1.seconds
+                  ),
+                  BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter, 
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.6), 
+                            bgColor.withValues(alpha: 0.85), 
+                            bgColor
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+      ),
     );
   }
 
