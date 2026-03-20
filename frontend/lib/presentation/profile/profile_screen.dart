@@ -45,7 +45,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   @override
   Widget build(BuildContext context) {
     return ResponsiveLayout(
-      currentIndex: 3,
+      currentIndex: 4,
       appBar: AppBar(
         title: const Text(
           "내 프로필",
