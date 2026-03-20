@@ -41,14 +41,13 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
       final apiService = ApiService();
       final charId = widget.character['id'];
       
-      // Assume endpoint PATCH /characters/{id} exists or implement it
-      // For now, using updateStory or similar pattern if generic update is available
-      // Ideally: await apiService.updateCharacter(charId, {'is_in_vault': !_isInVault});
+      // 실제 API 호출로 업데이트 반영
+      await apiService.updateCharacter(charId, {'is_in_vault': !_isInVault});
       
-      // Let's implement a generic patch in ApiService if needed, but for this simulation:
+      if (!mounted) return;
+
       setState(() {
         _isInVault = !_isInVault;
-        _isUpdating = false;
       });
       
       CustomToast.show(
@@ -57,12 +56,17 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
         type: _isInVault ? ToastType.success : ToastType.info
       );
       
-      // Refresh character list provider
+      // 캐릭터 목록 새로고침
       ref.invalidate(charactersProvider);
       
     } catch (e) {
-      setState(() => _isUpdating = false);
-      CustomToast.show(context, "보관함 업데이트 실패: $e", type: ToastType.error);
+      if (mounted) {
+        CustomToast.show(context, "보관함 업데이트 실패: $e", type: ToastType.error);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdating = false);
+      }
     }
   }
 

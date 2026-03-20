@@ -30,7 +30,6 @@ async def list_characters(
         )
     except Exception as e:
         return ApiResponse.fail(str(e))
-        return ApiResponse.fail(str(e))
 
 
 @router.post("", response_model=ApiResponse)
