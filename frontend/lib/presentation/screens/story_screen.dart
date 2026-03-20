@@ -785,6 +785,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   Widget _buildFloatingControls(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 600;
     final viewMode = ref.watch(viewModeProvider);
+    final bgColor = viewMode == StoryViewMode.manuscript ? const Color(0xFF16161D) : const Color(0xFF000000);
 
     return Positioned(
       bottom: 0, left: 0, right: 0,
@@ -795,8 +796,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             begin: Alignment.topCenter, end: Alignment.bottomCenter, 
             colors: [
               Colors.transparent, 
-              (viewMode == StoryViewMode.manuscript ? const Color(0xFF0D0D12) : Colors.black).withValues(alpha: 0.7), 
-              (viewMode == StoryViewMode.manuscript ? const Color(0xFF0D0D12) : Colors.black)
+              bgColor.withValues(alpha: 0.7), 
+              bgColor
             ]
           )
         ),
