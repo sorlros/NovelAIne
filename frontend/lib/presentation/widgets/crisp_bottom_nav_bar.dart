@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import '../screens/home_screen.dart';
-import '../screens/explore_screen.dart';
-import '../screens/community_screen.dart';
 import '../screens/vault/vault_screen.dart';
 import '../screens/profile/settings_screen.dart';
 import '../profile/profile_screen.dart';
@@ -14,51 +12,51 @@ class CrispBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: 70, // Explicit height for stability on web resize
       decoration: const BoxDecoration(
         color: Color(0xFF151515),
         border: Border(top: BorderSide(color: Colors.white10, width: 1)),
       ),
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 800),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _NavBarIcon(
-                    iconOutlined: Icons.home_outlined, 
-                    iconSolid: Icons.home, 
-                    isSelected: currentIndex == 0, 
-                    onTap: () => _navigateTo(context, 0),
-                  ),
-                  _NavBarIcon(
-                    iconOutlined: Icons.add_circle_outline, 
-                    iconSolid: Icons.add_circle, 
-                    isSelected: currentIndex == 1, 
-                    onTap: () => _navigateTo(context, 1),
-                  ),
-                  _NavBarIcon(
-                    iconOutlined: Icons.archive_outlined, 
-                    iconSolid: Icons.archive, 
-                    isSelected: currentIndex == 2, 
-                    onTap: () => _navigateTo(context, 2),
-                  ),
-                  _NavBarIcon(
-                    iconOutlined: Icons.settings_outlined, 
-                    iconSolid: Icons.settings, 
-                    isSelected: currentIndex == 3, 
-                    onTap: () => _navigateTo(context, 3),
-                  ),
-                  _NavBarIcon(
-                    iconOutlined: Icons.person_outline, 
-                    iconSolid: Icons.person, 
-                    isSelected: currentIndex == 4, 
-                    onTap: () => _navigateTo(context, 4),
-                  ),
-                ],
-              ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 600,
+            ), // Reduced from 800 for better mobile fit
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _NavBarIcon(
+                  iconOutlined: Icons.home_outlined,
+                  iconSolid: Icons.home,
+                  isSelected: currentIndex == 0,
+                  onTap: () => _navigateTo(context, 0),
+                ),
+                _NavBarIcon(
+                  iconOutlined: Icons.add_circle_outline,
+                  iconSolid: Icons.add_circle,
+                  isSelected: currentIndex == 1,
+                  onTap: () => _navigateTo(context, 1),
+                ),
+                _NavBarIcon(
+                  iconOutlined: Icons.archive_outlined,
+                  iconSolid: Icons.archive,
+                  isSelected: currentIndex == 2,
+                  onTap: () => _navigateTo(context, 2),
+                ),
+                _NavBarIcon(
+                  iconOutlined: Icons.settings_outlined,
+                  iconSolid: Icons.settings,
+                  isSelected: currentIndex == 3,
+                  onTap: () => _navigateTo(context, 3),
+                ),
+                _NavBarIcon(
+                  iconOutlined: Icons.person_outline,
+                  iconSolid: Icons.person,
+                  isSelected: currentIndex == 4,
+                  onTap: () => _navigateTo(context, 4),
+                ),
+              ],
             ),
           ),
         ),
@@ -107,10 +105,10 @@ class _NavBarIcon extends StatelessWidget {
   final VoidCallback onTap;
 
   const _NavBarIcon({
-    required this.iconOutlined, 
-    required this.iconSolid, 
-    required this.isSelected, 
-    required this.onTap
+    required this.iconOutlined,
+    required this.iconSolid,
+    required this.isSelected,
+    required this.onTap,
   });
 
   @override
@@ -120,13 +118,25 @@ class _NavBarIcon extends StatelessWidget {
         onTap: onTap,
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Icon(
-            isSelected ? iconSolid : iconOutlined,
-            color: isSelected ? const Color(0xFF7C3AED) : Colors.white54,
-            size: 24,
-          ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isSelected ? iconSolid : iconOutlined,
+              color: isSelected ? const Color(0xFF7C3AED) : Colors.white54,
+              size: 24,
+            ),
+            if (isSelected)
+              Container(
+                margin: const EdgeInsets.only(top: 4),
+                width: 4,
+                height: 4,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF7C3AED),
+                  shape: BoxShape.circle,
+                ),
+              ),
+          ],
         ),
       ),
     );

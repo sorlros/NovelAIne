@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 
 class AppConstants {
+  // Centralized breakpoint for desktop vs mobile layout
+  static const double desktopBreakpoint = 900.0;
+
   static String get baseUrl {
-    // 1. Web
     if (kIsWeb) {
       // return 'http://127.0.0.1:8000/api';
       return 'https://novelaine-backend.onrender.com/api';

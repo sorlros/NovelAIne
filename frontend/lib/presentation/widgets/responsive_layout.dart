@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/constants.dart';
 import 'side_menu.dart';
 import 'crisp_bottom_nav_bar.dart';
 
@@ -26,23 +27,23 @@ class ResponsiveLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final bool isDesktop = constraints.maxWidth >= 900;
+        final bool isDesktop = constraints.maxWidth >= AppConstants.desktopBreakpoint;
 
         return Scaffold(
           backgroundColor: backgroundColor,
           extendBodyBehindAppBar: extendBodyBehindAppBar,
-          // Desktop: SideMenu handles the navigation, so we typically don't show the top appBar
-          // unless it's specifically needed for the screen's internal actions.
-          // Mobile: Show the passed appBar if any.
           appBar: isDesktop ? null : appBar,
-          body: isDesktop
-              ? Row(
-                  children: [
-                    SideMenu(currentIndex: currentIndex),
-                    Expanded(child: body),
-                  ],
-                )
-              : body,
+          body: KeyedSubtree(
+            key: ValueKey(isDesktop),
+            child: isDesktop
+                ? Row(
+                    children: [
+                      SideMenu(currentIndex: currentIndex),
+                      Expanded(child: body),
+                    ],
+                  )
+                : body,
+          ),
           floatingActionButton: floatingActionButton,
           bottomNavigationBar: (!isDesktop && showBottomNav)
               ? CrispBottomNavBar(currentIndex: currentIndex)
