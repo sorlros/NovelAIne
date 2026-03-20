@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 class CreationConfig {
   // Mode
   final bool isQuickStart;
+  String narrativeType = 'hero'; // 'hero' or 'ensemble'
 
   // Step 1: World
   String? genreLabel;

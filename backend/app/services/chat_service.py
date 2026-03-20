@@ -96,7 +96,10 @@ class ChatService:
             logger.error(f"Compression Error: {e}")
             return user_message
 
-    async def generate_response(self, user_message: str, history: List[Dict[str, str]] = [], model: str = None) -> str:
+    async def generate_response(
+        self, user_message: str, history: List[Dict[str, str]] = [], 
+        model: str = None, narrative_type: str = "hero" # 추가
+    ) -> str:
         rag_context = ""
         try:
             if self._should_trigger_rag(user_message):
@@ -107,19 +110,34 @@ class ChatService:
         target_model = model or self.default_model
         compressed_message = await self._compress_to_english_keywords(user_message, model=target_model)
 
-        base_system_prompt = (
-            "당신은 몰입형 인터랙티브 스토리텔링 플랫폼 'NovelAIne'의 베스트셀러 소설 작가입니다.\n"
-            "CRITICAL RULES:\n"
-            "1. MUST use rich, literary prose with sensory details.\n"
-            "2. MUST include realistic dialogues using double quotes (\"\").\n"
-            "3. FORMATTING: Separate every paragraph with TWO actual newline characters (\\n\\n).\n"
-            "4. DIALOGUE READABILITY: Every dialogue 「...」 MUST be placed on its own new line and separated from narration by double newlines (\\n\\n) before and after. NEVER mix dialogue and narration in the same paragraph.\n"
-            "5. INTERACTIVE LENGTH: Write about 3 to 5 paragraphs (approx 500-800 characters). Describe the direct consequence of the user's action with deep immersion.\n"
-            "6. THE HOOK: NEVER resolve the entire situation. Always end the response at a cliffhanger, a new challenge, a character's question, or a turning point that FORCES the user to decide what to do next.\n"
-        )
+        if narrative_type == "ensemble":
+            base_system_prompt = (
+                "당신은 군상극(Ensemble Cast) 전문 소설가입니다. 특정 주인공 한 명에게 고정되지 않고, 세계 전체의 흐름과 다양한 인물들의 상호작용을 서술하세요.\n"
+                "CRITICAL RULES:\n"
+                "1. NO FIXED POV: 주어지는 지시사항을 '세계에 일어나는 사건'이나 '운명의 변화'로 해석하세요.\n"
+                "2. MULTIPLE CHARACTERS: 현재 장면의 여러 인물들이 각자의 개성에 따라 반응하는 모습을 입체적으로 묘사하세요.\n"
+                "3. WORLD BUILDING: 공간의 변화나 사회적 여파를 구체적인 감각 묘사로 전달하세요.\n"
+                "4. FORMATTING: Separate every paragraph with TWO actual newline characters (\\n\\n).\n"
+                "5. DIALOGUE: Every dialogue 「...」 MUST be placed on its own new line and separated from narration by double newlines.\n"
+                "6. THE HOOK: 상황을 매듭짓지 말고, 세계의 변화가 인물들에게 어떤 선택을 강요하는지 보여주며 끝내세요.\n"
+            )
+        else:
+            base_system_prompt = (
+                "당신은 주인공 중심의 서사(Hero's Journey) 전문 소설가입니다. 철저히 주인공의 시점과 감정에 집중하여 서술하세요.\n"
+                "CRITICAL RULES:\n"
+                "1. FIXED POV: 사용자의 입력을 '주인공의 행동이나 의지'로 해석하세요.\n"
+                "2. INNER THOUGHTS: 주인공의 심리 묘사와 감각 수용을 깊이 있게 다루세요.\n"
+                "3. NPC INTERACTION: 주변 인물들은 주인공의 여정에 반응하는 조연으로 활용하세요.\n"
+                "4. FORMATTING: Separate every paragraph with TWO actual newline characters (\\n\\n).\n"
+                "5. DIALOGUE: Every dialogue 「...」 MUST be placed on its own new line and separated from narration by double newlines.\n"
+                "6. THE HOOK: 주인공이 직면한 즉각적인 위기나 결단의 순간에서 멈추세요.\n"
+            )
         
         if rag_context:
-            base_system_prompt += f"\n[Story Lore/Context]\n{rag_context}\n"
+            if narrative_type == "ensemble":
+                base_system_prompt += f"\n[World Lore & Relationships]\n이 정보는 세계관의 설정과 인물들 간의 복잡한 관계망입니다. 이를 활용해 장면의 사회적 맥락을 풍성하게 하세요.\n{rag_context}\n"
+            else:
+                base_system_prompt += f"\n[Protagonist Context]\n이 정보는 주인공의 과거, 능력, 혹은 현재 목표와 관련된 설정입니다. 주인공의 행동 이유를 정당화하는 데 사용하세요.\n{rag_context}\n"
             
         current_messages = [{"role": "system", "content": base_system_prompt}]
         if history:
@@ -148,7 +166,7 @@ class ChatService:
     async def start_new_story(
         self, genre: str, tone: str = None, protagonist_name: str = None,
         traits: List[str] = None, scenario: str = None, language: str = "en_US",
-        model: str = None
+        model: str = None, narrative_type: str = "hero" # 추가
     ) -> Dict[str, Any]:
         target_model = model or self.default_model
         
@@ -157,46 +175,71 @@ class ChatService:
             random_seed = random.choice(self.theme_seeds)
             scenario = f"Include this secret theme element: {random_seed}"
 
-        system_prompt = (
-            "You are a bestselling professional novelist known for creative and evocative storytelling.\n"
-            "Generate story metadata in strict JSON format.\n"
-            "TITLE RULES:\n"
-            "1. Be UNIQUE and CREATIVE. Avoid generic titles like 'The Fantasy Adventure' or 'Shadow of Mystery'.\n"
-            "2. Incorporate specific elements from the provided 'Scenario' and 'Traits' to make the title distinct.\n"
-            "3. Use metaphorical or symbolic language that fits the 'Tone'.\n"
-            "4. NEVER use the genre name directly in the title unless it is essential.\n"
-            "5. Aim for a title that feels like a published novel (e.g., 'The Last Gear of London', 'Echoes from the Abyss').\n"
-            "CRITICAL RULES for 'first_scene': \n"
-            "1. LENGTH: The 'first_scene' should be around 3000-4000 characters. Detailed but stable for rendering.\n"
-            "2. STRUCTURE: Write 8-10 detailed paragraphs.\n"
-            "3. DETAIL: Use sensory descriptions and focus on world-building.\n"
-            "4. COMPLETION: End with a complete sentence.\n"
-            "5. DIALOGUE FORMATTING: Always place dialogues 「...」 on their own line, separated by double newlines (\\n\\n) from narration for readability. NEVER mix dialogue and narrative in the same paragraph.\n"
-            "6. Use '\\n\\n' for paragraphs.\n"
-            "7. DIALOGUE: Use '「' and '」'.\n"
-            f"User Locale: {language}. Write all content in this language."
-        )
+        is_ensemble = narrative_type == "ensemble"
 
-        user_prompt = f"""
-        Create a new immersive story with these unique settings:
-        Genre: {genre}
-        Tone: {tone}
-        Hero: {protagonist_name}
-        Traits: {traits}
-        Scenario: {scenario}
-        
-        Task: Create a title that is specifically inspired by the scenario and traits, making it stand out even among other stories of the same genre.
-        
-        REQUIRED JSON FORMAT:
-        {{
-            "title": "A highly creative and specific title",
-            "description": "Short summary that captures the unique twist of this story",
-            "first_scene": "Detailed narrative (3500 characters) using 「dialogue」. Ensure the last sentence is FULLY COMPLETED.",
-            "protagonist_name": "Suggested character name",
-            "protagonist_bio": "Detailed character background and personality based on traits",
-            "protagonist_traits": ["trait1", "trait2", "trait3"]
-        }}
-        """
+        if is_ensemble:
+            system_prompt = (
+                "You are a bestselling professional novelist specializing in ensemble cast narratives (군상극).\n"
+                "In this mode, there is NO SINGLE main hero. The story focuses on the world and a group of diverse characters.\n"
+                "Generate story metadata in strict JSON format.\n"
+                "TITLE RULES:\n"
+                "1. Be UNIQUE and evocative. Focus on the collective fate or the setting.\n"
+                "2. Metaphorical language is preferred.\n"
+                "CRITICAL RULES for 'first_scene': \n"
+                "1. Perspective: Use a multi-POV or objective 3rd person perspective.\n"
+                "2. Content: Introduce the atmosphere of the world and at least 2-3 distinct characters interacting.\n"
+                "3. Length: Approx 3500 characters. Detailed sensory descriptions.\n"
+                "4. Formatting: Use double newlines for paragraphs. Dialogues 「...」 on their own lines.\n"
+                f"User Locale: {language}. Write all content in this language."
+            )
+            
+            user_prompt = f"""
+            Create a new immersive ENSEMBLE story (군상극):
+            Genre: {genre}
+            Tone: {tone}
+            Setting/Scenario: {scenario}
+            
+            REQUIRED JSON FORMAT:
+            {{
+                "title": "Evocative title for the ensemble",
+                "description": "Summary of the group dynamics and the world's crisis",
+                "first_scene": "Detailed narrative introducing multiple POVs and the world.",
+                "protagonist_name": "없음 (군상극)",
+                "protagonist_bio": "이 서사는 특정 개인의 이야기가 아닌, {genre} 세계관과 그 속의 다양한 군상들의 연대기입니다.",
+                "protagonist_traits": ["군상극", "다양한 시점", "세계관 중심"]
+            }}
+            """
+        else:
+            system_prompt = (
+                "You are a bestselling professional novelist known for character-driven heroic epics.\n"
+                "Generate story metadata in strict JSON format.\n"
+                "TITLE RULES:\n"
+                "1. Be UNIQUE and focus on the protagonist's journey.\n"
+                "CRITICAL RULES for 'first_scene': \n"
+                "1. Perspective: Tight 1st or 3rd person POV focused on the hero.\n"
+                "2. Length: Approx 3500 characters.\n"
+                "3. Formatting: Use double newlines for paragraphs. Dialogues 「...」 on their own lines.\n"
+                f"User Locale: {language}. Write all content in this language."
+            )
+
+            user_prompt = f"""
+            Create a new character-driven story:
+            Genre: {genre}
+            Tone: {tone}
+            Hero: {protagonist_name}
+            Traits: {traits}
+            Scenario: {scenario}
+            
+            REQUIRED JSON FORMAT:
+            {{
+                "title": "Highly creative title focused on the hero",
+                "description": "Short summary of the hero's unique struggle",
+                "first_scene": "Detailed narrative introducing the hero's first action.",
+                "protagonist_name": "Hero's name",
+                "protagonist_bio": "Detailed background and personality",
+                "protagonist_traits": ["trait1", "trait2", "trait3"]
+            }}
+            """
 
         data = {
             "model": target_model,
@@ -287,7 +330,10 @@ class ChatService:
             logger.exception(f"Critical Story Generation Error: {str(e)}")
             raise e
 
-    async def stream_generate_response(self, user_message: str, history: List[Dict[str, str]] = [], model: str = None):
+    async def stream_generate_response(
+        self, user_message: str, history: List[Dict[str, str]] = [], 
+        model: str = None, narrative_type: str = "hero" # 추가
+    ):
         """
         AI 응답을 한 글자(토큰)씩 실시간으로 전송하는 제너레이터
         """
@@ -301,20 +347,34 @@ class ChatService:
         target_model = model or self.default_model
         compressed_message = await self._compress_to_english_keywords(user_message, model=target_model)
 
-        # 시스템 언어 감지 및 한국어 강제 지시
-        base_system_prompt = (
-            "당신은 베스트셀러 소설 작가입니다. 사용자의 입력을 바탕으로 다음 장면을 서술하세요.\n"
-            "CRITICAL RULES:\n"
-            "1. LANGUAGE: You MUST write in KOREAN. (한국어로 답변하세요)\n"
-            "2. STYLE: Use rich, literary prose with sensory details.\n"
-            "3. DIALOGUE: Use 「 」 for character dialogues. ALWAYS place each dialogue on a new paragraph with double newlines (\\n\\n) before and after.\n"
-            "4. FORMATTING: Separate paragraphs with a double newline (\\n\\n).\n"
-            "5. DIALOGUE READABILITY: NEVER mix dialogue and narration in the same paragraph for readability.\n"
-            "6. INTERACTIVE LENGTH: Write about 3 to 5 paragraphs (approx 500-800 characters). Describe the direct consequence of the user's action with deep immersion.\n"
-            "7. THE HOOK: NEVER resolve the entire situation. Always end the response at a cliffhanger, a new challenge, a character's question, or a turning point that FORCES the user to decide what to do next.\n"
-        )
+        if narrative_type == "ensemble":
+            base_system_prompt = (
+                "당신은 군상극(Ensemble Cast) 전문 소설가입니다. 특정 주인공 한 명에게 고정되지 않고, 세계 전체의 흐름과 다양한 인물들의 상호작용을 서술하세요.\n"
+                "CRITICAL RULES:\n"
+                "1. NO FIXED POV: 주어지는 지시사항을 '세계에 일어나는 사건'이나 '운명의 변화'로 해석하세요.\n"
+                "2. MULTIPLE CHARACTERS: 현재 장면의 여러 인물들이 각자의 개성에 따라 반응하는 모습을 입체적으로 묘사하세요.\n"
+                "3. WORLD BUILDING: 공간의 변화나 사회적 여파를 구체적인 감각 묘사로 전달하세요.\n"
+                "4. FORMATTING: Separate paragraphs with a double newline (\\n\\n).\n"
+                "5. DIALOGUE: Use 「 」 for character dialogues. ALWAYS place each dialogue on a new line with double newlines before and after.\n"
+                "6. THE HOOK: 상황을 매듭짓지 말고, 세계의 변화가 인물들에게 어떤 선택을 강요하는지 보여주며 끝내세요.\n"
+            )
+        else:
+            base_system_prompt = (
+                "당신은 주인공 중심의 서사(Hero's Journey) 전문 소설가입니다. 철저히 주인공의 시점과 감정에 집중하여 서술하세요.\n"
+                "CRITICAL RULES:\n"
+                "1. FIXED POV: 사용자의 입력을 '주인공의 행동이나 의지'로 해석하세요.\n"
+                "2. INNER THOUGHTS: 주인공의 심리 묘사와 감각 수용을 깊이 있게 다루세요.\n"
+                "3. NPC INTERACTION: 주변 인물들은 주인공의 여정에 반응하는 조연으로 활용하세요.\n"
+                "4. FORMATTING: Separate paragraphs with a double newline (\\n\\n).\n"
+                "5. DIALOGUE: Use 「 」 for character dialogues. ALWAYS place each dialogue on a new line with double newlines before and after.\n"
+                "6. THE HOOK: 주인공이 직면한 즉각적인 위기나 결단의 순간에서 멈추세요.\n"
+            )
+
         if rag_context:
-            base_system_prompt += f"\n[Story Lore/Context]\n{rag_context}\n"
+            if narrative_type == "ensemble":
+                base_system_prompt += f"\n[World Lore & Relationships]\n이 정보는 세계관의 설정과 인물들 간의 복잡한 관계망입니다. 이를 활용해 장면의 사회적 맥락을 풍성하게 하세요.\n{rag_context}\n"
+            else:
+                base_system_prompt += f"\n[Protagonist Context]\n이 정보는 주인공의 과거, 능력, 혹은 현재 목표와 관련된 설정입니다. 주인공의 행동 이유를 정당화하는 데 사용하세요.\n{rag_context}\n"
             
         current_messages = [{"role": "system", "content": base_system_prompt}]
         if history:
