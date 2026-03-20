@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../widgets/responsive_layout.dart';
-import '../widgets/crisp_bottom_nav_bar.dart';
+import '../../widgets/responsive_layout.dart';
 import '../../providers/auth_provider.dart';
+import '../../../data/models/user_model.dart'; // Added
 import '../auth/auth_screen.dart';
 
-class ProfileScreen extends ConsumerWidget {
-  const ProfileScreen({super.key});
+class SettingsScreen extends ConsumerWidget {
+  const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -16,9 +16,9 @@ class ProfileScreen extends ConsumerWidget {
     final user = authState.value;
 
     return ResponsiveLayout(
-      currentIndex: 4,
+      currentIndex: 3, // Settings/Explore index in SideMenu
       appBar: AppBar(
-        title: const Text("프로필"),
+        title: const Text("설정 및 프로필"),
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
@@ -46,7 +46,7 @@ class ProfileScreen extends ConsumerWidget {
                   radius: 60,
                   backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.1),
                   child: const Icon(Icons.person_rounded, size: 60, color: Color(0xFF7C3AED)),
-                ).animate().scale(duration: 400.ms, curve: Curves.backOut),
+                ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack), // Fixed Curves.backOut
                 const SizedBox(height: 24),
                 Text(
                   user?.username ?? "사용자",
@@ -64,22 +64,22 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 48),
-                _buildProfileMenuItem(
+                _buildMenuItem(
                   icon: Icons.edit_outlined,
                   title: "회원 정보 수정",
                   onTap: () {},
                 ),
-                _buildProfileMenuItem(
+                _buildMenuItem(
                   icon: Icons.notifications_none_rounded,
                   title: "알림 설정",
                   onTap: () {},
                 ),
-                _buildProfileMenuItem(
+                _buildMenuItem(
                   icon: Icons.security_rounded,
                   title: "보안 및 개인정보",
                   onTap: () {},
                 ),
-                _buildProfileMenuItem(
+                _buildMenuItem(
                   icon: Icons.help_outline_rounded,
                   title: "고객 센터",
                   onTap: () {},
@@ -92,7 +92,7 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildProfileMenuItem({
+  Widget _buildMenuItem({
     required IconData icon,
     required String title,
     required VoidCallback onTap,

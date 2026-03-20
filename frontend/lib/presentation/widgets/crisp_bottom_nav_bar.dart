@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../screens/home_screen.dart';
 import '../screens/explore_screen.dart';
 import '../screens/community_screen.dart';
-import '../screens/profile/character_builder_screen.dart'; // Just as an example profile link
+import '../screens/vault/vault_screen.dart';
+import '../screens/profile/settings_screen.dart';
+import '../profile/profile_screen.dart';
 import '../screens/creation/mode_selection_screen.dart' as creation_screen;
 
 class CrispBottomNavBar extends StatelessWidget {
@@ -32,20 +34,20 @@ class CrispBottomNavBar extends StatelessWidget {
                     onTap: () => _navigateTo(context, 0),
                   ),
                   _NavBarIcon(
-                    iconOutlined: Icons.search, 
-                    iconSolid: Icons.search, 
+                    iconOutlined: Icons.add_circle_outline, 
+                    iconSolid: Icons.add_circle, 
                     isSelected: currentIndex == 1, 
                     onTap: () => _navigateTo(context, 1),
                   ),
                   _NavBarIcon(
-                    iconOutlined: Icons.add_circle_outline, 
-                    iconSolid: Icons.add_circle, 
+                    iconOutlined: Icons.archive_outlined, 
+                    iconSolid: Icons.archive, 
                     isSelected: currentIndex == 2, 
                     onTap: () => _navigateTo(context, 2),
                   ),
                   _NavBarIcon(
-                    iconOutlined: Icons.forum_outlined, 
-                    iconSolid: Icons.forum, 
+                    iconOutlined: Icons.settings_outlined, 
+                    iconSolid: Icons.settings, 
                     isSelected: currentIndex == 3, 
                     onTap: () => _navigateTo(context, 3),
                   ),
@@ -73,17 +75,16 @@ class CrispBottomNavBar extends StatelessWidget {
         screen = const HomeScreen();
         break;
       case 1:
-        screen = const ExploreScreen();
-        break;
-      case 2:
         screen = const creation_screen.CreationModeSelectionScreen();
         break;
+      case 2:
+        screen = const CharacterVaultScreen();
+        break;
       case 3:
-        screen = const CommunityScreen();
+        screen = const SettingsScreen();
         break;
       case 4:
-        // Using a placeholder or actual profile screen if available
-        screen = const Scaffold(body: Center(child: Text("Profile Screen")));
+        screen = const ProfileScreen();
         break;
       default:
         screen = const HomeScreen();

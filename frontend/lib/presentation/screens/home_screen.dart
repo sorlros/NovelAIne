@@ -9,12 +9,13 @@ import 'package:shimmer/shimmer.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 import 'story_screen.dart';
 import 'creation/mode_selection_screen.dart' as creation_screen;
-import 'vault/vault_screen.dart'; // 추가
+import 'vault/vault_screen.dart';
+import 'profile/settings_screen.dart'; // Added
 import '../profile/profile_screen.dart';
 import 'explore_screen.dart';
 import 'community_screen.dart';
 import '../widgets/responsive_layout.dart';
-import '../widgets/crisp_bottom_nav_bar.dart'; // 추가
+import '../widgets/crisp_bottom_nav_bar.dart';
 import '../providers/content_provider.dart';
 import '../widgets/custom_toast.dart';
 import '../widgets/custom_loading_indicator.dart';
@@ -117,15 +118,15 @@ class _HeaderSection extends StatelessWidget {
                 HapticFeedback.selectionClick();
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const CharacterVaultScreen()),
+                  MaterialPageRoute(builder: (context) => const SettingsScreen()),
                 );
               },
               icon: Icon(
-                Icons.archive_outlined, 
-                color: const Color(0xFF00E5FF), 
+                Icons.settings_outlined, 
+                color: Colors.white54, 
                 size: isMobile ? 24 : 28
               ),
-              tooltip: "캐릭터 보관함",
+              tooltip: "설정",
             ),
           ],
         ),
