@@ -26,23 +26,25 @@ class ResponsiveLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Broaden the mobile range slightly to ensure consistent behavior
         final bool isDesktop = constraints.maxWidth >= 900;
 
         return Scaffold(
           backgroundColor: backgroundColor,
           extendBodyBehindAppBar: extendBodyBehindAppBar,
-          // Desktop: SideMenu handles the navigation, so we typically don't show the top appBar
-          // unless it's specifically needed for the screen's internal actions.
-          // Mobile: Show the passed appBar if any.
           appBar: isDesktop ? null : appBar,
-          body: isDesktop
-              ? Row(
-                  children: [
-                    SideMenu(currentIndex: currentIndex),
-                    Expanded(child: body),
-                  ],
-                )
-              : body,
+          // Use a Key based on isDesktop to force a rebuild when switching modes
+          body: KeyedSubtree(
+            key: ValueKey(isDesktop),
+            child: isDesktop
+                ? Row(
+                    children: [
+                      SideMenu(currentIndex: currentIndex),
+                      Expanded(child: body),
+                    ],
+                  )
+                : body,
+          ),
           floatingActionButton: floatingActionButton,
           bottomNavigationBar: (!isDesktop && showBottomNav)
               ? CrispBottomNavBar(currentIndex: currentIndex)
