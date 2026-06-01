@@ -19,7 +19,10 @@ class StoryRepository {
   StoryRepository({required this.apiService, required this.database});
 
   // 1. Stories Caching
-  Future<List<StoryModel>> getStories({String? userId, bool forceRefresh = false}) async {
+  Future<List<StoryModel>> getStories({
+    String? userId,
+    bool forceRefresh = false,
+  }) async {
     try {
       // Check local DB first with userId filtering
       final query = database.select(database.stories);
@@ -27,26 +30,36 @@ class StoryRepository {
         query.where((t) => t.userId.equals(userId));
       }
       final localStories = await query.get();
-      
+
       if (localStories.isNotEmpty && !forceRefresh) {
-        debugPrint("🟢 [Cache] Found ${localStories.length} stories for user $userId in Local DB.");
-        return localStories.map<StoryModel>((s) => StoryModel(
-          id: s.id,
-          title: s.title,
-          genre: s.genre ?? 'fantasy',
-          description: s.description ?? '',
-          status: s.status,
-          narrativeType: s.narrativeType, // Added
-          totalScenes: s.totalScenes,
-          coverImageUrl: s.coverImageUrl,
-          createdAt: s.createdAt,
-        )).toList();
+        debugPrint(
+          "🟢 [Cache] Found ${localStories.length} stories for user $userId in Local DB.",
+        );
+        return localStories
+            .map<StoryModel>(
+              (s) => StoryModel(
+                id: s.id,
+                title: s.title,
+                genre: s.genre ?? 'fantasy',
+                description: s.description ?? '',
+                status: s.status,
+                narrativeType: s.narrativeType, // Added
+                totalScenes: s.totalScenes,
+                coverImageUrl: s.coverImageUrl,
+                visibility: s.visibility,
+                publishedAt: s.publishedAt,
+                createdAt: s.createdAt,
+              ),
+            )
+            .toList();
       }
-      
+
       if (forceRefresh) {
         debugPrint("🔄 [Cache] Force refresh requested. Fetching from API...");
       } else {
-        debugPrint("🟡 [Cache] Local DB is empty or user mismatch. Fetching from API...");
+        debugPrint(
+          "🟡 [Cache] Local DB is empty or user mismatch. Fetching from API...",
+        );
       }
     } catch (e) {
       debugPrint("❌ [Cache] Database read failed or not supported: $e");
@@ -56,27 +69,35 @@ class StoryRepository {
     // Fetch from API
     try {
       final remoteStories = await apiService.fetchStories(userId: userId);
-      debugPrint("☁️ [API] Fetched ${remoteStories.length} stories from Supabase.");
-      
+      debugPrint(
+        "☁️ [API] Fetched ${remoteStories.length} stories from Supabase.",
+      );
+
       // Attempt to save to local DB (Update/Insert) silently
       try {
         for (var s in remoteStories) {
-          await database.into(database.stories).insertOnConflictUpdate(
-            StoriesCompanion.insert(
-              id: s.id,
-              title: s.title,
-              description: Value(s.description),
-              genre: Value(s.genre),
-              status: Value(s.status),
-              narrativeType: Value(s.narrativeType), // Added
-              totalScenes: Value(s.totalScenes),
-              coverImageUrl: Value(s.coverImageUrl),
-              createdAt: Value(s.createdAt),
-              userId: Value(userId),
-            )
-          );
+          await database
+              .into(database.stories)
+              .insertOnConflictUpdate(
+                StoriesCompanion.insert(
+                  id: s.id,
+                  title: s.title,
+                  description: Value(s.description),
+                  genre: Value(s.genre),
+                  status: Value(s.status),
+                  narrativeType: Value(s.narrativeType), // Added
+                  totalScenes: Value(s.totalScenes),
+                  coverImageUrl: Value(s.coverImageUrl),
+                  visibility: Value(s.visibility),
+                  publishedAt: Value(s.publishedAt),
+                  createdAt: Value(s.createdAt),
+                  userId: Value(userId),
+                ),
+              );
         }
-        debugPrint("💾 [Cache] Successfully synced ${remoteStories.length} stories to Local DB.");
+        debugPrint(
+          "💾 [Cache] Successfully synced ${remoteStories.length} stories to Local DB.",
+        );
       } catch (dbErr) {
         debugPrint("⚠️ [Cache] Failed to sync to local DB: $dbErr");
       }
@@ -89,25 +110,35 @@ class StoryRepository {
   }
 
   // 2. Scenes Caching
-  Future<List<Map<String, dynamic>>> getScenes(String storyId, {bool forceRefresh = false}) async {
+  Future<List<Map<String, dynamic>>> getScenes(
+    String storyId, {
+    bool forceRefresh = false,
+  }) async {
     try {
-      final localScenes = await (database.select(database.scenes)
-        ..where((t) => t.storyId.equals(storyId))
-        ..orderBy([(t) => OrderingTerm(expression: t.sequence)]))
-        .get();
+      final localScenes =
+          await (database.select(database.scenes)
+                ..where((t) => t.storyId.equals(storyId))
+                ..orderBy([(t) => OrderingTerm(expression: t.sequence)]))
+              .get();
 
       if (localScenes.isNotEmpty && !forceRefresh) {
-        debugPrint("🟢 [Cache] Found ${localScenes.length} scenes for story $storyId.");
-        return localScenes.map((s) => {
-          'id': s.id,
-          'storyId': s.storyId,
-          'sequence': s.sequence,
-          'content': s.content,
-          'sceneType': s.sceneType,
-          'imageUrl': s.imageUrl,
-          'bgmUrl': s.bgmUrl,
-          'role': 'ai', 
-        }).toList();
+        debugPrint(
+          "🟢 [Cache] Found ${localScenes.length} scenes for story $storyId.",
+        );
+        return localScenes
+            .map(
+              (s) => {
+                'id': s.id,
+                'storyId': s.storyId,
+                'sequence': s.sequence,
+                'content': s.content,
+                'role': s.role,
+                'sceneType': s.sceneType,
+                'imageUrl': s.imageUrl,
+                'bgmUrl': s.bgmUrl,
+              },
+            )
+            .toList();
       }
     } catch (e) {
       debugPrint("⚠️ [Cache] Failed to read scenes from local DB: $e");
@@ -115,9 +146,11 @@ class StoryRepository {
 
     // Fetch from API
     try {
-      debugPrint("☁️ [API] Fetching scenes for story $storyId from Supabase...");
+      debugPrint(
+        "☁️ [API] Fetching scenes for story $storyId from Supabase...",
+      );
       final remoteScenes = await apiService.fetchScenes(storyId);
-      
+
       if (remoteScenes.isEmpty) {
         debugPrint("🟡 [API] No scenes found on server for story $storyId.");
         return [];
@@ -127,38 +160,55 @@ class StoryRepository {
       try {
         for (var s in remoteScenes) {
           // 백엔드 응답에서 내용(content)을 찾기 위해 가능한 모든 필드명 확인
-          final String contentBody = s['content'] ?? s['text'] ?? s['body'] ?? "";
-          
+          final String contentBody =
+              s['content'] ?? s['text'] ?? s['body'] ?? "";
+
           if (contentBody.isEmpty) {
-            debugPrint("⚠️ [Cache] Warning: Scene ${s['id']} has no content. Raw: $s");
+            debugPrint(
+              "⚠️ [Cache] Warning: Scene ${s['id']} has no content. Raw: $s",
+            );
           }
 
-          await database.into(database.scenes).insertOnConflictUpdate(
-            ScenesCompanion.insert(
-              id: s['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
-              storyId: storyId,
-              sequence: s['sequence'] ?? 0,
-              content: contentBody,
-              sceneType: Value(s['scene_type'] ?? s['sceneType'] ?? 'narrative'),
-              imageUrl: Value(s['image_url'] ?? s['imageUrl']),
-              bgmUrl: Value(s['bgm_url'] ?? s['bgmUrl']),
-            )
-          );
+          await database
+              .into(database.scenes)
+              .insertOnConflictUpdate(
+                ScenesCompanion.insert(
+                  id:
+                      s['id']?.toString() ??
+                      DateTime.now().millisecondsSinceEpoch.toString(),
+                  storyId: storyId,
+                  sequence: s['sequence'] ?? 0,
+                  content: contentBody,
+                  role: Value(s['role'] ?? 'ai'),
+                  sceneType: Value(
+                    s['scene_type'] ?? s['sceneType'] ?? 'narrative',
+                  ),
+                  imageUrl: Value(s['image_url'] ?? s['imageUrl']),
+                  bgmUrl: Value(s['bgm_url'] ?? s['bgmUrl']),
+                ),
+              );
         }
-        debugPrint("💾 [Cache] Synced ${remoteScenes.length} scenes to local DB.");
+        debugPrint(
+          "💾 [Cache] Synced ${remoteScenes.length} scenes to local DB.",
+        );
       } catch (dbErr) {
         debugPrint("⚠️ [Cache] Sync failed: $dbErr");
       }
 
       // Return formatted data
-      return remoteScenes.map((s) => {
-        'id': s['id'],
-        'content': s['content'] ?? s['text'] ?? s['body'] ?? "내용을 불러올 수 없습니다.",
-        'role': s['role'] ?? 'ai',
-        'imageUrl': s['image_url'] ?? s['imageUrl'],
-        'bgmUrl': s['bgm_url'] ?? s['bgmUrl'],
-        'sceneType': s['scene_type'] ?? s['sceneType'] ?? 'narrative',
-      }).toList();
+      return remoteScenes
+          .map(
+            (s) => {
+              'id': s['id'],
+              'content':
+                  s['content'] ?? s['text'] ?? s['body'] ?? "내용을 불러올 수 없습니다.",
+              'role': s['role'] ?? 'ai',
+              'imageUrl': s['image_url'] ?? s['imageUrl'],
+              'bgmUrl': s['bgm_url'] ?? s['bgmUrl'],
+              'sceneType': s['scene_type'] ?? s['sceneType'] ?? 'narrative',
+            },
+          )
+          .toList();
     } catch (apiErr) {
       debugPrint("🚨 [API] Failed to fetch scenes: $apiErr");
       rethrow;
@@ -168,41 +218,55 @@ class StoryRepository {
   // 3. Sync Single Story (useful after creation)
   Future<void> syncStory(String storyId) async {
     final storyData = await apiService.fetchStory(storyId);
-    
+
     // Update Story
-    await database.into(database.stories).insertOnConflictUpdate(
-      StoriesCompanion.insert(
-        id: storyData['id'],
-        title: storyData['title'],
-        description: Value(storyData['description']),
-        genre: Value(storyData['genre']),
-        status: Value(storyData['status']),
-        narrativeType: Value(storyData['narrative_type'] ?? 'hero'), // Added
-        coverImageUrl: Value(storyData['cover_image_url']),
-      )
-    );
+    await database
+        .into(database.stories)
+        .insertOnConflictUpdate(
+          StoriesCompanion.insert(
+            id: storyData['id'],
+            title: storyData['title'],
+            description: Value(storyData['description']),
+            genre: Value(storyData['genre']),
+            status: Value(storyData['status']),
+            narrativeType: Value(
+              storyData['narrative_type'] ?? 'hero',
+            ), // Added
+            coverImageUrl: Value(storyData['cover_image_url']),
+            visibility: Value(storyData['visibility'] ?? 'private'),
+            publishedAt: Value(
+              storyData['published_at'] == null
+                  ? null
+                  : DateTime.parse(storyData['published_at']),
+            ),
+          ),
+        );
 
     // Update Characters linked
     final characters = storyData['characters'] as List?;
     if (characters != null) {
       for (var c in characters) {
-        await database.into(database.characters).insertOnConflictUpdate(
-          CharactersCompanion.insert(
-            id: c['id'],
-            name: c['name'],
-            description: Value(c['description']),
-            imageUrl: Value(c['image_url']),
-            personalityTraits: Value(c['personality_traits']?.toString()),
-          )
-        );
+        await database
+            .into(database.characters)
+            .insertOnConflictUpdate(
+              CharactersCompanion.insert(
+                id: c['id'],
+                name: c['name'],
+                description: Value(c['description']),
+                imageUrl: Value(c['image_url']),
+                personalityTraits: Value(c['personality_traits']?.toString()),
+              ),
+            );
 
-        await database.into(database.storyCharacters).insertOnConflictUpdate(
-          StoryCharactersCompanion.insert(
-            storyId: storyId,
-            characterId: c['id'],
-            roleInStory: Value(c['role_in_story']),
-          )
-        );
+        await database
+            .into(database.storyCharacters)
+            .insertOnConflictUpdate(
+              StoryCharactersCompanion.insert(
+                storyId: storyId,
+                characterId: c['id'],
+                roleInStory: Value(c['role_in_story']),
+              ),
+            );
       }
     }
   }
@@ -211,30 +275,38 @@ class StoryRepository {
   Future<void> deleteStory(String storyId) async {
     // 1. Remote Delete
     await apiService.deleteStory(storyId);
-    
+
     // 2. Local Delete (Drift will handle cascade for related scenes/links)
-    await (database.delete(database.stories)..where((t) => t.id.equals(storyId))).go();
-    
-    debugPrint("🗑️ [Cache] Successfully deleted story $storyId from local and remote.");
+    await (database.delete(
+      database.stories,
+    )..where((t) => t.id.equals(storyId))).go();
+
+    debugPrint(
+      "🗑️ [Cache] Successfully deleted story $storyId from local and remote.",
+    );
   }
 
   // 5. [추가] 단일 스토리 수동 캐싱 (생성 직후 사용)
   Future<void> cacheStory(StoryModel s, {String? userId}) async {
     try {
-      await database.into(database.stories).insertOnConflictUpdate(
-        StoriesCompanion.insert(
-          id: s.id,
-          title: s.title,
-          description: Value(s.description),
-          genre: Value(s.genre),
-          status: Value(s.status),
-          narrativeType: Value(s.narrativeType), // Added
-          totalScenes: Value(s.totalScenes),
-          coverImageUrl: Value(s.coverImageUrl),
-          createdAt: Value(s.createdAt),
-          userId: Value(userId),
-        )
-      );
+      await database
+          .into(database.stories)
+          .insertOnConflictUpdate(
+            StoriesCompanion.insert(
+              id: s.id,
+              title: s.title,
+              description: Value(s.description),
+              genre: Value(s.genre),
+              status: Value(s.status),
+              narrativeType: Value(s.narrativeType), // Added
+              totalScenes: Value(s.totalScenes),
+              coverImageUrl: Value(s.coverImageUrl),
+              visibility: Value(s.visibility),
+              publishedAt: Value(s.publishedAt),
+              createdAt: Value(s.createdAt),
+              userId: Value(userId),
+            ),
+          );
       debugPrint("💾 [Cache] Manually cached new story: ${s.title}");
     } catch (e) {
       debugPrint("⚠️ [Cache] Manual cache failed: $e");

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../data/services/api_service.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/content_provider.dart';
 
 class CharacterBuilderScreen extends ConsumerStatefulWidget {
@@ -88,14 +89,18 @@ class _CharacterBuilderScreenState
     setState(() => _isLoading = true);
 
     try {
-      // ApiService doesn't accept full payload for character yet in the current sig:
-      // Assuming createCharacter(name, desc, traits) is the current signature.
+      final user = ref.read(authProvider).value;
+      if (user == null) {
+        throw Exception("로그인이 필요합니다.");
+      }
+
       final response = await ApiService().createCharacter(
         _nameController.text.trim(),
-        '''${_descController.text.trim()}
-[배경]: ${_backgroundController.text.trim()}
-[외양]: ${_appearanceController.text.trim()}''',
+        _descController.text.trim(),
         _traits,
+        userId: user.id,
+        backgroundStory: _backgroundController.text.trim(),
+        appearanceDescription: _appearanceController.text.trim(),
       );
 
       final characterId = response['id'];
@@ -253,7 +258,9 @@ class _CharacterBuilderScreenState
                           children: [
                             Icon(
                               Icons.add_a_photo_outlined,
-                              color: const Color(0xFF7C3AED).withValues(alpha: 0.8),
+                              color: const Color(
+                                0xFF7C3AED,
+                              ).withValues(alpha: 0.8),
                               size: 32,
                             ),
                             const SizedBox(height: 8),

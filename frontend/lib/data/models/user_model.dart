@@ -18,7 +18,16 @@ class UserModel {
       email: json['email'],
       username: meta['username'] ?? 'Traveler',
       avatarUrl:
-          meta['avatar_url'] ?? 'https://api.dicebear.com/7.x/avataaars/png?seed=${json['id']}',
+          meta['avatar_url'] ??
+          'https://api.dicebear.com/7.x/avataaars/png?seed=${json['id']}',
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'email': email,
+      'user_metadata': {'username': username, 'avatar_url': avatarUrl},
+    };
   }
 }

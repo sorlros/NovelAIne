@@ -17,18 +17,20 @@ class UserHeaderWidget extends ConsumerWidget {
 
     final username = authState.value?.username ?? "Traveler";
     final avatarUrl =
-        authState.value?.avatarUrl ?? "https://api.dicebear.com/7.x/avataaars/png?seed=guest";
-    
+        authState.value?.avatarUrl ??
+        "https://api.dicebear.com/7.x/avataaars/png?seed=guest";
+
     final storiesCount = storiesState.when(
       data: (stories) => stories.length.toString(),
       loading: () => "...",
-      error: (_, __) => "0",
+      error: (error, stackTrace) => "0",
     );
 
     final readingCount = storiesState.when(
-      data: (stories) => stories.where((s) => s.status == 'active').length.toString(),
+      data: (stories) =>
+          stories.where((s) => s.status == 'active').length.toString(),
       loading: () => "...",
-      error: (_, __) => "0",
+      error: (error, stackTrace) => "0",
     );
 
     return Container(
@@ -67,7 +69,11 @@ class UserHeaderWidget extends ConsumerWidget {
                   width: 80,
                   height: 80,
                   color: const Color(0xFF1E1E1E),
-                  child: const Icon(Icons.person, color: Colors.white24, size: 40),
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.white24,
+                    size: 40,
+                  ),
                 ),
               ),
             ),

@@ -16,15 +16,20 @@ void main() async {
   // 2. [성능 최적화] 엔진 및 서버 예열 (Pre-warming)
   final database = AppDatabase();
   final apiService = ApiService();
-  final repository = StoryRepository(apiService: apiService, database: database);
-  
-  // 서버와 로컬 DB를 미리 활성화 (Warming up)
-  Future.wait([
-    // 백엔드 서버(Render) 및 Supabase 깨우기
-    http.get(Uri.parse(AppConstants.baseUrl.replaceFirst('/api', ''))).catchError((_) => http.Response('', 500)),
-    // 로컬 DB 커넥션 예열
-    database.select(database.stories).get().catchError((_) => []),
-  ]);
+  final repository = StoryRepository(
+    apiService: apiService,
+    database: database,
+  );
+
+  // 서버와 로컬 DB를 미리 활성화합니다.
+  Future<void>(() async {
+    await Future.wait<Object>([
+      http
+          .get(Uri.parse(AppConstants.baseUrl.replaceFirst('/api', '')))
+          .catchError((_) => http.Response('', 500)),
+      database.select(database.stories).get().catchError((_) => <Story>[]),
+    ]);
+  });
 
   runApp(
     ProviderScope(
@@ -32,8 +37,8 @@ void main() async {
         // 앱 전역에서 미리 예열된 인스턴스를 사용하도록 강제 설정
         storyRepositoryProvider.overrideWithValue(repository),
       ],
-      child: const MyApp()
-    )
+      child: const MyApp(),
+    ),
   );
 }
 

@@ -40,7 +40,7 @@ class CharacterBase(BaseModel):
 
 
 class CharacterCreate(CharacterBase):
-    pass
+    user_id: Optional[UUID] = None
 
 
 class Character(CharacterBase):
@@ -87,6 +87,7 @@ class StoryCreate(BaseModel):
     language: Optional[str] = "en_US"
     character_ids: Optional[List[UUID]] = None
     llm_model: Optional[str] = "google/gemini-2.0-flash-001"
+    visibility: Optional[str] = Field(default="private", pattern="^(private|public)$")
 
 
 class Story(StoryBase):
@@ -98,6 +99,8 @@ class Story(StoryBase):
     current_scene_id: Optional[UUID] = None
     cover_image_url: Optional[str] = None
     llm_model: str = "google/gemini-2.0-flash-001"
+    visibility: str = "private"
+    published_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
@@ -161,12 +164,20 @@ class Choice(ChoiceBase):
 class SceneBase(BaseModel):
     content: str = Field(..., min_length=1, max_length=10000)
     sequence: int = Field(..., ge=1)
+    role: str = Field(default="ai", pattern="^(user|ai|system)$")
     scene_type: str = Field(
         default="narrative", pattern="^(narrative|dialogue|choice|ending)$"
     )
 
 
-class SceneCreate(SceneBase):
+class SceneCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=10000)
+    sequence: Optional[int] = Field(default=None, ge=1)
+    chapter_id: Optional[UUID] = None
+    role: str = Field(default="ai", pattern="^(user|ai|system)$")
+    scene_type: str = Field(
+        default="narrative", pattern="^(narrative|dialogue|choice|ending)$"
+    )
     choices: Optional[List[ChoiceCreate]] = None
     generate_image: bool = False
     generate_bgm: bool = False
@@ -181,6 +192,8 @@ class Scene(SceneBase):
     has_generated_image: bool
     has_generated_bgm: bool
     current_choice_id: Optional[UUID] = None
+    image_url: Optional[str] = None
+    bgm_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

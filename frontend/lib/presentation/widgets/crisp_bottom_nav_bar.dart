@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../screens/home_screen.dart';
+import '../screens/explore_screen.dart';
 import '../screens/vault/vault_screen.dart';
-import '../screens/profile/settings_screen.dart';
 import '../profile/profile_screen.dart';
 import '../screens/creation/mode_selection_screen.dart' as creation_screen;
 
@@ -33,20 +33,20 @@ class CrispBottomNavBar extends StatelessWidget {
                   onTap: () => _navigateTo(context, 0),
                 ),
                 _NavBarIcon(
-                  iconOutlined: Icons.add_circle_outline,
-                  iconSolid: Icons.add_circle,
+                  iconOutlined: Icons.explore_outlined,
+                  iconSolid: Icons.explore,
                   isSelected: currentIndex == 1,
                   onTap: () => _navigateTo(context, 1),
                 ),
                 _NavBarIcon(
-                  iconOutlined: Icons.archive_outlined,
-                  iconSolid: Icons.archive,
+                  iconOutlined: Icons.add_circle_outline,
+                  iconSolid: Icons.add_circle,
                   isSelected: currentIndex == 2,
                   onTap: () => _navigateTo(context, 2),
                 ),
                 _NavBarIcon(
-                  iconOutlined: Icons.settings_outlined,
-                  iconSolid: Icons.settings,
+                  iconOutlined: Icons.archive_outlined,
+                  iconSolid: Icons.archive,
                   isSelected: currentIndex == 3,
                   onTap: () => _navigateTo(context, 3),
                 ),
@@ -73,13 +73,13 @@ class CrispBottomNavBar extends StatelessWidget {
         screen = const HomeScreen();
         break;
       case 1:
-        screen = const creation_screen.CreationModeSelectionScreen();
+        screen = const ExploreScreen();
         break;
       case 2:
-        screen = const CharacterVaultScreen();
+        screen = const creation_screen.CreationModeSelectionScreen();
         break;
       case 3:
-        screen = const SettingsScreen();
+        screen = const CharacterVaultScreen();
         break;
       case 4:
         screen = const ProfileScreen();

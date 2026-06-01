@@ -12,7 +12,7 @@ class CreationModeSelectionScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedModel = ref.watch(selectedModelProvider);
     return ResponsiveLayout(
-      currentIndex: 1,
+      currentIndex: 2,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text(""),
@@ -27,7 +27,7 @@ class CreationModeSelectionScreen extends ConsumerWidget {
         children: [
           // Background Subtle Effects
           const _SubtleBackgroundGlow(),
-          
+
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -37,29 +37,35 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                   vertical: 24.0,
                 ),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 850), // Slightly adjusted
+                  constraints: const BoxConstraints(
+                    maxWidth: 850,
+                  ), // Slightly adjusted
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 20),
-                      const Icon(Icons.edit_note, color: Color(0xFF6B4EFF), size: 48)
-                          .animate()
-                          .fadeIn()
-                          .slideY(begin: -0.2, end: 0),
+                      const Icon(
+                        Icons.edit_note,
+                        color: Color(0xFF6B4EFF),
+                        size: 48,
+                      ).animate().fadeIn().slideY(begin: -0.2, end: 0),
                       const SizedBox(height: 16),
-                      
+
                       const Text(
-                        "어떻게 시작할까요?",
-                        style: TextStyle(
-                          fontSize: 34,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          letterSpacing: -1.0,
-                        ),
-                      ).animate().fadeIn(duration: 600.ms).slideX(begin: -0.05, end: 0),
-                      
+                            "어떻게 시작할까요?",
+                            style: TextStyle(
+                              fontSize: 34,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: -1.0,
+                            ),
+                          )
+                          .animate()
+                          .fadeIn(duration: 600.ms)
+                          .slideX(begin: -0.05, end: 0),
+
                       const SizedBox(height: 12),
-                      
+
                       Text(
                         "상상 속의 세계를 펼칠 준비가 되었습니다.\n원하는 창작 방식을 선택해 주세요.",
                         style: TextStyle(
@@ -68,12 +74,12 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                           height: 1.6,
                         ),
                       ).animate().fadeIn(delay: 200.ms, duration: 600.ms),
-                      
+
                       const SizedBox(height: 40),
 
                       // Model Selection
                       _buildModelSelector(context, ref, selectedModel),
-                      
+
                       const SizedBox(height: 40),
 
                       // LayoutBuilder to handle side-by-side on desktop vs column on mobile
@@ -86,14 +92,20 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                                   child: _ModernModeCard(
                                     title: "빠른 시작",
                                     subtitle: "Quick Start",
-                                    description: "장르와 몇 가지 키워드만 고르면 AI가 즉시 흥미로운 서막을 만들어냅니다.",
+                                    description:
+                                        "장르와 몇 가지 키워드만 고르면 AI가 즉시 흥미로운 서막을 만들어냅니다.",
                                     iconData: Icons.bolt,
                                     accentColor: const Color(0xFFFFBE0B),
                                     delay: 400,
                                     onTap: () {
                                       Navigator.push(
                                         context,
-                                        MaterialPageRoute(builder: (context) => const WizardScreen(isQuickStart: true)),
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              const WizardScreen(
+                                                isQuickStart: true,
+                                              ),
+                                        ),
                                       );
                                     },
                                   ),
@@ -103,14 +115,20 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                                   child: _ModernModeCard(
                                     title: "상세 설정",
                                     subtitle: "World Builder",
-                                    description: "세계의 법칙, 다면적인 캐릭터, 복잡한 설정들을 직접 설계하고 지휘합니다.",
+                                    description:
+                                        "세계의 법칙, 다면적인 캐릭터, 복잡한 설정들을 직접 설계하고 지휘합니다.",
                                     iconData: Icons.architecture,
                                     accentColor: const Color(0xFF6B4EFF),
                                     delay: 600,
                                     onTap: () {
                                       Navigator.push(
                                         context,
-                                        MaterialPageRoute(builder: (context) => const WizardScreen(isQuickStart: false)),
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              const WizardScreen(
+                                                isQuickStart: false,
+                                              ),
+                                        ),
                                       );
                                     },
                                   ),
@@ -123,14 +141,20 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                                 _ModernModeCard(
                                   title: "빠른 시작",
                                   subtitle: "Quick Start",
-                                  description: "장르와 몇 가지 키워드만 고르면 AI가 즉시 흥미로운 서막을 만들어냅니다.",
+                                  description:
+                                      "장르와 몇 가지 키워드만 고르면 AI가 즉시 흥미로운 서막을 만들어냅니다.",
                                   iconData: Icons.bolt,
                                   accentColor: const Color(0xFFFFBE0B),
                                   delay: 400,
                                   onTap: () {
                                     Navigator.push(
                                       context,
-                                      MaterialPageRoute(builder: (context) => const WizardScreen(isQuickStart: true)),
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const WizardScreen(
+                                              isQuickStart: true,
+                                            ),
+                                      ),
                                     );
                                   },
                                 ),
@@ -138,14 +162,20 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                                 _ModernModeCard(
                                   title: "상세 설정",
                                   subtitle: "World Builder",
-                                  description: "세계의 법칙, 다면적인 캐릭터, 복잡한 설정들을 직접 설계하고 지휘합니다.",
+                                  description:
+                                      "세계의 법칙, 다면적인 캐릭터, 복잡한 설정들을 직접 설계하고 지휘합니다.",
                                   iconData: Icons.architecture,
                                   accentColor: const Color(0xFF6B4EFF),
                                   delay: 600,
                                   onTap: () {
                                     Navigator.push(
                                       context,
-                                      MaterialPageRoute(builder: (context) => const WizardScreen(isQuickStart: false)),
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const WizardScreen(
+                                              isQuickStart: false,
+                                            ),
+                                      ),
                                     );
                                   },
                                 ),
@@ -166,7 +196,11 @@ class CreationModeSelectionScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildModelSelector(BuildContext context, WidgetRef ref, String selectedModel) {
+  Widget _buildModelSelector(
+    BuildContext context,
+    WidgetRef ref,
+    String selectedModel,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -192,7 +226,8 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                 title: "Gemini 2.0 Flash",
                 subtitle: "빠르고 가벼운 전개",
                 isSelected: selectedModel == 'google/gemini-2.0-flash-001',
-                onTap: () => ref.read(selectedModelProvider.notifier).state = 'google/gemini-2.0-flash-001',
+                onTap: () => ref.read(selectedModelProvider.notifier).state =
+                    'google/gemini-2.0-flash-001',
               ),
             ),
             const SizedBox(width: 12),
@@ -201,7 +236,8 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                 title: "Gemini 1.5 Pro",
                 subtitle: "치밀하고 풍부한 서사",
                 isSelected: selectedModel == 'google/gemini-pro-1.5',
-                onTap: () => ref.read(selectedModelProvider.notifier).state = 'google/gemini-pro-1.5',
+                onTap: () => ref.read(selectedModelProvider.notifier).state =
+                    'google/gemini-pro-1.5',
               ),
             ),
           ],
@@ -232,10 +268,14 @@ class _ModelOptionTile extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF6B4EFF).withValues(alpha: 0.15) : const Color(0xFF1A1A1A),
+          color: isSelected
+              ? const Color(0xFF6B4EFF).withValues(alpha: 0.15)
+              : const Color(0xFF1A1A1A),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? const Color(0xFF6B4EFF) : Colors.white.withValues(alpha: 0.05),
+            color: isSelected
+                ? const Color(0xFF6B4EFF)
+                : Colors.white.withValues(alpha: 0.05),
             width: 1.5,
           ),
         ),
@@ -253,7 +293,9 @@ class _ModelOptionTile extends StatelessWidget {
             Text(
               subtitle,
               style: TextStyle(
-                color: isSelected ? const Color(0xFF6B4EFF).withValues(alpha: 0.8) : Colors.white38,
+                color: isSelected
+                    ? const Color(0xFF6B4EFF).withValues(alpha: 0.8)
+                    : Colors.white38,
                 fontSize: 11,
               ),
             ),
@@ -305,7 +347,9 @@ class _ModernModeCardState extends State<_ModernModeCard> {
             color: const Color(0xFF151515),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: _isHovered ? widget.accentColor.withValues(alpha: 0.5) : Colors.white10,
+              color: _isHovered
+                  ? widget.accentColor.withValues(alpha: 0.5)
+                  : Colors.white10,
               width: 1.5,
             ),
             boxShadow: [
@@ -314,7 +358,7 @@ class _ModernModeCardState extends State<_ModernModeCard> {
                   color: widget.accentColor.withValues(alpha: 0.15),
                   blurRadius: 20,
                   spreadRadius: 5,
-                )
+                ),
             ],
           ),
           child: Column(
@@ -326,7 +370,11 @@ class _ModernModeCardState extends State<_ModernModeCard> {
                   color: widget.accentColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(widget.iconData, color: widget.accentColor, size: 32),
+                child: Icon(
+                  widget.iconData,
+                  color: widget.accentColor,
+                  size: 32,
+                ),
               ),
               const SizedBox(height: 24),
               Text(
@@ -368,9 +416,13 @@ class _ModernModeCardState extends State<_ModernModeCard> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Icon(Icons.arrow_forward, color: widget.accentColor, size: 16),
+                  Icon(
+                    Icons.arrow_forward,
+                    color: widget.accentColor,
+                    size: 16,
+                  ),
                 ],
-              )
+              ),
             ],
           ),
         ).animate().fadeIn(delay: widget.delay.ms).slideY(begin: 0.1, end: 0),

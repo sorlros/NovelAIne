@@ -6,23 +6,15 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:frontend/l10n/app_localizations.dart';
 import '../../core/constants.dart'; // Added missing import
 import 'story_screen.dart';
 
 import 'creation/mode_selection_screen.dart' as creation_screen;
-import 'vault/vault_screen.dart';
 import 'profile/settings_screen.dart'; // Added
-import '../profile/profile_screen.dart';
-import 'explore_screen.dart';
-import 'community_screen.dart';
 import '../widgets/responsive_layout.dart';
-import '../widgets/crisp_bottom_nav_bar.dart';
 import '../providers/content_provider.dart';
 import '../widgets/custom_toast.dart';
-import '../widgets/custom_loading_indicator.dart';
 import '../../../data/models/story_model.dart';
-import '../../../data/services/api_service.dart';
 import '../../../data/repositories/story_repository.dart';
 
 // Isolate에서 실행될 데이터 가공 함수 (파일 최상단 유지)
@@ -435,10 +427,13 @@ class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
         CustomToast.show(context, '스토리가 삭제되었습니다.');
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         CustomToast.show(context, '삭제 실패: $e', type: ToastType.error);
+      }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

@@ -1,7 +1,8 @@
 import os
 from huggingface_hub import AsyncInferenceClient
 from app.services.supabase_client import get_supabase_client
-from typing import List
+from typing import List, Optional
+from uuid import UUID
 
 class RagService:
     def __init__(self):
@@ -27,7 +28,14 @@ class RagService:
             print(f"Embedding generation failed: {e}")
             return []
 
-    async def search_relevant_context(self, query: str, threshold: float = 0.4, limit: int = 3) -> str:
+    async def search_relevant_context(
+        self,
+        query: str,
+        threshold: float = 0.4,
+        limit: int = 3,
+        story_id: Optional[UUID | str] = None,
+        user_id: Optional[UUID | str] = None,
+    ) -> str:
         """
         Search for relevant context in Supabase.
         """
@@ -37,15 +45,25 @@ class RagService:
             return ""
 
         try:
-            # Call Supabase RPC
-            response = self.supabase.rpc(
-                "search_similar_characters",
-                {
+            rpc_args = {
+                "query_embedding": embedding,
+                "match_threshold": threshold,
+                "match_count": limit,
+            }
+            if story_id:
+                rpc_args["story_filter"] = str(story_id)
+            if user_id:
+                rpc_args["user_filter"] = str(user_id)
+
+            try:
+                response = self.supabase.rpc("search_similar_characters", rpc_args).execute()
+            except Exception:
+                legacy_args = {
                     "query_embedding": embedding,
                     "match_threshold": threshold,
                     "match_count": limit
                 }
-            ).execute()
+                response = self.supabase.rpc("search_similar_characters", legacy_args).execute()
             
             if not response.data:
                 return ""
