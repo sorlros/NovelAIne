@@ -4,7 +4,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../providers/auth_provider.dart';
-import '../../../data/models/user_model.dart'; // 타입 정의 추가
 import '../auth/auth_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -16,7 +15,7 @@ class SettingsScreen extends ConsumerWidget {
     final user = authState.value;
 
     return ResponsiveLayout(
-      currentIndex: 3, // Settings/Explore index in SideMenu
+      currentIndex: 4,
       appBar: AppBar(
         title: const Text("설정 및 프로필"),
         backgroundColor: Colors.transparent,
@@ -44,8 +43,14 @@ class SettingsScreen extends ConsumerWidget {
                 const SizedBox(height: 20),
                 CircleAvatar(
                   radius: 60,
-                  backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.1),
-                  child: const Icon(Icons.person_rounded, size: 60, color: Color(0xFF7C3AED)),
+                  backgroundColor: const Color(
+                    0xFF7C3AED,
+                  ).withValues(alpha: 0.1),
+                  child: const Icon(
+                    Icons.person_rounded,
+                    size: 60,
+                    color: Color(0xFF7C3AED),
+                  ),
                 ).animate().scale(duration: 400.ms, curve: Curves.easeOutBack),
                 const SizedBox(height: 24),
                 Text(
@@ -58,10 +63,7 @@ class SettingsScreen extends ConsumerWidget {
                 ),
                 Text(
                   user?.email ?? "",
-                  style: GoogleFonts.lato(
-                    fontSize: 16,
-                    color: Colors.white54,
-                  ),
+                  style: GoogleFonts.lato(fontSize: 16, color: Colors.white54),
                 ),
                 const SizedBox(height: 48),
                 _buildMenuItem(
@@ -122,7 +124,11 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               const Spacer(),
-              const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white24, size: 14),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: Colors.white24,
+                size: 14,
+              ),
             ],
           ),
         ),

@@ -31,6 +31,31 @@ NovelAIne은 AI를 활용한 **인터랙티브 스토리텔링 및 자동 삽화
 
 ---
 
+## 🏗️ 시스템 파이프라인 (System Pipeline)
+
+NovelAIne은 사용자의 입력부터 AI의 최종 응답 및 시각화까지 유기적으로 연결된 고도화된 파이프라인을 갖추고 있습니다.
+
+### 1. 사용자 입력 및 문맥 최적화 (Input & Context)
+- **Keyword Compression**: 사용자의 한국어 입력을 LLM 추론에 최적화된 **영문 키워드**로 압축하여 전달합니다. 이는 토큰 효율을 높이고 AI의 의도 파악 성능을 극대화합니다.
+- **Selective RAG Trigger**: 모든 대화에서 DB를 검색하지 않고, **질문(?)이 포함되거나 20자 이상의 긴 입력**일 때만 RAG(검색 증강 생성)를 활성화하여 리소스를 관리합니다.
+
+### 2. 지능형 기억 엔진 (Intelligent Memory & RAG)
+- **Supabase pgvector**: 설정된 세계관과 캐릭터 데이터를 벡터화하여 관리합니다.
+- **Summary Buffer Memory**: 최신 대화 10턴은 원문을 유지하고, 그 이전의 대화는 핵심 요약본으로 변환하여 프롬프트 길이를 일정하게 유지합니다.
+
+### 3. 멀티 엔진 서사 생성 (Dual-Model Generation)
+- **Ensemble vs Hero Mode**: 선택된 서사 모드에 따라 전용 시스템 프롬프트가 적용됩니다.
+    - **주인공 모드**: 1인칭/3인칭 주인공 시점의 심리 묘사 및 즉각적인 결단 중심.
+    - **군상극 모드**: 거시적인 세계의 변화와 다양한 인물 간의 상호작용 중심.
+- **HTTP Streaming**: 생성된 텍스트를 실시간으로 프론트엔드에 스트리밍하여 사용자 대기 시간을 혁신적으로 줄였습니다.
+
+### 4. 실시간 장면 분석 및 시각화 (Analysis & Visualization)
+- **Scene Analysis**: 생성된 텍스트를 즉시 분석하여 **현재 장면에 실제로 존재하는 인물**을 식별하고 UI의 캐릭터 카드를 갱신합니다.
+- **Emotion & Importance Scoring**: 장면의 감정적 농도와 중요도를 수치화합니다.
+- **Automated Illustration**: 점수가 임계값을 초과하는 '결정적 장면'에 대해 Stable Diffusion API를 호출하여 삽화를 생성하고 Supabase Storage에 저장합니다.
+
+---
+
 ## ⚡ API 토큰 최적화 및 비용 절감 (Efficiency & Cost Reduction)
 
 ### 🧠 지능형 문맥 관리 (Intelligent Context Management)

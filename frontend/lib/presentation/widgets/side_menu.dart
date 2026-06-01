@@ -1,32 +1,32 @@
 import 'package:flutter/material.dart';
 import '../screens/home_screen.dart';
+import '../screens/explore_screen.dart';
 import '../screens/vault/vault_screen.dart';
-import '../screens/profile/settings_screen.dart';
 import '../profile/profile_screen.dart';
 
 import '../screens/creation/mode_selection_screen.dart' as creation_screen;
 
 class SideMenu extends StatelessWidget {
   final int currentIndex;
-  
+
   const SideMenu({super.key, required this.currentIndex});
 
   void _navigateTo(BuildContext context, int index) {
     if (index == currentIndex) return;
-    
+
     Widget screen;
     switch (index) {
       case 0:
         screen = const HomeScreen();
         break;
       case 1:
-        screen = const creation_screen.CreationModeSelectionScreen();
+        screen = const ExploreScreen();
         break;
       case 2:
-        screen = const CharacterVaultScreen();
+        screen = const creation_screen.CreationModeSelectionScreen();
         break;
       case 3:
-        screen = const SettingsScreen();
+        screen = const CharacterVaultScreen();
         break;
       case 4:
         screen = const ProfileScreen();
@@ -34,7 +34,7 @@ class SideMenu extends StatelessWidget {
       default:
         screen = const HomeScreen();
     }
-    
+
     // Replace to keep history flat when navigating from side menu
     Navigator.pushReplacement(
       context,
@@ -80,20 +80,20 @@ class SideMenu extends StatelessWidget {
             onTap: () => _navigateTo(context, 0),
           ),
           _SideMenuItem(
-            icon: Icons.edit,
-            title: "창작하기",
+            icon: Icons.explore_outlined,
+            title: "탐색",
             isSelected: currentIndex == 1,
             onTap: () => _navigateTo(context, 1),
           ),
           _SideMenuItem(
-            icon: Icons.archive_outlined,
-            title: "캐릭터 보관함",
+            icon: Icons.edit,
+            title: "창작하기",
             isSelected: currentIndex == 2,
             onTap: () => _navigateTo(context, 2),
           ),
           _SideMenuItem(
-            icon: Icons.settings,
-            title: "설정",
+            icon: Icons.archive_outlined,
+            title: "캐릭터 보관함",
             isSelected: currentIndex == 3,
             onTap: () => _navigateTo(context, 3),
           ),
@@ -127,7 +127,9 @@ class _SideMenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color(0xFF3F3B6C); // Matches selected background in image
+    const primaryColor = Color(
+      0xFF3F3B6C,
+    ); // Matches selected background in image
     const textColor = Colors.white;
     const textSecondary = Colors.white54;
 

@@ -6,7 +6,8 @@ import unicodedata
 import random
 import logging
 import traceback
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from uuid import UUID
 from app.services.rag_service import RagService
 from app.services.memory_service import MemoryService
 
@@ -97,13 +98,19 @@ class ChatService:
             return user_message
 
     async def generate_response(
-        self, user_message: str, history: List[Dict[str, str]] = [], 
-        model: str = None, narrative_type: str = "hero" # 추가
+        self, user_message: str, history: Optional[List[Dict[str, str]]] = None,
+        model: str = None, narrative_type: str = "hero",
+        story_id: UUID | str | None = None,
+        user_id: UUID | str | None = None,
     ) -> str:
         rag_context = ""
         try:
             if self._should_trigger_rag(user_message):
-                rag_context = await self.rag_service.search_relevant_context(user_message)
+                rag_context = await self.rag_service.search_relevant_context(
+                    user_message,
+                    story_id=story_id,
+                    user_id=user_id,
+                )
         except Exception as e:
             logger.error(f"RAG Error: {e}")
             
@@ -331,8 +338,10 @@ class ChatService:
             raise e
 
     async def stream_generate_response(
-        self, user_message: str, history: List[Dict[str, str]] = [], 
-        model: str = None, narrative_type: str = "hero" # 추가
+        self, user_message: str, history: Optional[List[Dict[str, str]]] = None,
+        model: str = None, narrative_type: str = "hero",
+        story_id: UUID | str | None = None,
+        user_id: UUID | str | None = None,
     ):
         """
         AI 응답을 한 글자(토큰)씩 실시간으로 전송하는 제너레이터
@@ -340,7 +349,11 @@ class ChatService:
         rag_context = ""
         try:
             if self._should_trigger_rag(user_message):
-                rag_context = await self.rag_service.search_relevant_context(user_message)
+                rag_context = await self.rag_service.search_relevant_context(
+                    user_message,
+                    story_id=story_id,
+                    user_id=user_id,
+                )
         except Exception as e:
             logger.warning(f"RAG search failed: {e}")
             

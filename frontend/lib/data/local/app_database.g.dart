@@ -95,6 +95,29 @@ class $StoriesTable extends Stories with TableInfo<$StoriesTable, Story> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _visibilityMeta = const VerificationMeta(
+    'visibility',
+  );
+  @override
+  late final GeneratedColumn<String> visibility = GeneratedColumn<String>(
+    'visibility',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('private'),
+  );
+  static const VerificationMeta _publishedAtMeta = const VerificationMeta(
+    'publishedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> publishedAt = GeneratedColumn<DateTime>(
+    'published_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -126,6 +149,8 @@ class $StoriesTable extends Stories with TableInfo<$StoriesTable, Story> {
     narrativeType,
     totalScenes,
     coverImageUrl,
+    visibility,
+    publishedAt,
     createdAt,
     userId,
   ];
@@ -202,6 +227,21 @@ class $StoriesTable extends Stories with TableInfo<$StoriesTable, Story> {
         ),
       );
     }
+    if (data.containsKey('visibility')) {
+      context.handle(
+        _visibilityMeta,
+        visibility.isAcceptableOrUnknown(data['visibility']!, _visibilityMeta),
+      );
+    }
+    if (data.containsKey('published_at')) {
+      context.handle(
+        _publishedAtMeta,
+        publishedAt.isAcceptableOrUnknown(
+          data['published_at']!,
+          _publishedAtMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -255,6 +295,14 @@ class $StoriesTable extends Stories with TableInfo<$StoriesTable, Story> {
         DriftSqlType.string,
         data['${effectivePrefix}cover_image_url'],
       ),
+      visibility: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}visibility'],
+      )!,
+      publishedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}published_at'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -281,6 +329,8 @@ class Story extends DataClass implements Insertable<Story> {
   final String narrativeType;
   final int totalScenes;
   final String? coverImageUrl;
+  final String visibility;
+  final DateTime? publishedAt;
   final DateTime createdAt;
   final String? userId;
   const Story({
@@ -292,6 +342,8 @@ class Story extends DataClass implements Insertable<Story> {
     required this.narrativeType,
     required this.totalScenes,
     this.coverImageUrl,
+    required this.visibility,
+    this.publishedAt,
     required this.createdAt,
     this.userId,
   });
@@ -311,6 +363,10 @@ class Story extends DataClass implements Insertable<Story> {
     map['total_scenes'] = Variable<int>(totalScenes);
     if (!nullToAbsent || coverImageUrl != null) {
       map['cover_image_url'] = Variable<String>(coverImageUrl);
+    }
+    map['visibility'] = Variable<String>(visibility);
+    if (!nullToAbsent || publishedAt != null) {
+      map['published_at'] = Variable<DateTime>(publishedAt);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     if (!nullToAbsent || userId != null) {
@@ -335,6 +391,10 @@ class Story extends DataClass implements Insertable<Story> {
       coverImageUrl: coverImageUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(coverImageUrl),
+      visibility: Value(visibility),
+      publishedAt: publishedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(publishedAt),
       createdAt: Value(createdAt),
       userId: userId == null && nullToAbsent
           ? const Value.absent()
@@ -356,6 +416,8 @@ class Story extends DataClass implements Insertable<Story> {
       narrativeType: serializer.fromJson<String>(json['narrativeType']),
       totalScenes: serializer.fromJson<int>(json['totalScenes']),
       coverImageUrl: serializer.fromJson<String?>(json['coverImageUrl']),
+      visibility: serializer.fromJson<String>(json['visibility']),
+      publishedAt: serializer.fromJson<DateTime?>(json['publishedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       userId: serializer.fromJson<String?>(json['userId']),
     );
@@ -372,6 +434,8 @@ class Story extends DataClass implements Insertable<Story> {
       'narrativeType': serializer.toJson<String>(narrativeType),
       'totalScenes': serializer.toJson<int>(totalScenes),
       'coverImageUrl': serializer.toJson<String?>(coverImageUrl),
+      'visibility': serializer.toJson<String>(visibility),
+      'publishedAt': serializer.toJson<DateTime?>(publishedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'userId': serializer.toJson<String?>(userId),
     };
@@ -386,6 +450,8 @@ class Story extends DataClass implements Insertable<Story> {
     String? narrativeType,
     int? totalScenes,
     Value<String?> coverImageUrl = const Value.absent(),
+    String? visibility,
+    Value<DateTime?> publishedAt = const Value.absent(),
     DateTime? createdAt,
     Value<String?> userId = const Value.absent(),
   }) => Story(
@@ -399,6 +465,8 @@ class Story extends DataClass implements Insertable<Story> {
     coverImageUrl: coverImageUrl.present
         ? coverImageUrl.value
         : this.coverImageUrl,
+    visibility: visibility ?? this.visibility,
+    publishedAt: publishedAt.present ? publishedAt.value : this.publishedAt,
     createdAt: createdAt ?? this.createdAt,
     userId: userId.present ? userId.value : this.userId,
   );
@@ -420,6 +488,12 @@ class Story extends DataClass implements Insertable<Story> {
       coverImageUrl: data.coverImageUrl.present
           ? data.coverImageUrl.value
           : this.coverImageUrl,
+      visibility: data.visibility.present
+          ? data.visibility.value
+          : this.visibility,
+      publishedAt: data.publishedAt.present
+          ? data.publishedAt.value
+          : this.publishedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       userId: data.userId.present ? data.userId.value : this.userId,
     );
@@ -436,6 +510,8 @@ class Story extends DataClass implements Insertable<Story> {
           ..write('narrativeType: $narrativeType, ')
           ..write('totalScenes: $totalScenes, ')
           ..write('coverImageUrl: $coverImageUrl, ')
+          ..write('visibility: $visibility, ')
+          ..write('publishedAt: $publishedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('userId: $userId')
           ..write(')'))
@@ -452,6 +528,8 @@ class Story extends DataClass implements Insertable<Story> {
     narrativeType,
     totalScenes,
     coverImageUrl,
+    visibility,
+    publishedAt,
     createdAt,
     userId,
   );
@@ -467,6 +545,8 @@ class Story extends DataClass implements Insertable<Story> {
           other.narrativeType == this.narrativeType &&
           other.totalScenes == this.totalScenes &&
           other.coverImageUrl == this.coverImageUrl &&
+          other.visibility == this.visibility &&
+          other.publishedAt == this.publishedAt &&
           other.createdAt == this.createdAt &&
           other.userId == this.userId);
 }
@@ -480,6 +560,8 @@ class StoriesCompanion extends UpdateCompanion<Story> {
   final Value<String> narrativeType;
   final Value<int> totalScenes;
   final Value<String?> coverImageUrl;
+  final Value<String> visibility;
+  final Value<DateTime?> publishedAt;
   final Value<DateTime> createdAt;
   final Value<String?> userId;
   final Value<int> rowid;
@@ -492,6 +574,8 @@ class StoriesCompanion extends UpdateCompanion<Story> {
     this.narrativeType = const Value.absent(),
     this.totalScenes = const Value.absent(),
     this.coverImageUrl = const Value.absent(),
+    this.visibility = const Value.absent(),
+    this.publishedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.userId = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -505,6 +589,8 @@ class StoriesCompanion extends UpdateCompanion<Story> {
     this.narrativeType = const Value.absent(),
     this.totalScenes = const Value.absent(),
     this.coverImageUrl = const Value.absent(),
+    this.visibility = const Value.absent(),
+    this.publishedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.userId = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -519,6 +605,8 @@ class StoriesCompanion extends UpdateCompanion<Story> {
     Expression<String>? narrativeType,
     Expression<int>? totalScenes,
     Expression<String>? coverImageUrl,
+    Expression<String>? visibility,
+    Expression<DateTime>? publishedAt,
     Expression<DateTime>? createdAt,
     Expression<String>? userId,
     Expression<int>? rowid,
@@ -532,6 +620,8 @@ class StoriesCompanion extends UpdateCompanion<Story> {
       if (narrativeType != null) 'narrative_type': narrativeType,
       if (totalScenes != null) 'total_scenes': totalScenes,
       if (coverImageUrl != null) 'cover_image_url': coverImageUrl,
+      if (visibility != null) 'visibility': visibility,
+      if (publishedAt != null) 'published_at': publishedAt,
       if (createdAt != null) 'created_at': createdAt,
       if (userId != null) 'user_id': userId,
       if (rowid != null) 'rowid': rowid,
@@ -547,6 +637,8 @@ class StoriesCompanion extends UpdateCompanion<Story> {
     Value<String>? narrativeType,
     Value<int>? totalScenes,
     Value<String?>? coverImageUrl,
+    Value<String>? visibility,
+    Value<DateTime?>? publishedAt,
     Value<DateTime>? createdAt,
     Value<String?>? userId,
     Value<int>? rowid,
@@ -560,6 +652,8 @@ class StoriesCompanion extends UpdateCompanion<Story> {
       narrativeType: narrativeType ?? this.narrativeType,
       totalScenes: totalScenes ?? this.totalScenes,
       coverImageUrl: coverImageUrl ?? this.coverImageUrl,
+      visibility: visibility ?? this.visibility,
+      publishedAt: publishedAt ?? this.publishedAt,
       createdAt: createdAt ?? this.createdAt,
       userId: userId ?? this.userId,
       rowid: rowid ?? this.rowid,
@@ -593,6 +687,12 @@ class StoriesCompanion extends UpdateCompanion<Story> {
     if (coverImageUrl.present) {
       map['cover_image_url'] = Variable<String>(coverImageUrl.value);
     }
+    if (visibility.present) {
+      map['visibility'] = Variable<String>(visibility.value);
+    }
+    if (publishedAt.present) {
+      map['published_at'] = Variable<DateTime>(publishedAt.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -616,6 +716,8 @@ class StoriesCompanion extends UpdateCompanion<Story> {
           ..write('narrativeType: $narrativeType, ')
           ..write('totalScenes: $totalScenes, ')
           ..write('coverImageUrl: $coverImageUrl, ')
+          ..write('visibility: $visibility, ')
+          ..write('publishedAt: $publishedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('userId: $userId, ')
           ..write('rowid: $rowid')
@@ -1515,6 +1617,16 @@ class $ScenesTable extends Scenes with TableInfo<$ScenesTable, Scene> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _roleMeta = const VerificationMeta('role');
+  @override
+  late final GeneratedColumn<String> role = GeneratedColumn<String>(
+    'role',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('ai'),
+  );
   static const VerificationMeta _sceneTypeMeta = const VerificationMeta(
     'sceneType',
   );
@@ -1565,6 +1677,7 @@ class $ScenesTable extends Scenes with TableInfo<$ScenesTable, Scene> {
     storyId,
     sequence,
     content,
+    role,
     sceneType,
     imageUrl,
     bgmUrl,
@@ -1610,6 +1723,12 @@ class $ScenesTable extends Scenes with TableInfo<$ScenesTable, Scene> {
       );
     } else if (isInserting) {
       context.missing(_contentMeta);
+    }
+    if (data.containsKey('role')) {
+      context.handle(
+        _roleMeta,
+        role.isAcceptableOrUnknown(data['role']!, _roleMeta),
+      );
     }
     if (data.containsKey('scene_type')) {
       context.handle(
@@ -1660,6 +1779,10 @@ class $ScenesTable extends Scenes with TableInfo<$ScenesTable, Scene> {
         DriftSqlType.string,
         data['${effectivePrefix}content'],
       )!,
+      role: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}role'],
+      )!,
       sceneType: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}scene_type'],
@@ -1690,6 +1813,7 @@ class Scene extends DataClass implements Insertable<Scene> {
   final String storyId;
   final int sequence;
   final String content;
+  final String role;
   final String sceneType;
   final String? imageUrl;
   final String? bgmUrl;
@@ -1699,6 +1823,7 @@ class Scene extends DataClass implements Insertable<Scene> {
     required this.storyId,
     required this.sequence,
     required this.content,
+    required this.role,
     required this.sceneType,
     this.imageUrl,
     this.bgmUrl,
@@ -1711,6 +1836,7 @@ class Scene extends DataClass implements Insertable<Scene> {
     map['story_id'] = Variable<String>(storyId);
     map['sequence'] = Variable<int>(sequence);
     map['content'] = Variable<String>(content);
+    map['role'] = Variable<String>(role);
     map['scene_type'] = Variable<String>(sceneType);
     if (!nullToAbsent || imageUrl != null) {
       map['image_url'] = Variable<String>(imageUrl);
@@ -1728,6 +1854,7 @@ class Scene extends DataClass implements Insertable<Scene> {
       storyId: Value(storyId),
       sequence: Value(sequence),
       content: Value(content),
+      role: Value(role),
       sceneType: Value(sceneType),
       imageUrl: imageUrl == null && nullToAbsent
           ? const Value.absent()
@@ -1749,6 +1876,7 @@ class Scene extends DataClass implements Insertable<Scene> {
       storyId: serializer.fromJson<String>(json['storyId']),
       sequence: serializer.fromJson<int>(json['sequence']),
       content: serializer.fromJson<String>(json['content']),
+      role: serializer.fromJson<String>(json['role']),
       sceneType: serializer.fromJson<String>(json['sceneType']),
       imageUrl: serializer.fromJson<String?>(json['imageUrl']),
       bgmUrl: serializer.fromJson<String?>(json['bgmUrl']),
@@ -1763,6 +1891,7 @@ class Scene extends DataClass implements Insertable<Scene> {
       'storyId': serializer.toJson<String>(storyId),
       'sequence': serializer.toJson<int>(sequence),
       'content': serializer.toJson<String>(content),
+      'role': serializer.toJson<String>(role),
       'sceneType': serializer.toJson<String>(sceneType),
       'imageUrl': serializer.toJson<String?>(imageUrl),
       'bgmUrl': serializer.toJson<String?>(bgmUrl),
@@ -1775,6 +1904,7 @@ class Scene extends DataClass implements Insertable<Scene> {
     String? storyId,
     int? sequence,
     String? content,
+    String? role,
     String? sceneType,
     Value<String?> imageUrl = const Value.absent(),
     Value<String?> bgmUrl = const Value.absent(),
@@ -1784,6 +1914,7 @@ class Scene extends DataClass implements Insertable<Scene> {
     storyId: storyId ?? this.storyId,
     sequence: sequence ?? this.sequence,
     content: content ?? this.content,
+    role: role ?? this.role,
     sceneType: sceneType ?? this.sceneType,
     imageUrl: imageUrl.present ? imageUrl.value : this.imageUrl,
     bgmUrl: bgmUrl.present ? bgmUrl.value : this.bgmUrl,
@@ -1795,6 +1926,7 @@ class Scene extends DataClass implements Insertable<Scene> {
       storyId: data.storyId.present ? data.storyId.value : this.storyId,
       sequence: data.sequence.present ? data.sequence.value : this.sequence,
       content: data.content.present ? data.content.value : this.content,
+      role: data.role.present ? data.role.value : this.role,
       sceneType: data.sceneType.present ? data.sceneType.value : this.sceneType,
       imageUrl: data.imageUrl.present ? data.imageUrl.value : this.imageUrl,
       bgmUrl: data.bgmUrl.present ? data.bgmUrl.value : this.bgmUrl,
@@ -1809,6 +1941,7 @@ class Scene extends DataClass implements Insertable<Scene> {
           ..write('storyId: $storyId, ')
           ..write('sequence: $sequence, ')
           ..write('content: $content, ')
+          ..write('role: $role, ')
           ..write('sceneType: $sceneType, ')
           ..write('imageUrl: $imageUrl, ')
           ..write('bgmUrl: $bgmUrl, ')
@@ -1823,6 +1956,7 @@ class Scene extends DataClass implements Insertable<Scene> {
     storyId,
     sequence,
     content,
+    role,
     sceneType,
     imageUrl,
     bgmUrl,
@@ -1836,6 +1970,7 @@ class Scene extends DataClass implements Insertable<Scene> {
           other.storyId == this.storyId &&
           other.sequence == this.sequence &&
           other.content == this.content &&
+          other.role == this.role &&
           other.sceneType == this.sceneType &&
           other.imageUrl == this.imageUrl &&
           other.bgmUrl == this.bgmUrl &&
@@ -1847,6 +1982,7 @@ class ScenesCompanion extends UpdateCompanion<Scene> {
   final Value<String> storyId;
   final Value<int> sequence;
   final Value<String> content;
+  final Value<String> role;
   final Value<String> sceneType;
   final Value<String?> imageUrl;
   final Value<String?> bgmUrl;
@@ -1857,6 +1993,7 @@ class ScenesCompanion extends UpdateCompanion<Scene> {
     this.storyId = const Value.absent(),
     this.sequence = const Value.absent(),
     this.content = const Value.absent(),
+    this.role = const Value.absent(),
     this.sceneType = const Value.absent(),
     this.imageUrl = const Value.absent(),
     this.bgmUrl = const Value.absent(),
@@ -1868,6 +2005,7 @@ class ScenesCompanion extends UpdateCompanion<Scene> {
     required String storyId,
     required int sequence,
     required String content,
+    this.role = const Value.absent(),
     this.sceneType = const Value.absent(),
     this.imageUrl = const Value.absent(),
     this.bgmUrl = const Value.absent(),
@@ -1882,6 +2020,7 @@ class ScenesCompanion extends UpdateCompanion<Scene> {
     Expression<String>? storyId,
     Expression<int>? sequence,
     Expression<String>? content,
+    Expression<String>? role,
     Expression<String>? sceneType,
     Expression<String>? imageUrl,
     Expression<String>? bgmUrl,
@@ -1893,6 +2032,7 @@ class ScenesCompanion extends UpdateCompanion<Scene> {
       if (storyId != null) 'story_id': storyId,
       if (sequence != null) 'sequence': sequence,
       if (content != null) 'content': content,
+      if (role != null) 'role': role,
       if (sceneType != null) 'scene_type': sceneType,
       if (imageUrl != null) 'image_url': imageUrl,
       if (bgmUrl != null) 'bgm_url': bgmUrl,
@@ -1906,6 +2046,7 @@ class ScenesCompanion extends UpdateCompanion<Scene> {
     Value<String>? storyId,
     Value<int>? sequence,
     Value<String>? content,
+    Value<String>? role,
     Value<String>? sceneType,
     Value<String?>? imageUrl,
     Value<String?>? bgmUrl,
@@ -1917,6 +2058,7 @@ class ScenesCompanion extends UpdateCompanion<Scene> {
       storyId: storyId ?? this.storyId,
       sequence: sequence ?? this.sequence,
       content: content ?? this.content,
+      role: role ?? this.role,
       sceneType: sceneType ?? this.sceneType,
       imageUrl: imageUrl ?? this.imageUrl,
       bgmUrl: bgmUrl ?? this.bgmUrl,
@@ -1939,6 +2081,9 @@ class ScenesCompanion extends UpdateCompanion<Scene> {
     }
     if (content.present) {
       map['content'] = Variable<String>(content.value);
+    }
+    if (role.present) {
+      map['role'] = Variable<String>(role.value);
     }
     if (sceneType.present) {
       map['scene_type'] = Variable<String>(sceneType.value);
@@ -1965,6 +2110,7 @@ class ScenesCompanion extends UpdateCompanion<Scene> {
           ..write('storyId: $storyId, ')
           ..write('sequence: $sequence, ')
           ..write('content: $content, ')
+          ..write('role: $role, ')
           ..write('sceneType: $sceneType, ')
           ..write('imageUrl: $imageUrl, ')
           ..write('bgmUrl: $bgmUrl, ')
@@ -2030,6 +2176,8 @@ typedef $$StoriesTableCreateCompanionBuilder =
       Value<String> narrativeType,
       Value<int> totalScenes,
       Value<String?> coverImageUrl,
+      Value<String> visibility,
+      Value<DateTime?> publishedAt,
       Value<DateTime> createdAt,
       Value<String?> userId,
       Value<int> rowid,
@@ -2044,6 +2192,8 @@ typedef $$StoriesTableUpdateCompanionBuilder =
       Value<String> narrativeType,
       Value<int> totalScenes,
       Value<String?> coverImageUrl,
+      Value<String> visibility,
+      Value<DateTime?> publishedAt,
       Value<DateTime> createdAt,
       Value<String?> userId,
       Value<int> rowid,
@@ -2139,6 +2289,16 @@ class $$StoriesTableFilterComposer
 
   ColumnFilters<String> get coverImageUrl => $composableBuilder(
     column: $table.coverImageUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get visibility => $composableBuilder(
+    column: $table.visibility,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get publishedAt => $composableBuilder(
+    column: $table.publishedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2252,6 +2412,16 @@ class $$StoriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get visibility => $composableBuilder(
+    column: $table.visibility,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get publishedAt => $composableBuilder(
+    column: $table.publishedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -2301,6 +2471,16 @@ class $$StoriesTableAnnotationComposer
 
   GeneratedColumn<String> get coverImageUrl => $composableBuilder(
     column: $table.coverImageUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get visibility => $composableBuilder(
+    column: $table.visibility,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get publishedAt => $composableBuilder(
+    column: $table.publishedAt,
     builder: (column) => column,
   );
 
@@ -2397,6 +2577,8 @@ class $$StoriesTableTableManager
                 Value<String> narrativeType = const Value.absent(),
                 Value<int> totalScenes = const Value.absent(),
                 Value<String?> coverImageUrl = const Value.absent(),
+                Value<String> visibility = const Value.absent(),
+                Value<DateTime?> publishedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<String?> userId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -2409,6 +2591,8 @@ class $$StoriesTableTableManager
                 narrativeType: narrativeType,
                 totalScenes: totalScenes,
                 coverImageUrl: coverImageUrl,
+                visibility: visibility,
+                publishedAt: publishedAt,
                 createdAt: createdAt,
                 userId: userId,
                 rowid: rowid,
@@ -2423,6 +2607,8 @@ class $$StoriesTableTableManager
                 Value<String> narrativeType = const Value.absent(),
                 Value<int> totalScenes = const Value.absent(),
                 Value<String?> coverImageUrl = const Value.absent(),
+                Value<String> visibility = const Value.absent(),
+                Value<DateTime?> publishedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<String?> userId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -2435,6 +2621,8 @@ class $$StoriesTableTableManager
                 narrativeType: narrativeType,
                 totalScenes: totalScenes,
                 coverImageUrl: coverImageUrl,
+                visibility: visibility,
+                publishedAt: publishedAt,
                 createdAt: createdAt,
                 userId: userId,
                 rowid: rowid,
@@ -3281,6 +3469,7 @@ typedef $$ScenesTableCreateCompanionBuilder =
       required String storyId,
       required int sequence,
       required String content,
+      Value<String> role,
       Value<String> sceneType,
       Value<String?> imageUrl,
       Value<String?> bgmUrl,
@@ -3293,6 +3482,7 @@ typedef $$ScenesTableUpdateCompanionBuilder =
       Value<String> storyId,
       Value<int> sequence,
       Value<String> content,
+      Value<String> role,
       Value<String> sceneType,
       Value<String?> imageUrl,
       Value<String?> bgmUrl,
@@ -3343,6 +3533,11 @@ class $$ScenesTableFilterComposer
 
   ColumnFilters<String> get content => $composableBuilder(
     column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get role => $composableBuilder(
+    column: $table.role,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3414,6 +3609,11 @@ class $$ScenesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get sceneType => $composableBuilder(
     column: $table.sceneType,
     builder: (column) => ColumnOrderings(column),
@@ -3475,6 +3675,9 @@ class $$ScenesTableAnnotationComposer
 
   GeneratedColumn<String> get content =>
       $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<String> get role =>
+      $composableBuilder(column: $table.role, builder: (column) => column);
 
   GeneratedColumn<String> get sceneType =>
       $composableBuilder(column: $table.sceneType, builder: (column) => column);
@@ -3544,6 +3747,7 @@ class $$ScenesTableTableManager
                 Value<String> storyId = const Value.absent(),
                 Value<int> sequence = const Value.absent(),
                 Value<String> content = const Value.absent(),
+                Value<String> role = const Value.absent(),
                 Value<String> sceneType = const Value.absent(),
                 Value<String?> imageUrl = const Value.absent(),
                 Value<String?> bgmUrl = const Value.absent(),
@@ -3554,6 +3758,7 @@ class $$ScenesTableTableManager
                 storyId: storyId,
                 sequence: sequence,
                 content: content,
+                role: role,
                 sceneType: sceneType,
                 imageUrl: imageUrl,
                 bgmUrl: bgmUrl,
@@ -3566,6 +3771,7 @@ class $$ScenesTableTableManager
                 required String storyId,
                 required int sequence,
                 required String content,
+                Value<String> role = const Value.absent(),
                 Value<String> sceneType = const Value.absent(),
                 Value<String?> imageUrl = const Value.absent(),
                 Value<String?> bgmUrl = const Value.absent(),
@@ -3576,6 +3782,7 @@ class $$ScenesTableTableManager
                 storyId: storyId,
                 sequence: sequence,
                 content: content,
+                role: role,
                 sceneType: sceneType,
                 imageUrl: imageUrl,
                 bgmUrl: bgmUrl,

@@ -24,7 +24,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   ChatNotifier(this._apiService) : super(ChatState(messages: []));
 
-  Future<void> sendMessage(String text) async {
+  Future<void> sendMessage(String storyId, String text) async {
     // Add user message
     state = state.copyWith(
       messages: [
@@ -35,7 +35,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
     );
 
     try {
-      final responseMap = await _apiService.chat(text);
+      final responseMap = await _apiService.chat(storyId, text);
       final aiText = responseMap['response'] as String;
 
       // Add AI response

@@ -4,7 +4,9 @@ import 'package:animated_text_kit/animated_text_kit.dart';
 import '../providers/chat_provider.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
-  const ChatScreen({super.key});
+  final String storyId;
+
+  const ChatScreen({super.key, required this.storyId});
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -43,7 +45,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             child: ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.all(16),
-              itemCount: chatState.messages.length + (chatState.isLoading ? 1 : 0),
+              itemCount:
+                  chatState.messages.length + (chatState.isLoading ? 1 : 0),
               itemBuilder: (context, index) {
                 if (index == chatState.messages.length) {
                   return const Center(
@@ -59,7 +62,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 final content = message['content'] ?? '';
 
                 return Align(
-                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  alignment: isUser
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
                   child: Container(
                     margin: const EdgeInsets.symmetric(vertical: 8),
                     padding: const EdgeInsets.all(12),
@@ -71,16 +76,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: isUser
-                        ? Text(
-                            content,
-                            style: const TextStyle(fontSize: 16),
-                          )
+                        ? Text(content, style: const TextStyle(fontSize: 16))
                         : AnimatedTextKit(
                             totalRepeatCount: 1,
                             animatedTexts: [
                               TypewriterAnimatedText(
                                 content,
-                                textStyle: const TextStyle(fontSize: 16, height: 1.5),
+                                textStyle: const TextStyle(
+                                  fontSize: 16,
+                                  height: 1.5,
+                                ),
                                 speed: const Duration(milliseconds: 30),
                               ),
                             ],
@@ -102,11 +107,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                      ),
                     ),
                     onSubmitted: (value) {
                       if (value.isNotEmpty) {
-                        ref.read(chatProvider.notifier).sendMessage(value);
+                        ref
+                            .read(chatProvider.notifier)
+                            .sendMessage(widget.storyId, value);
                         _controller.clear();
                       }
                     },
@@ -116,7 +125,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 IconButton(
                   onPressed: () {
                     if (_controller.text.isNotEmpty) {
-                      ref.read(chatProvider.notifier).sendMessage(_controller.text);
+                      ref
+                          .read(chatProvider.notifier)
+                          .sendMessage(widget.storyId, _controller.text);
                       _controller.clear();
                     }
                   },

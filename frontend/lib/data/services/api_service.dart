@@ -3,17 +3,58 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../core/constants.dart';
+import '../models/community_models.dart';
 import '../models/story_model.dart';
 import '../models/creation_config.dart';
 
 class ApiService {
   final String _baseUrl = AppConstants.baseUrl;
+  static String? _accessToken;
+  static Future<String?> Function()? _accessTokenRefresher;
+  static Future<String?>? _refreshFuture;
+
+  static void setAccessToken(String? token) {
+    _accessToken = token;
+  }
+
+  static void setAccessTokenRefresher(Future<String?> Function()? refresher) {
+    _accessTokenRefresher = refresher;
+  }
+
+  static void clearAccessToken() {
+    _accessToken = null;
+  }
+
+  static Future<void> _ensureFreshAccessToken() async {
+    final refresher = _accessTokenRefresher;
+    if (refresher == null) {
+      return;
+    }
+    _refreshFuture ??= refresher().whenComplete(() {
+      _refreshFuture = null;
+    });
+    final token = await _refreshFuture;
+    if (token != null && token.isNotEmpty) {
+      _accessToken = token;
+    }
+  }
+
+  Map<String, String> get _jsonHeaders {
+    return {
+      'Content-Type': 'application/json',
+      if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
+    };
+  }
+
+  Map<String, String> get _authHeaders {
+    return {if (_accessToken != null) 'Authorization': 'Bearer $_accessToken'};
+  }
 
   // Auth API
   Future<Map<String, dynamic>> login(String email, String password) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/auth/login'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _jsonHeaders,
       body: jsonEncode({'email': email, 'password': password}),
     );
 
@@ -36,7 +77,7 @@ class ApiService {
   ) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/auth/signup'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _jsonHeaders,
       body: jsonEncode({
         'email': email,
         'password': password,
@@ -56,18 +97,51 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> refreshSession(String refreshToken) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/auth/refresh'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'refresh_token': refreshToken}),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      if (data['success'] == true) {
+        return data['data'];
+      }
+      throw Exception(data['error']);
+    }
+    throw Exception('Session refresh failed: ${response.statusCode}');
+  }
+
   Future<void> logout() async {
-    // For now, simple client side logout.
-    // If you add token storage (SharedPreferences), clear it here.
-    return;
+    try {
+      await _ensureFreshAccessToken();
+      await http
+          .post(Uri.parse('$_baseUrl/auth/logout'), headers: _authHeaders)
+          .timeout(const Duration(seconds: 10));
+    } catch (e) {
+      debugPrint('Server logout skipped: $e');
+    }
   }
 
   // Chat API
-  Future<Map<String, dynamic>> chat(String message) async {
+  Future<Map<String, dynamic>> chat(
+    String storyId,
+    String message, {
+    List<Map<String, String>>? history,
+    String? clientRequestId,
+  }) async {
+    await _ensureFreshAccessToken();
     final response = await http.post(
       Uri.parse('$_baseUrl/chat'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'message': message}),
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'story_id': storyId,
+        'message': message,
+        'history': history ?? [],
+        if (clientRequestId != null) 'client_request_id': clientRequestId,
+      }),
     );
 
     if (response.statusCode == 200) {
@@ -82,26 +156,35 @@ class ApiService {
   }
 
   // Streaming Chat API
-  Stream<String> streamChat(String storyId, String message, {List<Map<String, String>>? history}) async* {
+  Stream<String> streamChat(
+    String storyId,
+    String message, {
+    List<Map<String, String>>? history,
+    String? clientRequestId,
+  }) async* {
+    await _ensureFreshAccessToken();
     final client = http.Client();
-    final request = http.Request('POST', Uri.parse('$_baseUrl/chat/stream'));
-    request.headers['Content-Type'] = 'application/json';
-    request.body = jsonEncode({
-      'story_id': storyId,
-      'message': message,
-      'history': history ?? [],
-    });
+    try {
+      final request = http.Request('POST', Uri.parse('$_baseUrl/chat/stream'));
+      request.headers.addAll(_jsonHeaders);
+      request.body = jsonEncode({
+        'story_id': storyId,
+        'message': message,
+        'history': history ?? [],
+        if (clientRequestId != null) 'client_request_id': clientRequestId,
+      });
 
-    // Custom request sending with longer timeout
-    final response = await client.send(request).timeout(const Duration(seconds: 150));
+      final response = await client
+          .send(request)
+          .timeout(const Duration(seconds: 150));
 
-    if (response.statusCode == 200) {
-      // 바이트 스트림을 문자열 스트림으로 변환
-      yield* response.stream
-          .transform(utf8.decoder)
-          .transform(const LineSplitter()); 
-    } else {
-      throw Exception('Streaming failed: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        yield* response.stream.transform(utf8.decoder);
+      } else {
+        throw Exception('Streaming failed: ${response.statusCode}');
+      }
+    } finally {
+      client.close();
     }
   }
 
@@ -112,9 +195,10 @@ class ApiService {
     String sceneType, {
     String? storyId,
   }) async {
+    await _ensureFreshAccessToken();
     final response = await http.post(
       Uri.parse('$_baseUrl/images/generate'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _jsonHeaders,
       body: jsonEncode({
         'message_id': messageId,
         'prompt': prompt,
@@ -137,11 +221,12 @@ class ApiService {
 
   // Stories API
   Future<List<StoryModel>> fetchStories({String? userId}) async {
-    final uri = userId != null 
+    await _ensureFreshAccessToken();
+    final uri = userId != null
         ? Uri.parse('$_baseUrl/stories?user_id=$userId')
         : Uri.parse('$_baseUrl/stories');
 
-    final response = await http.get(uri);
+    final response = await http.get(uri, headers: _authHeaders);
 
     if (response.statusCode == 200) {
       final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
@@ -156,9 +241,256 @@ class ApiService {
     }
   }
 
+  Future<List<StoryModel>> fetchPublicStories({
+    String? genre,
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    await _ensureFreshAccessToken();
+    final query = <String, String>{
+      'limit': '$limit',
+      'offset': '$offset',
+      if (genre != null && genre.isNotEmpty) 'genre': genre,
+    };
+    final uri = Uri.parse(
+      '$_baseUrl/stories/public',
+    ).replace(queryParameters: query);
+
+    final response = await http.get(uri, headers: _authHeaders);
+
+    if (response.statusCode == 200) {
+      final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
+      if (jsonResponse['success'] == true) {
+        final List<dynamic> data = jsonResponse['data'];
+        return data.map((json) => StoryModel.fromJson(json)).toList();
+      }
+      throw Exception(
+        'Failed to fetch public stories: ${jsonResponse['error']}',
+      );
+    }
+    throw Exception('Failed to connect to public stories API');
+  }
+
+  Future<List<CommunityStoryModel>> fetchCommunityFeed({
+    String? genre,
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    await _ensureFreshAccessToken();
+    final query = <String, String>{
+      'limit': '$limit',
+      'offset': '$offset',
+      if (genre != null && genre.isNotEmpty) 'genre': genre,
+    };
+    final uri = Uri.parse(
+      '$_baseUrl/community/feed',
+    ).replace(queryParameters: query);
+
+    final response = await http.get(uri, headers: _authHeaders);
+    if (response.statusCode == 200) {
+      final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
+      if (jsonResponse['success'] == true) {
+        final List<dynamic> data = jsonResponse['data'];
+        return data.map((json) => CommunityStoryModel.fromJson(json)).toList();
+      }
+      throw Exception(
+        'Failed to fetch community feed: ${jsonResponse['error']}',
+      );
+    }
+    throw Exception('Failed to connect to community feed API');
+  }
+
+  Future<List<StoryCommentModel>> fetchStoryComments(String storyId) async {
+    await _ensureFreshAccessToken();
+    final response = await http.get(
+      Uri.parse('$_baseUrl/community/stories/$storyId/comments'),
+      headers: _authHeaders,
+    );
+    if (response.statusCode == 200) {
+      final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
+      if (jsonResponse['success'] == true) {
+        final List<dynamic> data = jsonResponse['data'];
+        return data.map((json) => StoryCommentModel.fromJson(json)).toList();
+      }
+      throw Exception('Failed to fetch comments: ${jsonResponse['error']}');
+    }
+    throw Exception('Failed to load comments: ${response.statusCode}');
+  }
+
+  Future<StoryCommentModel> addStoryComment(
+    String storyId,
+    String content,
+  ) async {
+    await _ensureFreshAccessToken();
+    final response = await http.post(
+      Uri.parse('$_baseUrl/community/stories/$storyId/comments'),
+      headers: _jsonHeaders,
+      body: jsonEncode({'content': content}),
+    );
+    if (response.statusCode == 200) {
+      final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
+      if (jsonResponse['success'] == true) {
+        return StoryCommentModel.fromJson(jsonResponse['data']);
+      }
+      throw Exception('Failed to add comment: ${jsonResponse['error']}');
+    }
+    throw Exception('Failed to add comment: ${response.statusCode}');
+  }
+
+  Future<void> deleteStoryComment(String commentId) async {
+    await _ensureFreshAccessToken();
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/community/comments/$commentId'),
+      headers: _authHeaders,
+    );
+    if (response.statusCode == 200) {
+      final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
+      if (jsonResponse['success'] == true) return;
+      throw Exception('Failed to delete comment: ${jsonResponse['error']}');
+    }
+    throw Exception('Failed to delete comment: ${response.statusCode}');
+  }
+
+  Future<void> reportStoryComment(
+    String commentId, {
+    String reason = 'inappropriate',
+  }) async {
+    await _ensureFreshAccessToken();
+    final response = await http.post(
+      Uri.parse('$_baseUrl/community/comments/$commentId/report'),
+      headers: _jsonHeaders,
+      body: jsonEncode({'reason': reason}),
+    );
+    if (response.statusCode == 200) {
+      final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
+      if (jsonResponse['success'] == true) return;
+      throw Exception('Failed to report comment: ${jsonResponse['error']}');
+    }
+    throw Exception('Failed to report comment: ${response.statusCode}');
+  }
+
+  Future<void> setStoryLike(String storyId, {required bool isLiked}) async {
+    await _ensureFreshAccessToken();
+    final uri = Uri.parse('$_baseUrl/community/stories/$storyId/like');
+    final response = isLiked
+        ? await http.post(uri, headers: _authHeaders)
+        : await http.delete(uri, headers: _authHeaders);
+    if (response.statusCode == 200) {
+      final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
+      if (jsonResponse['success'] == true) return;
+      throw Exception('Failed to update like: ${jsonResponse['error']}');
+    }
+    throw Exception('Failed to update like: ${response.statusCode}');
+  }
+
+  Future<Map<String, dynamic>> createMediaJob({
+    required String storyId,
+    required String sceneId,
+    required String mediaType,
+    String? prompt,
+    String sceneType = 'event',
+  }) async {
+    await _ensureFreshAccessToken();
+    final response = await http.post(
+      Uri.parse('$_baseUrl/media/jobs'),
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'story_id': storyId,
+        'scene_id': sceneId,
+        'media_type': mediaType,
+        'scene_type': sceneType,
+        if (prompt != null && prompt.isNotEmpty) 'prompt': prompt,
+      }),
+    );
+    if (response.statusCode == 200) {
+      final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
+      if (jsonResponse['success'] == true) {
+        return Map<String, dynamic>.from(jsonResponse['data']);
+      }
+      throw Exception('Failed to create media job: ${jsonResponse['error']}');
+    }
+    throw Exception('Failed to create media job: ${response.statusCode}');
+  }
+
+  Future<Map<String, dynamic>> fetchMediaJob(String jobId) async {
+    await _ensureFreshAccessToken();
+    final response = await http.get(
+      Uri.parse('$_baseUrl/media/jobs/$jobId'),
+      headers: _authHeaders,
+    );
+    if (response.statusCode == 200) {
+      final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
+      if (jsonResponse['success'] == true) {
+        return Map<String, dynamic>.from(jsonResponse['data']);
+      }
+      throw Exception('Failed to fetch media job: ${jsonResponse['error']}');
+    }
+    throw Exception('Failed to fetch media job: ${response.statusCode}');
+  }
+
+  Future<Map<String, dynamic>> waitForMediaJob(
+    String jobId, {
+    Duration pollInterval = const Duration(seconds: 2),
+    int maxAttempts = 45,
+  }) async {
+    for (var attempt = 0; attempt < maxAttempts; attempt += 1) {
+      final result = await fetchMediaJob(jobId);
+      final job = Map<String, dynamic>.from(result['job']);
+      final status = job['status'];
+      if (status == 'succeeded') return result;
+      if (status == 'failed') {
+        throw Exception(job['error'] ?? 'Media generation failed');
+      }
+      await Future<void>.delayed(pollInterval);
+    }
+    throw Exception('Media generation timed out');
+  }
+
+  Future<Map<String, dynamic>> generateSceneBgm({
+    required String storyId,
+    required String sceneId,
+    String? prompt,
+  }) async {
+    final created = await createMediaJob(
+      storyId: storyId,
+      sceneId: sceneId,
+      mediaType: 'bgm',
+      prompt: prompt,
+    );
+    final job = Map<String, dynamic>.from(created['job']);
+    final completed = job['status'] == 'succeeded'
+        ? created
+        : await waitForMediaJob(job['id']);
+    return Map<String, dynamic>.from(completed['scene']);
+  }
+
+  Future<Map<String, dynamic>> generateSceneImage({
+    required String storyId,
+    required String sceneId,
+    required String prompt,
+    String sceneType = 'event',
+  }) async {
+    final created = await createMediaJob(
+      storyId: storyId,
+      sceneId: sceneId,
+      mediaType: 'image',
+      prompt: prompt,
+      sceneType: sceneType,
+    );
+    final job = Map<String, dynamic>.from(created['job']);
+    final completed = job['status'] == 'succeeded'
+        ? created
+        : await waitForMediaJob(job['id']);
+    return Map<String, dynamic>.from(completed['scene']);
+  }
+
   // Fetch Single Story (with characters)
   Future<Map<String, dynamic>> fetchStory(String storyId) async {
-    final response = await http.get(Uri.parse('$_baseUrl/stories/$storyId'));
+    await _ensureFreshAccessToken();
+    final response = await http.get(
+      Uri.parse('$_baseUrl/stories/$storyId'),
+      headers: _authHeaders,
+    );
 
     if (response.statusCode == 200) {
       final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
@@ -174,11 +506,12 @@ class ApiService {
 
   // Characters API
   Future<List<dynamic>> fetchCharacters({String? userId}) async {
+    await _ensureFreshAccessToken();
     final uri = userId != null
         ? Uri.parse('$_baseUrl/characters?user_id=$userId')
         : Uri.parse('$_baseUrl/characters');
-        
-    final response = await http.get(uri);
+
+    final response = await http.get(uri, headers: _authHeaders);
 
     if (response.statusCode == 200) {
       final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
@@ -197,15 +530,21 @@ class ApiService {
     String name,
     String description,
     List<String> traits, {
+    required String userId,
+    String? backgroundStory,
     String? appearanceDescription,
   }) async {
+    await _ensureFreshAccessToken();
     final response = await http.post(
       Uri.parse('$_baseUrl/characters'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _jsonHeaders,
       body: jsonEncode({
         'name': name,
         'description': description,
         'personality_traits': traits,
+        'user_id': userId,
+        if (backgroundStory != null && backgroundStory.isNotEmpty)
+          'background_story': backgroundStory,
         if (appearanceDescription != null)
           'appearance_description': appearanceDescription,
       }),
@@ -228,9 +567,10 @@ class ApiService {
     String characterId,
     Map<String, dynamic> updates,
   ) async {
+    await _ensureFreshAccessToken();
     final response = await http.patch(
       Uri.parse('$_baseUrl/characters/$characterId'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _jsonHeaders,
       body: jsonEncode(updates),
     );
 
@@ -252,21 +592,23 @@ class ApiService {
     Uint8List imageBytes, {
     String? fileName,
   }) async {
+    await _ensureFreshAccessToken();
     final uri = Uri.parse('$_baseUrl/characters/$characterId/upload-image');
     final request = http.MultipartRequest('POST', uri);
-    
+    request.headers.addAll(_authHeaders);
+
     // Using fromBytes to ensure Web compatibility
     final multipartFile = http.MultipartFile.fromBytes(
       'file',
       imageBytes,
       filename: fileName ?? 'profile_image.jpg',
     );
-    
+
     request.files.add(multipartFile);
-    
+
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);
-    
+
     if (response.statusCode == 200) {
       final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
       if (jsonResponse['success'] == true) {
@@ -277,10 +619,14 @@ class ApiService {
   }
 
   // Update Story API
-  Future<Map<String, dynamic>> updateStory(String storyId, Map<String, dynamic> updates) async {
+  Future<Map<String, dynamic>> updateStory(
+    String storyId,
+    Map<String, dynamic> updates,
+  ) async {
+    await _ensureFreshAccessToken();
     final response = await http.patch(
       Uri.parse('$_baseUrl/stories/$storyId'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _jsonHeaders,
       body: jsonEncode(updates),
     );
 
@@ -302,13 +648,11 @@ class ApiService {
     String content,
     List<String> characterNames,
   ) async {
+    await _ensureFreshAccessToken();
     final response = await http.post(
       Uri.parse('$_baseUrl/stories/$storyId/scenes/analyze'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'content': content,
-        'character_names': characterNames,
-      }),
+      headers: _jsonHeaders,
+      body: jsonEncode({'content': content, 'character_names': characterNames}),
     );
 
     if (response.statusCode == 200) {
@@ -338,7 +682,11 @@ class ApiService {
   }
 
   // Create Story (Wizard)
-  Future<StoryModel> createStory(CreationConfig config, {String? userId}) async {
+  Future<StoryModel> createStory(
+    CreationConfig config, {
+    String? userId,
+  }) async {
+    await _ensureFreshAccessToken();
     final url = Uri.parse('$_baseUrl/stories');
 
     // Map Config to Backend Request
@@ -361,7 +709,7 @@ class ApiService {
 
     final response = await http.post(
       url,
-      headers: {"Content-Type": "application/json"},
+      headers: _jsonHeaders,
       body: jsonEncode(body),
     );
 
@@ -382,8 +730,7 @@ class ApiService {
         // Let the exception bubble up to the UI so we can see the exact cause
         rethrow;
       }
-    }
- else {
+    } else {
       throw Exception(
         'Failed to create story: ${response.statusCode} - ${response.body}',
       );
@@ -392,9 +739,10 @@ class ApiService {
 
   // Delete Story API
   Future<bool> deleteStory(String storyId) async {
+    await _ensureFreshAccessToken();
     final url = Uri.parse('$_baseUrl/stories/$storyId');
     try {
-      final response = await http.delete(url);
+      final response = await http.delete(url, headers: _authHeaders);
       if (response.statusCode == 200) {
         return true;
       } else {
@@ -409,8 +757,10 @@ class ApiService {
 
   // Fetch Scenes for a Story
   Future<List<dynamic>> fetchScenes(String storyId) async {
+    await _ensureFreshAccessToken();
     final response = await http.get(
       Uri.parse('$_baseUrl/stories/$storyId/scenes'),
+      headers: _authHeaders,
     );
 
     if (response.statusCode == 200) {
@@ -429,16 +779,19 @@ class ApiService {
   // This is a simplified version, in reality we might need full Story/Scene models
   Future<Map<String, dynamic>> createScene(
     String storyId,
-    String content,
-  ) async {
+    String content, {
+    String role = 'ai',
+    String sceneType = 'narrative',
+  }) async {
+    await _ensureFreshAccessToken();
     final response = await http.post(
       Uri.parse('$_baseUrl/stories/$storyId/scenes'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _jsonHeaders,
       body: jsonEncode({
         'content': content,
         'chapter_id': null, // Optional
-        'sequence': 1, // Logic needed to increment this
-        'scene_type': 'narrative',
+        'role': role,
+        'scene_type': sceneType,
       }),
     );
 

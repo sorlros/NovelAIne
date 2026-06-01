@@ -7,6 +7,9 @@ class StoryModel {
   final String narrativeType;
   final int totalScenes;
   final String? coverImageUrl;
+  final String visibility;
+  final DateTime? publishedAt;
+  final String? authorUsername;
   final DateTime createdAt;
 
   StoryModel({
@@ -18,6 +21,9 @@ class StoryModel {
     required this.narrativeType,
     required this.totalScenes,
     this.coverImageUrl,
+    this.visibility = 'private',
+    this.publishedAt,
+    this.authorUsername,
     required this.createdAt,
   });
 
@@ -31,7 +37,14 @@ class StoryModel {
       narrativeType: json['narrative_type'] ?? 'hero',
       totalScenes: json['total_scenes'] ?? 0,
       coverImageUrl: json['cover_image_url'],
+      visibility: json['visibility'] ?? 'private',
+      publishedAt: json['published_at'] == null
+          ? null
+          : DateTime.parse(json['published_at']),
+      authorUsername: json['author']?['username'] ?? json['users']?['username'],
       createdAt: DateTime.parse(json['created_at']),
     );
   }
+
+  bool get isPublic => visibility == 'public';
 }

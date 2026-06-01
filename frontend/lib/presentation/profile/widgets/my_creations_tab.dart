@@ -229,7 +229,9 @@ class MyCreationsTab extends ConsumerWidget {
         leading: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0xFF7C3AED).withValues(alpha: 0.15), // Purple tint
+            color: const Color(
+              0xFF7C3AED,
+            ).withValues(alpha: 0.15), // Purple tint
             borderRadius: BorderRadius.circular(12),
           ),
           child: const Icon(Icons.menu_book, color: Color(0xFF7C3AED)),
@@ -244,7 +246,7 @@ class MyCreationsTab extends ConsumerWidget {
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4.0),
           child: Text(
-            '상태: ${story.status}',
+            story.isPublic ? '공개 중 · ${story.status}' : '비공개 · ${story.status}',
             style: const TextStyle(color: Colors.white54, fontSize: 13),
           ),
         ),
@@ -257,6 +259,7 @@ class MyCreationsTab extends ConsumerWidget {
                 _showEditStoryDialog(context, ref, story);
               },
             ),
+            _VisibilityStoryButton(story: story),
             _DeleteStoryButton(storyId: story.id.toString()),
           ],
         ),
@@ -346,6 +349,73 @@ class MyCreationsTab extends ConsumerWidget {
   }
 }
 
+class _VisibilityStoryButton extends ConsumerStatefulWidget {
+  final StoryModel story;
+
+  const _VisibilityStoryButton({required this.story});
+
+  @override
+  ConsumerState<_VisibilityStoryButton> createState() =>
+      _VisibilityStoryButtonState();
+}
+
+class _VisibilityStoryButtonState
+    extends ConsumerState<_VisibilityStoryButton> {
+  bool _isLoading = false;
+
+  Future<void> _toggleVisibility() async {
+    setState(() => _isLoading = true);
+    final nextVisibility = widget.story.isPublic ? 'private' : 'public';
+
+    try {
+      await ApiService().updateStory(widget.story.id, {
+        'visibility': nextVisibility,
+      });
+      await ref.read(storyRepositoryProvider).syncStory(widget.story.id);
+      ref.invalidate(storiesProvider);
+      if (mounted) {
+        CustomToast.show(
+          context,
+          nextVisibility == 'public' ? '공개 서재에 게시했습니다.' : '비공개로 전환했습니다.',
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        CustomToast.show(context, '공개 상태 변경 실패: $error', type: ToastType.error);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    return IconButton(
+      tooltip: widget.story.isPublic ? '비공개로 전환' : '공개 서재에 게시',
+      icon: Icon(
+        widget.story.isPublic
+            ? Icons.public_rounded
+            : Icons.public_off_outlined,
+        color: widget.story.isPublic ? const Color(0xFF7C3AED) : Colors.white54,
+      ),
+      onPressed: _toggleVisibility,
+    );
+  }
+}
+
 class _DeleteStoryButton extends ConsumerStatefulWidget {
   final String storyId;
   const _DeleteStoryButton({required this.storyId});
@@ -388,23 +458,18 @@ class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
     try {
       final repository = ref.read(storyRepositoryProvider);
       await repository.deleteStory(widget.storyId);
-      
+
       if (mounted) {
         ref.invalidate(storiesProvider);
         CustomToast.show(context, '스토리가 삭제되었습니다.');
       }
     } catch (e) {
       if (mounted) {
-        CustomToast.show(
-          context, 
-          '삭제 실패: $e', 
-          type: ToastType.error
-        );
+        CustomToast.show(context, '삭제 실패: $e', type: ToastType.error);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-
   }
 
   @override

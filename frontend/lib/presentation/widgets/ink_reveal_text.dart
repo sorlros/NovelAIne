@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class InkRevealText extends StatefulWidget {
   final String text;
@@ -18,9 +16,9 @@ class InkRevealText extends StatefulWidget {
   State<InkRevealText> createState() => _InkRevealTextState();
 }
 
-class _InkRevealTextState extends State<InkRevealText> with SingleTickerProviderStateMixin {
+class _InkRevealTextState extends State<InkRevealText>
+    with SingleTickerProviderStateMixin {
   late String _displayedText;
-  int _currentIndex = 0;
 
   @override
   void initState() {
@@ -53,10 +51,7 @@ class _InkRevealTextState extends State<InkRevealText> with SingleTickerProvider
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Text(
-          _displayedText,
-          style: widget.style,
-        ),
+        Text(_displayedText, style: widget.style),
         // Subtle ink bleed/glow effect
         Text(
           _displayedText,
@@ -64,7 +59,9 @@ class _InkRevealTextState extends State<InkRevealText> with SingleTickerProvider
             color: widget.style.color?.withValues(alpha: 0.1),
             shadows: [
               Shadow(
-                color: widget.style.color?.withValues(alpha: 0.3) ?? Colors.white30,
+                color:
+                    widget.style.color?.withValues(alpha: 0.3) ??
+                    Colors.white30,
                 blurRadius: 2,
               ),
             ],

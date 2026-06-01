@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:patrol/patrol.dart';
 
 void main() {
-  patrolTest('Capture all UI screens', ($) async {
-    await $.pumpWidgetAndSettle(
+  testWidgets('Placeholder screenshot surface renders in widget tests', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(body: Center(child: Text('Home Screen'))),
       ),
     );
-    // Removed invalid native calls
+
+    expect(find.text('Home Screen'), findsOneWidget);
   });
 }

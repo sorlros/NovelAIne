@@ -5,6 +5,9 @@ from app.api import stories, auth
 from app.api.characters import router as characters_router
 from app.api.scenes import router as scenes_router
 from app.api.images import router as images_router
+from app.api.community import router as community_router
+from app.api.audio import router as audio_router
+from app.api.media import router as media_router
 
 load_dotenv()
 
@@ -49,3 +52,6 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(characters_router, prefix="/api")
 app.include_router(scenes_router, prefix="/api")
 app.include_router(images_router, prefix="/api")
+app.include_router(community_router, prefix="/api")
+app.include_router(audio_router, prefix="/api")
+app.include_router(media_router, prefix="/api")
