@@ -44,11 +44,9 @@ jobs:
           mv temp_build/* frontend/
 
       - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          # 루트에서 실행하면 Vercel이 설정된 'frontend' 폴더를 찾아 배포합니다.
-          working-directory: .
-          vercel-args: '--prod'
+        working-directory: frontend
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          npx vercel@latest deploy --prod --yes --token="${{ secrets.VERCEL_TOKEN }}"
