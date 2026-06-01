@@ -6,6 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from app.schemas.models import ApiResponse
+from app.services.external_errors import GENERIC_MESSAGE, TEMPORARY_MESSAGE, ExternalServiceError
 from app.services.audio_service import AudioService
 from app.services.auth_context import ensure_story_access
 from app.services.image_service import ImageService
@@ -82,6 +83,15 @@ def _update_job(client: Any, job_id: str, updates: dict) -> None:
     client.table("media_jobs").update(updates).eq("id", job_id).execute()
 
 
+def _safe_job_error(error: Exception) -> str:
+    if isinstance(error, ExternalServiceError):
+        return error.user_message[:1000]
+    message = str(error) or GENERIC_MESSAGE
+    if "generation failed" in message.lower() or "upload" in message.lower():
+        return TEMPORARY_MESSAGE
+    return message[:1000]
+
+
 async def _run_media_job(job_id: str) -> None:
     client = get_supabase_client()
     try:
@@ -108,7 +118,7 @@ async def _run_media_job(job_id: str) -> None:
         if job["media_type"] == "bgm":
             result_url = await AudioService().generate_scene_bgm(prompt, job["scene_id"])
             if not result_url:
-                raise RuntimeError("BGM generation failed")
+                raise RuntimeError(TEMPORARY_MESSAGE)
             client.table("scenes").update(
                 {"bgm_url": result_url, "has_generated_bgm": True}
             ).eq("id", job["scene_id"]).execute()
@@ -133,7 +143,7 @@ async def _run_media_job(job_id: str) -> None:
                 character_appearance=appearance,
             )
             if not result_url:
-                raise RuntimeError("Image generation failed")
+                raise RuntimeError(TEMPORARY_MESSAGE)
             client.table("scenes").update(
                 {"image_url": result_url, "has_generated_image": True}
             ).eq("id", job["scene_id"]).execute()
@@ -163,7 +173,7 @@ async def _run_media_job(job_id: str) -> None:
             _update_job(
                 client,
                 job_id,
-                {"status": "failed", "error": str(error)[:1000]},
+                {"status": "failed", "error": _safe_job_error(error)},
             )
         except Exception as update_error:
             logger.error("Failed to persist media job failure %s: %s", job_id, update_error)

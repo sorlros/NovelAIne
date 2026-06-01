@@ -4,6 +4,7 @@ from typing import Optional
 from uuid import UUID
 from app.services.image_service import ImageService
 from app.services.auth_context import ensure_story_access
+from app.services.external_errors import TEMPORARY_MESSAGE, GENERIC_MESSAGE
 from app.services.supabase_client import get_supabase_client
 
 router = APIRouter()
@@ -41,7 +42,7 @@ async def generate_image(
         )
         
         if not image_url:
-            raise HTTPException(status_code=500, detail="이미지 생성 또는 업로드에 실패했습니다.")
+            raise HTTPException(status_code=502, detail=TEMPORARY_MESSAGE)
             
         return {"imageUrl": image_url}
         
@@ -49,4 +50,4 @@ async def generate_image(
         raise
     except Exception as e:
         print(f"Error in image generation: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=GENERIC_MESSAGE)

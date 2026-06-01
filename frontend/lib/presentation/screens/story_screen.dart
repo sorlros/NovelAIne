@@ -616,6 +616,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
               'imageUrl': null,
               'sceneType': 'narrative',
               'clientRequestId': clientRequestId,
+              'userMessage': text,
+              'streamFailed': false,
             },
           ],
         );
@@ -681,13 +683,104 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
       ref.read(messageProvider.notifier).update((state) {
         return state.map((msg) {
           if (msg['id'] == aiMessageId) {
-            return {...msg, 'content': '응답 생성 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.'};
+            return {
+              ...msg,
+              'content': '응답 생성 중 문제가 발생했습니다. 응답 복구를 시도해 주세요.',
+              'streamFailed': true,
+              'userMessage': text,
+            };
           }
           return msg;
         }).toList();
       });
       if (mounted) {
         CustomToast.show(context, "응답 생성에 실패했습니다.", type: ToastType.error);
+      }
+    } finally {
+      ref.read(streamingMessageIdProvider.notifier).state = null;
+      if (mounted) setState(() => _isSendingMessage = false);
+    }
+  }
+
+  Future<void> _recoverStreamMessage(Map<String, dynamic> failedMessage) async {
+    if (_isSendingMessage) {
+      CustomToast.show(context, "이전 응답을 생성 중입니다.");
+      return;
+    }
+    final clientRequestId = failedMessage['clientRequestId']?.toString();
+    final userMessage = failedMessage['userMessage']?.toString();
+    final aiMessageId = failedMessage['id']?.toString();
+    if (clientRequestId == null ||
+        clientRequestId.isEmpty ||
+        userMessage == null ||
+        userMessage.isEmpty ||
+        aiMessageId == null ||
+        aiMessageId.isEmpty ||
+        widget.initialStory == null) {
+      CustomToast.show(context, "복구할 요청 정보를 찾을 수 없습니다.", type: ToastType.error);
+      return;
+    }
+
+    setState(() => _isSendingMessage = true);
+    ref.read(streamingMessageIdProvider.notifier).state = aiMessageId;
+    ref.read(messageProvider.notifier).update((state) {
+      return state.map((msg) {
+        if (msg['id'] == aiMessageId) {
+          return {...msg, 'content': '...', 'streamFailed': false};
+        }
+        return msg;
+      }).toList();
+    });
+
+    try {
+      String fullResponse = "";
+      int lastUpdateTimestamp = DateTime.now().millisecondsSinceEpoch;
+      await for (final chunk in _apiService.streamChat(
+        widget.initialStory!.id,
+        userMessage,
+        clientRequestId: clientRequestId,
+      )) {
+        fullResponse += chunk;
+        final now = DateTime.now().millisecondsSinceEpoch;
+        if (now - lastUpdateTimestamp > 100) {
+          ref.read(messageProvider.notifier).update((state) {
+            return state.map((msg) {
+              if (msg['id'] == aiMessageId) {
+                return {...msg, 'content': fullResponse};
+              }
+              return msg;
+            }).toList();
+          });
+          lastUpdateTimestamp = now;
+        }
+      }
+
+      ref.read(messageProvider.notifier).update((state) {
+        return state.map((msg) {
+          if (msg['id'] == aiMessageId) {
+            return {...msg, 'content': fullResponse, 'streamFailed': false};
+          }
+          return msg;
+        }).toList();
+      });
+      _analyzeCharacters(fullResponse);
+      await _refreshScenesFromServer(replaceMessages: true);
+    } catch (error) {
+      debugPrint("Stream recovery failed: $error");
+      ref.read(messageProvider.notifier).update((state) {
+        return state.map((msg) {
+          if (msg['id'] == aiMessageId) {
+            return {
+              ...msg,
+              'content': '응답 복구에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+              'streamFailed': true,
+            };
+          }
+          return msg;
+        }).toList();
+      });
+      if (mounted) {
+        CustomToast.show(context, "응답 복구에 실패했습니다.", type: ToastType.error);
       }
     } finally {
       ref.read(streamingMessageIdProvider.notifier).state = null;
@@ -785,6 +878,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                               loadingBgmSceneId: _loadingBgmSceneId,
                               canGenerateBgm: !widget.readOnly,
                               onBgmPressed: _handleBgmAction,
+                              onRetryPressed: _recoverStreamMessage,
                             );
                           },
                         ),
@@ -1493,6 +1587,7 @@ class _RefinedNarrativeCard extends ConsumerWidget {
   final String? loadingBgmSceneId;
   final bool canGenerateBgm;
   final Future<void> Function(Map<String, dynamic> msg) onBgmPressed;
+  final Future<void> Function(Map<String, dynamic> msg) onRetryPressed;
 
   const _RefinedNarrativeCard({
     super.key,
@@ -1502,6 +1597,7 @@ class _RefinedNarrativeCard extends ConsumerWidget {
     required this.loadingBgmSceneId,
     required this.canGenerateBgm,
     required this.onBgmPressed,
+    required this.onRetryPressed,
   });
 
   @override
@@ -1516,6 +1612,7 @@ class _RefinedNarrativeCard extends ConsumerWidget {
     final String? bgmUrl = msg['bgmUrl']?.toString();
     final bool hasBgm = bgmUrl != null && bgmUrl.isNotEmpty;
     final bool isBgmLoading = loadingBgmSceneId == msg['id']?.toString();
+    final bool hasStreamFailed = msg['streamFailed'] == true;
 
     TextStyle getBaseStyle({
       double fontSize = 19,
@@ -1679,7 +1776,26 @@ class _RefinedNarrativeCard extends ConsumerWidget {
                   ).copyWith(color: Colors.white.withValues(alpha: 0.7)),
                 ),
               ),
-            if (!isPlaceholder && !isStreaming && (hasBgm || canGenerateBgm))
+            if (hasStreamFailed)
+              Padding(
+                padding: const EdgeInsets.only(top: 18),
+                child: OutlinedButton.icon(
+                  onPressed: () => onRetryPressed(msg),
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('응답 복구'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFFFD166),
+                    side: const BorderSide(color: Color(0xFFFFD166)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+              ),
+            if (!hasStreamFailed &&
+                !isPlaceholder &&
+                !isStreaming &&
+                (hasBgm || canGenerateBgm))
               Padding(
                 padding: const EdgeInsets.only(top: 18),
                 child: _BgmControlButton(

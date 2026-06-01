@@ -179,7 +179,20 @@ class ApiService {
           .timeout(const Duration(seconds: 150));
 
       if (response.statusCode == 200) {
-        yield* response.stream.transform(utf8.decoder);
+        await for (final chunk in response.stream.transform(utf8.decoder)) {
+          final markerIndex = chunk.indexOf('[STREAM_ERROR:');
+          if (markerIndex != -1) {
+            final markerEnd = chunk.indexOf(']', markerIndex);
+            final message = markerEnd == -1
+                ? '응답 생성 중 문제가 발생했습니다.'
+                : chunk.substring(
+                    markerIndex + '[STREAM_ERROR:'.length,
+                    markerEnd,
+                  );
+            throw Exception(message);
+          }
+          yield chunk;
+        }
       } else {
         throw Exception('Streaming failed: ${response.statusCode}');
       }
