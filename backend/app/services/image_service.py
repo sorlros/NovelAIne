@@ -1,8 +1,12 @@
 import os
 import io
+import logging
 import httpx
 from app.services.supabase_client import get_supabase_client
+from app.services.external_errors import error_from_response, with_timeout_retry
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 class ImageService:
     def __init__(self):
@@ -49,40 +53,42 @@ class ImageService:
         }
         
         try:
-            print(f"[ImageService] Requesting generation for {scene_type} ({width}x{height})...")
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    self.api_url, 
-                    headers=self.headers, 
-                    json=payload,
-                    timeout=120.0
-                )
-                
-            if response.status_code != 200:
-                print(f"[ImageService] API Error {response.status_code}: {response.text}")
-                return None
-                
+            logger.info("Requesting image generation for %s (%sx%s)", scene_type, width, height)
+
+            async def request_image() -> httpx.Response:
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        self.api_url,
+                        headers=self.headers,
+                        json=payload,
+                        timeout=120.0,
+                    )
+                if response.status_code != 200:
+                    raise error_from_response("HuggingFace image", response.status_code, response.text)
+                return response
+
+            response = await with_timeout_retry("HuggingFace image", request_image)
             image_bytes = response.content
-            
+
             # 3. Upload to Cloud Storage (Supabase Storage)
             filename = f"images/{message_id}_{os.urandom(4).hex()}.png"
-            
+
             try:
                 self.supabase.storage.from_("images").upload(
                     path=filename,
                     file=image_bytes,
                     file_options={"content-type": "image/png"}
                 )
-                
+
                 # Get Public URL
                 public_url = self.supabase.storage.from_("images").get_public_url(filename)
-                print(f"[ImageService] Successfully generated and uploaded image: {public_url}")
+                logger.info("Successfully generated and uploaded image: %s", public_url)
                 return public_url
 
             except Exception as e:
-                print(f"[ImageService] Storage upload failed: {e}")
+                logger.error("Supabase Storage image upload failed: %s", e)
                 return None
 
         except Exception as e:
-            print(f"[ImageService] Image generation HTTP request failed: {e}")
+            logger.error("Image generation failed: %s", e)
             return None

@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from app.schemas.models import ApiResponse
 from app.services.audio_service import AudioService
 from app.services.auth_context import ensure_story_access
+from app.services.external_errors import GENERIC_MESSAGE, TEMPORARY_MESSAGE
 from app.services.supabase_client import get_supabase_client
 
 logger = logging.getLogger(__name__)
@@ -61,7 +62,7 @@ async def generate_scene_bgm(
             scene_id=str(request.scene_id),
         )
         if not bgm_url:
-            raise HTTPException(status_code=502, detail="BGM generation failed")
+            raise HTTPException(status_code=502, detail=TEMPORARY_MESSAGE)
 
         update_data = {"bgm_url": bgm_url, "has_generated_bgm": True}
         scene_update = (
@@ -90,4 +91,4 @@ async def generate_scene_bgm(
         raise
     except Exception as error:
         logger.error("Failed to generate BGM for scene %s: %s", request.scene_id, error)
-        raise HTTPException(status_code=500, detail=str(error))
+        raise HTTPException(status_code=500, detail=GENERIC_MESSAGE)
