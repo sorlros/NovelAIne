@@ -44,7 +44,6 @@ jobs:
           mv temp_build/* frontend/
 
       - name: Deploy to Vercel
-        working-directory: frontend
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
