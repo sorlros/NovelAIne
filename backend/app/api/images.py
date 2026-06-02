@@ -8,7 +8,15 @@ from app.services.external_errors import TEMPORARY_MESSAGE, GENERIC_MESSAGE
 from app.services.supabase_client import get_supabase_client
 
 router = APIRouter()
-image_service = ImageService()
+_image_service: Optional[ImageService] = None
+
+
+def get_image_service() -> ImageService:
+    global _image_service
+    if _image_service is None:
+        _image_service = ImageService()
+    return _image_service
+
 
 class ImageGenerateRequest(BaseModel):
     message_id: str
@@ -34,7 +42,7 @@ async def generate_image(
                 if char_res.data and char_res.data.get("appearance_description"):
                     character_appearance = char_res.data["appearance_description"]
 
-        image_url = await image_service.generate_anime_image(
+        image_url = await get_image_service().generate_anime_image(
             prompt=request.prompt,
             scene_type=request.scene_type,
             message_id=request.message_id,

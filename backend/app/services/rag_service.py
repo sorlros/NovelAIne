@@ -10,8 +10,14 @@ class RagService:
         # using 'sentence-transformers/all-MiniLM-L6-v2' which is standard for RAG
         self.api_key = os.getenv("HF_TOKEN")
         self.client = AsyncInferenceClient(token=self.api_key)
-        self.supabase = get_supabase_client()
+        self._supabase = None
         self.model_id = "sentence-transformers/all-MiniLM-L6-v2"
+
+    @property
+    def supabase(self):
+        if self._supabase is None:
+            self._supabase = get_supabase_client()
+        return self._supabase
 
     async def generate_embedding(self, text: str) -> List[float]:
         """

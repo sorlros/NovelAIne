@@ -102,13 +102,16 @@ async def chat_stream(
         request.client_request_id,
     )
 
-    chat_service = ChatService()
+    chat_service = None if existing_turn else ChatService()
     
     async def event_generator():
         if existing_turn:
             content = existing_turn["ai_scene"].get("content", "")
             if content:
                 yield content
+            return
+
+        if chat_service is None:
             return
 
         full_response = ""
