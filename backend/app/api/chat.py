@@ -6,6 +6,7 @@ from typing import List, Dict, Optional
 from uuid import UUID
 from app.services.chat_service import ChatService
 from app.services.auth_context import ensure_story_access
+from app.services.external_errors import ExternalServiceError, GENERIC_MESSAGE
 from app.services.scene_service import (
     find_chat_turn_by_client_request_id,
     persist_chat_turn,
@@ -80,6 +81,8 @@ async def chat(
         )
         return {"response": response, "scenes": persisted}
     except Exception as e:
+        if isinstance(e, ExternalServiceError):
+            raise HTTPException(status_code=502, detail=e.user_message)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/stream")
@@ -109,17 +112,23 @@ async def chat_stream(
             return
 
         full_response = ""
-        async for chunk in chat_service.stream_generate_response(
-            request.message, 
-            request.history, 
-            model=model,
-            narrative_type=narrative_type,
-            story_id=request.story_id,
-            user_id=authenticated_user_id or metadata.get("user_id"),
-        ):
-            if chunk:
-                full_response += chunk
-                yield chunk
+        try:
+            async for chunk in chat_service.stream_generate_response(
+                request.message,
+                request.history,
+                model=model,
+                narrative_type=narrative_type,
+                story_id=request.story_id,
+                user_id=authenticated_user_id or metadata.get("user_id"),
+            ):
+                if chunk:
+                    full_response += chunk
+                    yield chunk
+        except Exception as error:
+            logger.error("Stream generation failed before persistence: %s", error)
+            message = error.user_message if isinstance(error, ExternalServiceError) else GENERIC_MESSAGE
+            yield f"\n[STREAM_ERROR:{message}]"
+            return
         if full_response.strip():
             try:
                 persist_chat_turn(

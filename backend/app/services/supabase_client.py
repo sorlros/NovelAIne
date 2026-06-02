@@ -1,11 +1,15 @@
 """Supabase client configuration and utilities."""
 
 from supabase import create_client, Client
+import asyncio
+import logging
 import os
 from typing import Optional
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 # Supabase client instance
 supabase: Optional[Client] = None
@@ -31,13 +35,28 @@ def get_supabase_client() -> Client:
 
 async def check_connection() -> bool:
     """Check if Supabase connection is working."""
-    try:
-        client = get_supabase_client()
-        # Try a simple query
-        response = (
-            client.table("stories").select("count", count="exact").limit(1).execute()
+    client = get_supabase_client()
+
+    async def execute_health_query() -> None:
+        await asyncio.wait_for(
+            asyncio.to_thread(
+                lambda: client.table("stories").select("id").limit(1).execute()
+            ),
+            timeout=8.0,
         )
-        return True
-    except Exception as e:
-        print(f"Supabase connection check failed: {e}")
-        return False
+
+    for attempt in range(3):
+        try:
+            await execute_health_query()
+            return True
+        except Exception as error:
+            error_preview = str(error)[:300]
+            logger.warning(
+                "Supabase connection check failed. attempt=%s error=%s",
+                attempt + 1,
+                error_preview,
+            )
+            if attempt < 2:
+                await asyncio.sleep(0.5 * (attempt + 1))
+
+    return False

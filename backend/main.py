@@ -36,13 +36,29 @@ app.add_middleware(
 @app.get("/")
 @app.head("/")
 async def read_root():
-    # Warm up Supabase connection on root request to mitigate cold start issues
+    return {
+        "status": "서버가 정상적으로 작동중",
+        "version": "0.1.0",
+    }
+
+
+@app.get("/healthz")
+@app.head("/healthz")
+async def healthz():
+    return {
+        "status": "ok",
+        "service": "novelaine-backend",
+    }
+
+
+@app.get("/readyz")
+async def readyz():
     from app.services.supabase_client import check_connection
+
     is_db_ready = await check_connection()
     return {
-        "status": "서버가 정상적으로 작동중", 
-        "version": "0.1.0",
-        "database": "ready" if is_db_ready else "initializing"
+        "status": "ready" if is_db_ready else "degraded",
+        "database": "ready" if is_db_ready else "temporarily_unavailable",
     }
 
 

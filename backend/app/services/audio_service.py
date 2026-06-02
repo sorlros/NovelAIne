@@ -3,6 +3,7 @@ import logging
 import httpx
 from typing import Optional
 from app.services.supabase_client import get_supabase_client
+from app.services.external_errors import error_from_response, with_timeout_retry
 
 logger = logging.getLogger(__name__)
 
@@ -25,23 +26,19 @@ class AudioService:
         payload = {"inputs": prompt}
 
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    self.api_url,
-                    headers=self.headers,
-                    json=payload,
-                    timeout=120.0,
-                )
+            async def request_bgm() -> httpx.Response:
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        self.api_url,
+                        headers=self.headers,
+                        json=payload,
+                        timeout=120.0,
+                    )
+                if response.status_code != 200:
+                    raise error_from_response("HuggingFace BGM", response.status_code, response.text)
+                return response
 
-            if response.status_code != 200:
-                logger.warning(
-                    "BGM generation failed for scene %s: %s %s",
-                    scene_id,
-                    response.status_code,
-                    response.text[:500],
-                )
-                return None
-
+            response = await with_timeout_retry("HuggingFace BGM", request_bgm)
             audio_bytes = response.content
             if not audio_bytes:
                 logger.warning("BGM generation returned empty audio for scene %s", scene_id)
