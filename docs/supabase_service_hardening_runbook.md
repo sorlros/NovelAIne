@@ -123,7 +123,29 @@ from public.search_similar_characters(
 - media job 생성 후 `queued` 또는 `succeeded` 상태 확인
 - 같은 `client_request_id`로 chat 재요청 시 중복 scene이 생기지 않는지 확인
 
-## 5. Rollback 또는 수동 복구
+## 5. Render health/readiness 확인
+
+Render의 Health Check Path는 DB 연결을 수행하지 않는 `/healthz`로 설정한다.
+
+```bash
+curl -i "$BACKEND_URL/healthz"
+```
+
+정상 응답:
+
+```json
+{"status":"ok","service":"novelaine-backend"}
+```
+
+Supabase 포함 준비 상태는 `/readyz`로 별도 확인한다.
+
+```bash
+curl -i "$BACKEND_URL/readyz"
+```
+
+Supabase 연결이 정상일 때는 `{"status":"ready","database":"ready"}`를 반환한다. Supabase 521/502/503/504 등 일시 장애가 있으면 서버 liveness는 유지하고 `/readyz`만 `degraded`로 표시한다.
+
+## 6. Rollback 또는 수동 복구
 
 마이그레이션은 컬럼/테이블/RLS/인덱스를 추가하므로 자동 전체 rollback보다 수동 복구를 권장한다.
 
@@ -161,7 +183,7 @@ drop table if exists public.media_jobs;
 
 주의: 컬럼 drop은 데이터 손실을 유발하므로 운영에서는 백업 확인 후 수행한다.
 
-## 6. 운영 주의사항
+## 7. 운영 주의사항
 
 - 적용 전 DB backup 또는 Supabase point-in-time recovery 상태를 확인한다.
 - `service_role` key가 서버 환경에만 존재하는지 확인한다.
