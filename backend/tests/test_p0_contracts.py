@@ -271,7 +271,11 @@ class ChatStreamContractTest(unittest.IsolatedAsyncioTestCase):
         )
         with patch.object(chat_api, "get_supabase_client", return_value=client), patch.object(
             chat_api, "ensure_story_access", return_value="user-1"
-        ), patch.object(chat_api, "_get_story_metadata", return_value={}):
+        ), patch.object(chat_api, "_get_story_metadata", return_value={}), patch.object(
+            chat_api,
+            "ChatService",
+            side_effect=AssertionError("LLM service should not be created for deduplicated turns"),
+        ):
             response = await chat_api.chat_stream(request, authorization="Bearer good-token")
 
         chunks = []

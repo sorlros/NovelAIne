@@ -15,8 +15,13 @@ class ImageService:
         self.model_id = "cagliostrolab/animagine-xl-3.1"
         self.api_url = f"https://router.huggingface.co/hf-inference/models/{self.model_id}"
         self.headers = {"Authorization": f"Bearer {self.api_key}"}
-        
-        self.supabase = get_supabase_client()
+        self._supabase = None
+
+    @property
+    def supabase(self):
+        if self._supabase is None:
+            self._supabase = get_supabase_client()
+        return self._supabase
         
     async def generate_anime_image(self, prompt: str, scene_type: str, message_id: str, character_appearance: Optional[str] = None) -> Optional[str]:
         """

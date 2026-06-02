@@ -28,7 +28,7 @@ class ChatService:
         # 기본 모델 설정 (기본값: Gemini 2.0 Flash)
         self.default_model = "google/gemini-2.0-flash-001"
 
-        self.rag_service = RagService()
+        self._rag_service: Optional[RagService] = None
         self.memory_service = MemoryService(max_buffer_size=10)
 
         # 무작위 테마 시드 리스트 (빠른 시작의 다양성 확보용)
@@ -39,6 +39,12 @@ class ChatService:
             "사라진 기억을 찾는 탐정", "마법과 증기 기관이 공존하는 시대", "꿈 속을 여행하는 유랑단",
             "금지된 금서를 지키는 사서", "영혼을 울리는 선율의 악기", "숲의 정령과 계약한 사냥꾼"
         ]
+
+    @property
+    def rag_service(self) -> RagService:
+        if self._rag_service is None:
+            self._rag_service = RagService()
+        return self._rag_service
 
     async def _post_openrouter(
         self,

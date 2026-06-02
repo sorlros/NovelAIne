@@ -854,6 +854,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                           itemCount:
                               messages.length +
                               1, // +1 for the character section header
+                          // ignore: deprecated_member_use
                           cacheExtent: 300,
                           itemBuilder: (context, index) {
                             if (index == 0) {
