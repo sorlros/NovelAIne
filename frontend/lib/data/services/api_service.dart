@@ -717,7 +717,7 @@ class ApiService {
       // "opening_scenario": ...
       "language": ui.PlatformDispatcher.instance.locale
           .toLanguageTag(), // e.g., 'ko-KR', 'en-US'
-      "llm_model": config.llmModel ?? "google/gemini-2.0-flash-001",
+      "llm_model": config.llmModel ?? AppConstants.defaultLlmModel,
     };
 
     final response = await http.post(

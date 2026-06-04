@@ -58,7 +58,7 @@ final selectedFontProvider = StateProvider.autoDispose<String>(
 );
 // 현재 이야기의 AI 모델 상태 관리
 final currentStoryModelProvider = StateProvider.autoDispose<String>(
-  (ref) => 'google/gemini-2.0-flash-001',
+  (ref) => AppConstants.defaultLlmModel,
 );
 
 // [신규] 원고 모드 vs 집중 모드 상태 관리
@@ -1017,18 +1017,18 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                       children: [
                         _buildModelToggleOption(
                           ref,
-                          "Gemini 2.0 Flash",
+                          "Gemini 3.1 Flash Lite",
                           "빠른 전개",
-                          'google/gemini-2.0-flash-001',
-                          currentModel == 'google/gemini-2.0-flash-001',
+                          AppConstants.defaultLlmModel,
+                          currentModel == AppConstants.defaultLlmModel,
                         ),
                         const SizedBox(height: 12),
                         _buildModelToggleOption(
                           ref,
-                          "Gemini 1.5 Pro",
+                          "Gemini 3.1 Pro Preview",
                           "치밀한 묘사",
-                          'google/gemini-pro-1.5',
-                          currentModel == 'google/gemini-pro-1.5',
+                          AppConstants.proLlmModel,
+                          currentModel == AppConstants.proLlmModel,
                         ),
                       ],
                     );
@@ -1328,18 +1328,18 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                 const SizedBox(height: 24),
                 _buildModelToggleOption(
                   ref,
-                  "Gemini 2.0 Flash",
+                  "Gemini 3.1 Flash Lite",
                   "빠르고 가벼운 대화와 전개",
-                  'google/gemini-2.0-flash-001',
-                  currentModel == 'google/gemini-2.0-flash-001',
+                  AppConstants.defaultLlmModel,
+                  currentModel == AppConstants.defaultLlmModel,
                 ),
                 const SizedBox(height: 12),
                 _buildModelToggleOption(
                   ref,
-                  "Gemini 1.5 Pro",
+                  "Gemini 3.1 Pro Preview",
                   "치밀한 묘사와 깊이 있는 서사",
-                  'google/gemini-pro-1.5',
-                  currentModel == 'google/gemini-pro-1.5',
+                  AppConstants.proLlmModel,
+                  currentModel == AppConstants.proLlmModel,
                 ),
                 const SizedBox(height: 20),
               ],

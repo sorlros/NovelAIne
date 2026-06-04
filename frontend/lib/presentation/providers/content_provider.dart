@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/constants.dart';
 import '../../data/models/story_model.dart';
 import '../../data/models/character_model.dart';
 import '../../data/services/api_service.dart';
@@ -8,7 +9,7 @@ import 'auth_provider.dart';
 // Provider for Stories (Cached via Repository)
 // AI 모델 상태 관리
 final selectedModelProvider = StateProvider<String>(
-  (ref) => 'google/gemini-2.0-flash-001',
+  (ref) => AppConstants.defaultLlmModel,
 );
 
 // 최근 스토리의 사전 파싱된 데이터를 담아둘 프로바이더 (앱 구동 랙 방지용)

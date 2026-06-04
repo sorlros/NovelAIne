@@ -1,6 +1,13 @@
 import unittest
 from unittest.mock import patch
 
+from app.llm_models import (
+    FAST_FALLBACK_LLM_MODEL,
+    PRIMARY_FAST_LLM_MODEL,
+    PRIMARY_PRO_LLM_MODEL,
+    PRO_FALLBACK_LLM_MODEL,
+    normalize_llm_model,
+)
 from app.api import images as images_api
 from app.services.chat_service import ChatService
 from app.services.image_service import ImageService
@@ -67,6 +74,26 @@ class LazyServiceInitialisationTest(unittest.TestCase):
             self.assertIs(service.rag_service, sentinel)
 
         rag_service.assert_called_once()
+
+    def test_chat_service_model_candidates_use_gemini_primary_and_provider_fallbacks(self):
+        service = ChatService()
+
+        self.assertEqual(
+            service._candidate_models(PRIMARY_FAST_LLM_MODEL),
+            [PRIMARY_FAST_LLM_MODEL, FAST_FALLBACK_LLM_MODEL],
+        )
+        self.assertEqual(
+            service._candidate_models(PRIMARY_PRO_LLM_MODEL),
+            [PRIMARY_PRO_LLM_MODEL, PRO_FALLBACK_LLM_MODEL],
+        )
+        self.assertEqual(
+            service._candidate_models("google/gemini-2.0-flash-001"),
+            [PRIMARY_FAST_LLM_MODEL, FAST_FALLBACK_LLM_MODEL],
+        )
+        self.assertEqual(
+            normalize_llm_model("google/gemini-pro-1.5"),
+            PRIMARY_PRO_LLM_MODEL,
+        )
 
     def test_images_api_reuses_lazy_image_service(self):
         sentinel = object()

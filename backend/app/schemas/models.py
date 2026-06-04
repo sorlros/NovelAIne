@@ -3,6 +3,8 @@ from typing import Optional, List, Any
 from datetime import datetime
 from uuid import UUID
 
+from app.llm_models import DEFAULT_LLM_MODEL
+
 
 # ============================================
 # USER MODELS
@@ -86,7 +88,7 @@ class StoryCreate(BaseModel):
     opening_scenario: Optional[str] = None
     language: Optional[str] = "en_US"
     character_ids: Optional[List[UUID]] = None
-    llm_model: Optional[str] = "google/gemini-2.0-flash-001"
+    llm_model: Optional[str] = DEFAULT_LLM_MODEL
     visibility: Optional[str] = Field(default="private", pattern="^(private|public)$")
 
 
@@ -98,7 +100,7 @@ class Story(StoryBase):
     total_scenes: int
     current_scene_id: Optional[UUID] = None
     cover_image_url: Optional[str] = None
-    llm_model: str = "google/gemini-2.0-flash-001"
+    llm_model: str = DEFAULT_LLM_MODEL
     visibility: str = "private"
     published_at: Optional[datetime] = None
     created_at: datetime

@@ -10,6 +10,7 @@ from app.schemas.models import (
     ApiResponse,
     StoryCharacterLink,
 )
+from app.llm_models import normalize_llm_model
 from app.services.chat_service import ChatService # Added
 from app.services.rag_service import RagService
 from app.services.auth_context import ensure_story_access, ensure_story_read_access, resolve_request_user_id
@@ -129,6 +130,7 @@ async def create_story(
             story.user_id,
             required=True,
         )
+        story.llm_model = normalize_llm_model(story.llm_model)
 
         # Check if we need to generate story content
         generated_data = None
@@ -311,6 +313,8 @@ async def update_story(
             story_update["published_at"] = datetime.now(timezone.utc).isoformat()
         elif story_update.get("visibility") == "private":
             story_update["published_at"] = None
+        if "llm_model" in story_update:
+            story_update["llm_model"] = normalize_llm_model(story_update.get("llm_model"))
 
         response = (
             client.table("stories")
