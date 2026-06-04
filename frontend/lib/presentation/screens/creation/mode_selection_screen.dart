@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/constants.dart';
 import 'wizard_screen.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../providers/content_provider.dart';
@@ -223,21 +224,21 @@ class CreationModeSelectionScreen extends ConsumerWidget {
           children: [
             Expanded(
               child: _ModelOptionTile(
-                title: "Gemini 2.0 Flash",
+                title: "Gemini 3.1 Flash Lite",
                 subtitle: "빠르고 가벼운 전개",
-                isSelected: selectedModel == 'google/gemini-2.0-flash-001',
+                isSelected: selectedModel == AppConstants.defaultLlmModel,
                 onTap: () => ref.read(selectedModelProvider.notifier).state =
-                    'google/gemini-2.0-flash-001',
+                    AppConstants.defaultLlmModel,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _ModelOptionTile(
-                title: "Gemini 1.5 Pro",
+                title: "Gemini 3.1 Pro Preview",
                 subtitle: "치밀하고 풍부한 서사",
-                isSelected: selectedModel == 'google/gemini-pro-1.5',
+                isSelected: selectedModel == AppConstants.proLlmModel,
                 onTap: () => ref.read(selectedModelProvider.notifier).state =
-                    'google/gemini-pro-1.5',
+                    AppConstants.proLlmModel,
               ),
             ),
           ],

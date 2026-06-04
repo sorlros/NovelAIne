@@ -29,7 +29,7 @@ create table stories (
     total_scenes integer default 0,
     current_scene_id uuid,
     cover_image_url text,
-    llm_model text default 'google/gemini-2.0-flash-001',
+    llm_model text default 'google/gemini-3.1-flash-lite',
     narrative_type text default 'hero' check (narrative_type in ('hero', 'ensemble')),
     visibility text default 'private' check (visibility in ('private', 'public')),
     published_at timestamptz,

@@ -8,9 +8,19 @@ import logging
 import traceback
 from typing import List, Dict, Any, Optional
 from uuid import UUID
+from app.llm_models import (
+    DEFAULT_LLM_MODEL,
+    fallback_llm_model_for,
+    normalize_llm_model,
+)
 from app.services.rag_service import RagService
 from app.services.memory_service import MemoryService
-from app.services.external_errors import error_from_response, with_timeout_retry
+from app.services.external_errors import (
+    ExternalServiceError,
+    error_from_exception,
+    error_from_response,
+    with_timeout_retry,
+)
 
 # Logger setup
 logger = logging.getLogger(__name__)
@@ -25,8 +35,8 @@ class ChatService:
             "HTTP-Referer": "https://novelaine.com",
             "X-Title": "NovelAIne",
         }
-        # 기본 모델 설정 (기본값: Gemini 2.0 Flash)
-        self.default_model = "google/gemini-2.0-flash-001"
+        # 기본 모델 설정: 빠른 기본 선택지. Pro 선택지는 story llm_model로 전달된다.
+        self.default_model = DEFAULT_LLM_MODEL
 
         self._rag_service: Optional[RagService] = None
         self.memory_service = MemoryService(max_buffer_size=10)
@@ -40,6 +50,18 @@ class ChatService:
             "금지된 금서를 지키는 사서", "영혼을 울리는 선율의 악기", "숲의 정령과 계약한 사냥꾼"
         ]
 
+    def _candidate_models(self, model: str | None) -> List[str]:
+        target_model = normalize_llm_model(model or self.default_model)
+        fallback_model = fallback_llm_model_for(target_model)
+        if fallback_model and fallback_model != target_model:
+            return [target_model, fallback_model]
+        return [target_model]
+
+    def _should_try_model_fallback(self, error: ExternalServiceError) -> bool:
+        if not error.service.startswith("OpenRouter"):
+            return False
+        return "auth/config failed" not in error.log_message
+
     @property
     def rag_service(self) -> RagService:
         if self._rag_service is None:
@@ -52,19 +74,42 @@ class ChatService:
         timeout: float,
         service_name: str = "OpenRouter",
     ) -> httpx.Response:
-        async def operation() -> httpx.Response:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    self.base_url,
-                    headers=self.headers,
-                    json=payload,
-                    timeout=timeout,
-                )
-            if response.status_code != 200:
-                raise error_from_response(service_name, response.status_code, response.text)
-            return response
+        candidate_models = self._candidate_models(payload.get("model"))
+        last_error: ExternalServiceError | None = None
 
-        return await with_timeout_retry(service_name, operation)
+        for index, candidate_model in enumerate(candidate_models):
+            request_payload = {**payload, "model": candidate_model}
+
+            async def operation() -> httpx.Response:
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        self.base_url,
+                        headers=self.headers,
+                        json=request_payload,
+                        timeout=timeout,
+                    )
+                if response.status_code != 200:
+                    raise error_from_response(service_name, response.status_code, response.text)
+                return response
+
+            try:
+                return await with_timeout_retry(service_name, operation)
+            except ExternalServiceError as error:
+                last_error = error
+                has_fallback = index + 1 < len(candidate_models)
+                if has_fallback and self._should_try_model_fallback(error):
+                    logger.warning(
+                        "%s failed for model %s. Falling back to %s.",
+                        service_name,
+                        candidate_model,
+                        candidate_models[index + 1],
+                    )
+                    continue
+                raise
+
+        if last_error:
+            raise last_error
+        raise ExternalServiceError(service_name, "요청 처리 중 문제가 발생했습니다.", "No model candidate was available")
 
     def _deep_clean_string(self, text: str) -> str:
         """
@@ -142,7 +187,7 @@ class ChatService:
         except Exception as e:
             logger.error(f"RAG Error: {e}")
 
-        target_model = model or self.default_model
+        target_model = normalize_llm_model(model or self.default_model)
         compressed_message = await self._compress_to_english_keywords(user_message, model=target_model)
 
         if narrative_type == "ensemble":
@@ -204,7 +249,7 @@ class ChatService:
         traits: List[str] = None, scenario: str = None, language: str = "en_US",
         model: str = None, narrative_type: str = "hero" # 추가
     ) -> Dict[str, Any]:
-        target_model = model or self.default_model
+        target_model = normalize_llm_model(model or self.default_model)
 
         # [다양성 강화] 시나리오가 없는 경우(빠른 시작) 무작위 시드 주입
         if not scenario:
@@ -386,7 +431,7 @@ class ChatService:
         except Exception as e:
             logger.warning(f"RAG search failed: {e}")
 
-        target_model = model or self.default_model
+        target_model = normalize_llm_model(model or self.default_model)
         compressed_message = await self._compress_to_english_keywords(user_message, model=target_model)
 
         if narrative_type == "ensemble":
@@ -431,34 +476,57 @@ class ChatService:
             "stream": True
         }
 
-        try:
-            async with httpx.AsyncClient() as client:
-                async with client.stream("POST", self.base_url, headers=self.headers, json=data, timeout=120.0) as response:
-                    if response.status_code != 200:
-                        err_body = await response.aread()
-                        raise error_from_response(
-                            "OpenRouter streaming",
-                            response.status_code,
-                            err_body.decode(errors="ignore"),
-                        )
+        candidate_models = self._candidate_models(target_model)
+        emitted_chunk = False
 
-                    async for line in response.aiter_lines():
-                        if not line or line.startswith(":"): continue
-                        if line.startswith("data: "):
-                            line = line[6:]
-                        if line == "[DONE]": break
+        for index, candidate_model in enumerate(candidate_models):
+            stream_payload = {**data, "model": candidate_model}
+            try:
+                async with httpx.AsyncClient() as client:
+                    async with client.stream("POST", self.base_url, headers=self.headers, json=stream_payload, timeout=120.0) as response:
+                        if response.status_code != 200:
+                            err_body = await response.aread()
+                            raise error_from_response(
+                                "OpenRouter streaming",
+                                response.status_code,
+                                err_body.decode(errors="ignore"),
+                            )
 
-                        try:
-                            resp_json = json.loads(line)
-                            if "choices" in resp_json and resp_json["choices"]:
-                                delta = resp_json["choices"][0].get("delta", {})
-                                if "content" in delta:
-                                    yield delta["content"]
-                        except:
-                            continue
-        except Exception as e:
-            logger.error(f"Streaming Exception: {e}")
-            raise
+                        async for line in response.aiter_lines():
+                            if not line or line.startswith(":"): continue
+                            if line.startswith("data: "):
+                                line = line[6:]
+                            if line == "[DONE]": break
+
+                            try:
+                                resp_json = json.loads(line)
+                                if "choices" in resp_json and resp_json["choices"]:
+                                    delta = resp_json["choices"][0].get("delta", {})
+                                    if "content" in delta:
+                                        emitted_chunk = True
+                                        yield delta["content"]
+                            except:
+                                continue
+                return
+            except Exception as error:
+                classified_error = (
+                    error if isinstance(error, ExternalServiceError)
+                    else error_from_exception("OpenRouter streaming", error)
+                )
+                has_fallback = index + 1 < len(candidate_models)
+                if (
+                    not emitted_chunk
+                    and has_fallback
+                    and self._should_try_model_fallback(classified_error)
+                ):
+                    logger.warning(
+                        "OpenRouter streaming failed for model %s. Falling back to %s.",
+                        candidate_model,
+                        candidate_models[index + 1],
+                    )
+                    continue
+                logger.error(f"Streaming Exception: {classified_error}")
+                raise classified_error
 
     def _extract_response_text(self, response: dict) -> str:
         if response and 'choices' in response and len(response['choices']) > 0:
@@ -472,7 +540,7 @@ class ChatService:
         if not all_characters:
             return {"present_characters": [], "important_characters": []}
 
-        target_model = model or self.default_model
+        target_model = normalize_llm_model(model or self.default_model)
 
         system_prompt = (
             "You are a literary analyst for an interactive story platform.\n"
