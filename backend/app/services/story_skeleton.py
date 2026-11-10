@@ -47,6 +47,7 @@ from app.services.story_state import (
     State,
     apply_event,
     build_initial_state,
+    diff_states,
     relation_key,
 )
 
@@ -556,6 +557,8 @@ def _check_agency(world: Dict[str, Any], acting: Sequence[List[str]]) -> List[Pr
     event_count = len(acting)
     hero = world.get("viewpoint")
     if hero:
+        if acting and hero not in acting[0]:
+            problems.append((WHOLE_STORY, "the first event does not involve the protagonist (the opening scene must be theirs)"))
         hero_events = sum(hero in actors for actors in acting)
         if hero_events * 2 < event_count:
             problems.append((WHOLE_STORY, f"the protagonist acts in only {hero_events} of {event_count} events (at least half needed)"))
@@ -611,8 +614,18 @@ def check_craft(world: Dict[str, Any]) -> List[Problem]:
 
 
 def choice_changes_state(choice: Dict[str, Any]) -> bool:
-    """Does the choice leave a trace. Talking to someone (act) alone leaves nothing behind."""
+    """Is the choice meant to leave a trace. Talking to someone (act) alone leaves nothing behind.
+
+    This looks at the event types only. Use choice_leaves_trace when a state is at hand:
+    re-establishing a fact that already holds is a 'mark' that changes nothing.
+    """
     return any(event.get("type") != "act" for event in choice.get("events") or [])
+
+
+def choice_leaves_trace(state: State, choice: Dict[str, Any]) -> bool:
+    """Does picking the choice in this state actually change the state."""
+    after_choice = _apply_choice(state, choice)
+    return after_choice is not None and bool(diff_states(state, after_choice))
 
 
 def _apply_choice(state: State, choice: Dict[str, Any]) -> Optional[State]:
@@ -651,9 +664,9 @@ def offer_choices(
         if remaining_spine:
             errors, unmet = check_segment(after_choice, remaining_cards, remaining_spine[0], core_facts)
             needs_replan = bool(errors or unmet)
-        offered.append({**choice, "replan": needs_replan})
-    quiet = next((choice for choice in offered if not choice_changes_state(choice)), None)
-    lasting = next((choice for choice in offered if choice_changes_state(choice)), None)
+        offered.append({**choice, "replan": needs_replan, "lasting": bool(diff_states(state, after_choice))})
+    quiet = next((choice for choice in offered if not choice["lasting"]), None)
+    lasting = next((choice for choice in offered if choice["lasting"]), None)
     picked = [choice for choice in (quiet, lasting) if choice]
     picked += [choice for choice in offered if choice not in picked][: max(0, wanted - len(picked))]
     return [choice for choice in offered if choice in picked]  # keep the card's order

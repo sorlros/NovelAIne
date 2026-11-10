@@ -321,5 +321,34 @@ class CraftTest(unittest.TestCase):
         self.assertEqual(check_craft(self.world), [])
 
 
+
+class LastingChoiceTest(unittest.TestCase):
+    def test_a_choice_is_lasting_only_if_it_changes_the_state_here(self):
+        from app.services.story_skeleton import choice_leaves_trace
+
+        state = build_initial_state(sample_world())
+        promise = {"events": [{"type": "mark", "who": "카엘", "fact": "약속"}]}
+        self.assertTrue(choice_leaves_trace(state, promise))
+        self.assertFalse(choice_leaves_trace(mark(state, "choice", "카엘", "약속"), promise))
+        self.assertFalse(choice_leaves_trace(state, {"events": [{"type": "act", "who": "카엘"}]}))
+        self.assertFalse(choice_leaves_trace(state, {"events": [{"type": "die", "who": "하린"}]}))  # does not hold
+
+    def test_offered_choices_carry_whether_they_last(self):
+        world = sample_world()
+        state = mark(build_initial_state(world), "choice", "카엘", "약속")
+        card = {"id": "x", "choices": [{"id": "old", "events": [{"type": "mark", "who": "카엘", "fact": "약속"}]},
+                                      {"id": "new", "events": [{"type": "mark", "who": "카엘", "fact": "새 약속"}]}]}
+        offered = {choice["id"]: choice["lasting"] for choice in offer_choices(state, card, [], [], None, 9)}
+        self.assertEqual(offered, {"old": False, "new": True})
+
+
+class OpeningCraftTest(unittest.TestCase):
+    def test_a_hero_story_must_open_with_the_protagonist(self):
+        world = sample_world()
+        event_by_id(world, "e01")["events"] = [{"type": "act", "who": "세라"}]
+        self.assertIn(("story", "the first event does not involve the protagonist (the opening scene must be theirs)"), check_craft(world))
+        world["viewpoint"] = None  # an ensemble story has no protagonist to open with
+        self.assertFalse(any("first event" in reason for _, reason in check_craft(world)))
+
 if __name__ == "__main__":
     unittest.main()
