@@ -21,6 +21,7 @@ class FakeQuery:
         self.payload = None
         self.single_result = False
         self.limit_count = None
+        self.order_by = None
 
     def select(self, *_args):
         return self
@@ -39,7 +40,8 @@ class FakeQuery:
         self.filters.append(lambda row: str(row.get(field)) in allowed)
         return self
 
-    def order(self, *_args, **_kwargs):
+    def order(self, field, desc=False):
+        self.order_by = (field, desc)
         return self
 
     def limit(self, count):
@@ -78,6 +80,9 @@ class FakeQuery:
         if self.operation == "delete":
             self.client.tables[self.table_name] = [row for row in rows if row not in matched]
             return FakeResponse(matched)
+        if self.order_by:
+            field, desc = self.order_by
+            matched = sorted(matched, key=lambda row: row.get(field) or 0, reverse=desc)
         if self.limit_count is not None:
             matched = matched[: self.limit_count]
         if self.single_result:
@@ -201,6 +206,15 @@ SEGMENT = {
          "question": "도윤을 믿을 것인가", "choices": choices("오두막")},
     ],
 }
+# The segment between e02 and e03, with its own choice wording so its facts are new.
+SEGMENT2 = {
+    "after_event_question": "단검을 받아 들 것인가",
+    "after_event_choices": choices("단검"),
+    "scenes": [
+        {"title": "숲의 밤", "changes": [change("act", "카엘", "도윤")], "open": ["도윤의 옛이야기"],
+         "question": "도윤의 과거를 물을 것인가", "choices": choices("밤")},
+    ],
+}
 # The scenes never bring 카엘 to the forest, so the next major event cannot start.
 SEGMENT_STUCK = {**SEGMENT, "scenes": [{**SEGMENT["scenes"][0], "changes": [change("act", "카엘")]}]}
 
@@ -210,7 +224,7 @@ OPENING_PROSE = "왕성의 회랑에 바람이 들었다.\n\n「내일이면 떠
 class FakeModel:
     """Answers each planning call from a script keyed by the prompt it receives."""
 
-    def __init__(self, world=WORLD, spines=(SPINE,), repairs=(SPINE_REPAIR,), segments=(SEGMENT,), fail_on=None):
+    def __init__(self, world=WORLD, spines=(SPINE,), repairs=(SPINE_REPAIR,), segments=(SEGMENT, SEGMENT2), fail_on=None):
         self.script = {"world": [world], "spine": list(spines), "repair": list(repairs), "segment": list(segments)}
         self.calls: List[tuple] = []
         self.fail_on = fail_on or {}
@@ -238,6 +252,15 @@ class FakeModel:
         if "scene" in self.fail_on:
             raise self.fail_on["scene"]
         return OPENING_PROSE
+
+    async def stream_text(self, system, user, model):
+        self.calls.append(("stream", model, user))
+        if "stream" in self.fail_on:
+            raise self.fail_on["stream"]
+        for piece in self.stream_pieces:
+            yield piece
+
+    stream_pieces = ("숲길에 바람이 불었다.", "\n\n「가자.」")
 
     def kinds(self):
         return [kind for kind, _, _ in self.calls]

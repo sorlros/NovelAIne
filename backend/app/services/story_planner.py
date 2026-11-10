@@ -17,7 +17,7 @@ English because code reads them.
 
 import json
 import logging
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict, List, Optional, Sequence, Tuple
 
 from app.services.story_skeleton import (
     CHOICE,
@@ -38,6 +38,8 @@ logger = logging.getLogger(__name__)
 CompleteJson = Callable[[str, str, str], Awaitable[Dict[str, Any]]]
 # (system prompt, user prompt, model) -> plain text
 CompleteText = Callable[[str, str, str], Awaitable[str]]
+# (system prompt, user prompt, model) -> plain text, piece by piece
+CompleteStream = Callable[[str, str, str], AsyncIterator[str]]
 
 ROLES = ("protagonist", "ally", "antagonist", "neutral")
 NEED_KINDS = ("alive", "at", "together", "has", "rel", "fact")
@@ -511,16 +513,25 @@ def voices_text(world: Dict[str, Any], names: Sequence[str]) -> str:
                      for name in names if name in characters)
 
 
-async def write_scene(
+def scene_prompt(
     world: Dict[str, Any], seed: Dict[str, Any], brief: str, cast: Sequence[str], intensity: Optional[int],
-    model: str, complete: CompleteText, previous_tail: str = "", is_opening: bool = False,
-) -> str:
-    """Write one scene from its brief. The ending is never sent."""
+    previous_tail: str = "", is_opening: bool = False,
+) -> Tuple[str, str]:
+    """(system, user) for writing one scene from its brief. The ending is never included."""
     system = SCENE_SYSTEM.format(length=scene_length(intensity, is_opening), language=output_language(seed))
     parts = [f"전제: {world['premise']}", f"지시서:\n{brief}", "이 장면의 인물:\n" + voices_text(world, cast)]
     if previous_tail:
         parts.append(f"앞 장면은 이렇게 끝났다:\n{previous_tail}")
-    text = (await complete(system, "\n\n".join(parts), model)).strip()
+    return system, "\n\n".join(parts)
+
+
+async def write_scene(
+    world: Dict[str, Any], seed: Dict[str, Any], brief: str, cast: Sequence[str], intensity: Optional[int],
+    model: str, complete: CompleteText, previous_tail: str = "", is_opening: bool = False,
+) -> str:
+    """Write one scene from its brief and return it whole."""
+    system, user = scene_prompt(world, seed, brief, cast, intensity, previous_tail, is_opening)
+    text = (await complete(system, user, model)).strip()
     if not text:
         raise PlanFormatError("장면 본문이 비어 있다")
     return text

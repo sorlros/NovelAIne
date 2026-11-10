@@ -1,4 +1,5 @@
 import logging
+import re
 from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -24,17 +25,27 @@ class ChatRequest(BaseModel):
     history: List[Dict[str, str]] = Field(default_factory=list)
     client_request_id: Optional[str] = Field(default=None, max_length=120)
 
+def _reject_skeleton_story(metadata: Dict) -> None:
+    """Skeleton-mode stories move on by choices through /api/stories/{id}/play, not by free chat."""
+    if metadata.get("mode") == "skeleton":
+        raise HTTPException(status_code=409, detail="이 이야기는 선택지로 진행합니다.")
+
+
+def _select_story_metadata(client, story_id: UUID, columns: str) -> Dict:
+    story_res = client.table("stories").select(columns).eq("id", str(story_id)).single().execute()
+    return story_res.data if story_res.data else {}
+
+
 def _get_story_metadata(client, story_id: UUID) -> Dict:
     """Helper to fetch the metadata for a specific story."""
     try:
-        story_res = (
-            client.table("stories")
-            .select("llm_model, narrative_type, user_id")
-            .eq("id", str(story_id))
-            .single()
-            .execute()
-        )
-        return story_res.data if story_res.data else {}
+        try:
+            return _select_story_metadata(client, story_id, "llm_model, narrative_type, user_id, mode")
+        except Exception as error:
+            if not re.search(r"\bmode\b", str(error).lower()):  # not "llm_model"
+                raise
+            # The skeleton-mode migration is not applied yet: every story is a legacy story.
+            return _select_story_metadata(client, story_id, "llm_model, narrative_type, user_id")
     except Exception as e:
         logger.warning(f"Failed to fetch metadata for story {story_id}: {e}")
         return {}
@@ -49,6 +60,7 @@ async def chat(
         client = get_supabase_client()
         authenticated_user_id = ensure_story_access(client, request.story_id, authorization)
         metadata = _get_story_metadata(client, request.story_id)
+        _reject_skeleton_story(metadata)
         model = metadata.get("llm_model")
         narrative_type = metadata.get("narrative_type", "hero")
         existing_turn = find_chat_turn_by_client_request_id(
@@ -80,6 +92,8 @@ async def chat(
             client_request_id=request.client_request_id,
         )
         return {"response": response, "scenes": persisted}
+    except HTTPException:
+        raise
     except Exception as e:
         if isinstance(e, ExternalServiceError):
             raise HTTPException(status_code=502, detail=e.user_message)
@@ -94,6 +108,7 @@ async def chat_stream(
     client = get_supabase_client()
     authenticated_user_id = ensure_story_access(client, request.story_id, authorization)
     metadata = _get_story_metadata(client, request.story_id)
+    _reject_skeleton_story(metadata)
     model = metadata.get("llm_model")
     narrative_type = metadata.get("narrative_type", "hero")
     existing_turn = find_chat_turn_by_client_request_id(

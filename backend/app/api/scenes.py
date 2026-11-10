@@ -16,6 +16,31 @@ from app.schemas.models import (
 router = APIRouter(prefix="/stories/{story_id}/scenes", tags=["scenes"])
 logger = logging.getLogger(__name__)
 
+def _is_skeleton_story(client, story_id: UUID) -> bool:
+    try:
+        response = client.table("stories").select("mode").eq("id", str(story_id)).limit(1).execute()
+    except Exception as error:
+        # Before the skeleton-mode migration the column does not exist and every story is a legacy story.
+        logger.warning("Could not read the mode of story %s: %s", story_id, error)
+        return False
+    return bool(response.data) and response.data[0].get("mode") == "skeleton"
+
+
+def _characters_from_state(client, story_id: UUID) -> Optional[dict]:
+    """A skeleton-mode story knows who is present from its world state, without an LLM call. None otherwise."""
+    if not _is_skeleton_story(client, story_id):
+        return None
+    from app.services.story_play import PlayError, load_context, present_characters
+    from app.services.story_skeleton import scene_cast
+
+    try:
+        context = load_context(client, str(story_id))
+    except PlayError:
+        return {"present_characters": [], "important_characters": []}
+    cast, _ = scene_cast(context.current["card"], context.state)
+    return {"present_characters": present_characters(context), "important_characters": cast}
+
+
 @router.post("/analyze", response_model=ApiResponse)
 async def analyze_scene(
     story_id: UUID,
@@ -25,8 +50,12 @@ async def analyze_scene(
 ):
     """Analyze a scene for character presence and importance."""
     try:
+        client = get_supabase_client()
+        ensure_story_read_access(client, story_id, authorization)
+        skeleton_result = _characters_from_state(client, story_id)
+        if skeleton_result is not None:
+            return ApiResponse.ok(data=skeleton_result)
         chat_service = ChatService()
-        ensure_story_read_access(get_supabase_client(), story_id, authorization)
         result = await chat_service.analyze_scene_characters(content, character_names)
         return ApiResponse.ok(data=result)
     except Exception as e:
@@ -250,6 +279,9 @@ async def delete_scene(
     try:
         client = get_supabase_client()
         ensure_story_access(client, story_id, authorization)
+        if _is_skeleton_story(client, story_id):
+            # Scenes of a skeleton story carry the state; removing one would break it. Undo the turn instead.
+            raise HTTPException(status_code=409, detail="이 이야기의 장면은 되돌리기로만 지울 수 있습니다.")
 
         response = client.table("scenes").delete().eq("id", str(scene_id)).execute()
 

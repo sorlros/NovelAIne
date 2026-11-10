@@ -31,6 +31,7 @@ from app.services.external_errors import ExternalServiceError
 from app.services.scene_service import insert_scene_record
 from app.services.story_planner import (
     CompleteJson,
+    CompleteStream,
     CompleteText,
     PlanFormatError,
     plan_segment,
@@ -107,8 +108,16 @@ def is_stalled(plan: Dict[str, Any], now: Optional[datetime] = None) -> bool:
 class Planner:
     complete_json: CompleteJson
     complete_text: CompleteText
+    stream_text: Optional[CompleteStream] = None  # without it, a scene is sent in one piece when it is done
     fast_model: str = PRIMARY_FAST_LLM_MODEL
     pro_model: str = PRIMARY_PRO_LLM_MODEL
+
+    async def stream(self, system: str, user: str, model: str):
+        if self.stream_text is None:
+            yield await self.complete_text(system, user, model)
+            return
+        async for chunk in self.stream_text(system, user, model):
+            yield chunk
 
 
 def parse_json_object(text: str) -> Dict[str, Any]:
@@ -149,7 +158,13 @@ def default_planner() -> Planner:
     async def complete_text(system: str, user: str, model: str) -> str:
         return await complete(system, user, model, False)
 
-    return Planner(complete_json, complete_text)
+    async def stream_text(system: str, user: str, model: str):
+        payload = {"model": model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+                   "temperature": 0.85, "max_tokens": 4000, "stream": True}
+        async for chunk in chat_service.stream_payload(payload, "OpenRouter story scene"):
+            yield chunk
+
+    return Planner(complete_json, complete_text, stream_text)
 
 
 # ---------- lease ----------

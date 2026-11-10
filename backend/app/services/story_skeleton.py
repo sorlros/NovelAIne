@@ -663,6 +663,46 @@ def _apply_choice(state: State, choice: Dict[str, Any]) -> Optional[State]:
     return state
 
 
+def _choice_features(choice: Dict[str, Any], others: Collection[str]) -> Set[str]:
+    """What makes a choice different from another: whether it lasts, what it does, and who else it involves."""
+    features = {"lasting" if choice.get("lasting") else "quiet"}
+    for event in choice.get("events") or []:
+        features.add(f"type:{event.get('type')}")
+        features |= {f"with:{event[key]}" for key in ("with", "to", "b") if event.get(key) in others}
+    label = choice.get("label") or ""
+    features |= {f"with:{name}" for name in others if name and name in label}
+    if any(feature.startswith("with:") for feature in features):
+        features.add("involves_other")
+    return features
+
+
+def pick_diverse_choices(offered: Sequence[Dict[str, Any]], wanted: int, others: Collection[str] = ()) -> List[Dict[str, Any]]:
+    """Pick `wanted` choices that differ as much as possible, keeping the card's order.
+
+    First one that changes nothing (an attitude), one that leaves a trace, and
+    one that involves another character, when available. Then, one at a time,
+    the choice that adds the most it does not share with those already picked.
+    `others` are the characters other than the one the reader chooses for.
+    Nothing is rejected here: a card without a variety still yields choices.
+    """
+    features = [_choice_features(choice, others) for choice in offered]
+    picked: List[int] = []
+    covered: Set[str] = set()
+
+    def most_new(candidates: List[int]) -> int:
+        return max(candidates, key=lambda index: (len(features[index] - covered), -index))
+
+    for required in ("quiet", "lasting", "involves_other"):
+        candidates = [index for index, feature in enumerate(features) if index not in picked and required in feature]
+        if len(picked) < wanted and required not in covered and candidates:
+            picked.append(most_new(candidates))
+            covered |= features[picked[-1]]
+    while len(picked) < min(wanted, len(offered)):
+        picked.append(most_new([index for index in range(len(offered)) if index not in picked]))
+        covered |= features[picked[-1]]
+    return [offered[index] for index in sorted(picked)]
+
+
 def offer_choices(
     state: State,
     card: Card,
@@ -670,13 +710,14 @@ def offer_choices(
     remaining_spine: Sequence[SpineEvent],
     core_facts: Optional[Collection[str]] = None,
     wanted: int = 3,
+    others: Collection[str] = (),
 ) -> List[Dict[str, Any]]:
     """Choices to show after a scene. `state` already includes the scene's own events.
 
     Choices that do not hold, and choices that make a remaining major event
-    impossible, are left out. Each offered choice carries `replan`: whether the
-    rest of this segment must be planned again. One choice that leaves a trace
-    and one that does not are kept when available.
+    impossible, are left out. Each offered choice carries `replan` (the rest of
+    this segment must be planned again) and `lasting` (picking it changes the
+    state). The ones shown are picked for variety by pick_diverse_choices.
     """
     offered = []
     for choice in card.get("choices") or []:
@@ -691,8 +732,11 @@ def offer_choices(
             errors, unmet = check_segment(after_choice, remaining_cards, remaining_spine[0], core_facts)
             needs_replan = bool(errors or unmet)
         offered.append({**choice, "replan": needs_replan, "lasting": bool(diff_states(state, after_choice))})
-    quiet = next((choice for choice in offered if not choice["lasting"]), None)
-    lasting = next((choice for choice in offered if choice["lasting"]), None)
-    picked = [choice for choice in (quiet, lasting) if choice]
-    picked += [choice for choice in offered if choice not in picked][: max(0, wanted - len(picked))]
-    return [choice for choice in offered if choice in picked]  # keep the card's order
+    return pick_diverse_choices(offered, wanted, others)
+
+
+def brief_callbacks(card: Card, state: State, core_facts: Collection[str] = ()) -> List[str]:
+    """The reader's earlier choices that a scene's brief carries, to show the reader that they still count."""
+    characters, _ = scene_cast(card, state)
+    nearby = set(characters) | set(_bystanders(characters, state))
+    return [name for tier, name in select_brief_facts(card, state, core_facts, nearby) if tier == CHOICE]
