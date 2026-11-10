@@ -4,7 +4,7 @@ from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
-OPTIONAL_SCENE_COLUMNS = {"role", "image_url", "bgm_url", "client_request_id"}
+OPTIONAL_SCENE_COLUMNS = {"role", "image_url", "bgm_url", "client_request_id", "beat_id", "events"}
 SCENE_ROLES = {"user", "ai", "system"}
 SCENE_TYPES = {"narrative", "dialogue", "choice", "ending"}
 
