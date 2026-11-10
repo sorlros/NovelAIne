@@ -185,6 +185,12 @@ def _text(value: Any) -> str:
     return " ".join(str(value or "").split())
 
 
+def _texts(value: Any) -> List[str]:
+    """A list of short texts. One text written as a plain string counts as a list of one, not as its letters."""
+    items = [value] if isinstance(value, str) else value if isinstance(value, list) else []
+    return [text for text in (_text(item) for item in items) if text]
+
+
 def _parse_change(raw: Any, locations: Sequence[str]) -> Dict[str, Any]:
     """Turn the model's flat change into an engine event."""
     if isinstance(raw, dict) and "type" not in raw and raw.get("pred") in EVENT_TYPES:
@@ -233,9 +239,9 @@ def _parse_spine_event(raw: Any, locations: Sequence[str]) -> Dict[str, Any]:
         "cost": _text(raw.get("cost")),
         "needs": [_parse_need(need) for need in _require_list(raw, "needs")],
         "events": [_parse_change(change, locations) for change in _require_list(raw, "changes")],
-        "because": [str(cause) for cause in raw.get("because") or []],
-        "plants": [_text(hook) for hook in raw.get("plants") or []],
-        "pays": [_text(hook) for hook in raw.get("pays") or []],
+        "because": _texts(raw.get("because")),
+        "plants": _texts(raw.get("plants")),
+        "pays": _texts(raw.get("pays")),
     }
 
 

@@ -90,6 +90,14 @@ class SpineTest(unittest.IsolatedAsyncioTestCase):
         _, _, events = await plan_spine(world, SEED, "pro", model.complete_json)
         self.assertEqual(events[0]["events"], [{"type": "act", "who": "카엘", "with": "세라"}])
 
+    async def test_a_single_cause_or_hook_written_as_a_string_is_one_item(self):
+        # Found by the retry log: "e1" was read as the causes 'e' and '1', costing a repair round each time.
+        e02 = {**SPINE["events"][3], "because": "e01", "plants": "단검의 내력"}
+        model = FakeModel(spines=({**SPINE, "events": [*SPINE["events"][:3], e02, SPINE["events"][4]]},))
+        world, _ = await plan_world(SEED, "fast", model.complete_json)
+        _, _, events = await plan_spine(world, SEED, "pro", model.complete_json)
+        self.assertEqual((events[1]["because"], events[1]["plants"]), (["e01"], ["단검의 내력"]))
+
     async def test_a_place_in_the_partner_field_of_act_means_no_partner(self):
         spine = {**SPINE, "events": [{**SPINE["events"][-1], "changes": [change("act", "카엘", "왕성")]}]}
         model = FakeModel(spines=(spine,))
