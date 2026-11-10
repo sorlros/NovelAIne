@@ -3,12 +3,14 @@ import 'package:flutter/foundation.dart'; // Added for compute
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:frontend/l10n/app_localizations.dart';
+import 'package:uuid/uuid.dart';
 import '../../../../data/models/creation_config.dart';
 import '../../../../data/services/api_service.dart';
 import '../../../../data/repositories/story_repository.dart';
 import '../../providers/auth_provider.dart'; // Added
 import '../../providers/content_provider.dart'; // Added
 import '../../widgets/custom_loading_indicator.dart';
+import '../story_generation_screen.dart';
 import '../story_screen.dart';
 import 'steps/world_step.dart';
 import 'steps/character_step.dart';
@@ -27,6 +29,9 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   late CreationConfig _config;
   int _currentStep = 0;
   final PageController _pageController = PageController();
+
+  /// One id per wizard: tapping create again after a lost response returns the same story.
+  final String _requestId = const Uuid().v4();
 
   @override
   void initState() {
@@ -86,9 +91,30 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       final authState = ref.read(authProvider);
       final userId = authState.value?.id;
       
-      final createdStory = await apiService.createStory(_config, userId: userId);
+      final createdStory = await apiService.createStory(
+        _config,
+        userId: userId,
+        requestId: _requestId,
+      );
 
       final repository = ref.read(storyRepositoryProvider);
+
+      if (createdStory.isSkeleton) {
+        await repository.cacheStory(createdStory, userId: userId);
+        ref.invalidate(storiesProvider);
+        if (!mounted) return;
+        Navigator.pop(context); // Close loading dialog
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => StoryGenerationScreen(
+              story: createdStory,
+              protagonistImage: _config.userImageBytes,
+            ),
+          ),
+        );
+        return;
+      }
 
       // 1. 생성된 스토리를 로컬 DB에 수동으로 즉시 저장
       await repository.cacheStory(createdStory, userId: userId);
