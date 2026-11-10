@@ -24,12 +24,18 @@ class ChatRequest(BaseModel):
     history: List[Dict[str, str]] = Field(default_factory=list)
     client_request_id: Optional[str] = Field(default=None, max_length=120)
 
+def _reject_skeleton_story(metadata: Dict) -> None:
+    """Skeleton-mode stories move on by choices through /api/stories/{id}/play, not by free chat."""
+    if metadata.get("mode") == "skeleton":
+        raise HTTPException(status_code=409, detail="이 이야기는 선택지로 진행합니다.")
+
+
 def _get_story_metadata(client, story_id: UUID) -> Dict:
     """Helper to fetch the metadata for a specific story."""
     try:
         story_res = (
             client.table("stories")
-            .select("llm_model, narrative_type, user_id")
+            .select("llm_model, narrative_type, user_id, mode")
             .eq("id", str(story_id))
             .single()
             .execute()
@@ -49,6 +55,7 @@ async def chat(
         client = get_supabase_client()
         authenticated_user_id = ensure_story_access(client, request.story_id, authorization)
         metadata = _get_story_metadata(client, request.story_id)
+        _reject_skeleton_story(metadata)
         model = metadata.get("llm_model")
         narrative_type = metadata.get("narrative_type", "hero")
         existing_turn = find_chat_turn_by_client_request_id(
@@ -80,6 +87,8 @@ async def chat(
             client_request_id=request.client_request_id,
         )
         return {"response": response, "scenes": persisted}
+    except HTTPException:
+        raise
     except Exception as e:
         if isinstance(e, ExternalServiceError):
             raise HTTPException(status_code=502, detail=e.user_message)
@@ -94,6 +103,7 @@ async def chat_stream(
     client = get_supabase_client()
     authenticated_user_id = ensure_story_access(client, request.story_id, authorization)
     metadata = _get_story_metadata(client, request.story_id)
+    _reject_skeleton_story(metadata)
     model = metadata.get("llm_model")
     narrative_type = metadata.get("narrative_type", "hero")
     existing_turn = find_chat_turn_by_client_request_id(

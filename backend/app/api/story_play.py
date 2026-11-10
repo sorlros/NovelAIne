@@ -1,0 +1,140 @@
+import logging
+from typing import Optional
+from uuid import UUID
+
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+from starlette.background import BackgroundTask
+
+from app.schemas.models import ApiResponse
+from app.services.auth_context import ensure_story_access
+from app.services.external_errors import GENERIC_MESSAGE, ExternalServiceError
+from app.services.scene_service import find_chat_turn_by_client_request_id
+from app.services.story_generation import default_planner
+from app.services.story_play import (
+    PlayError,
+    finish_turn,
+    load_context,
+    needs_next_segment,
+    plan_next_segment,
+    planning_is_stalled,
+    play_status,
+    prepare_turn,
+    stream_turn,
+    undo_last_turn,
+)
+from app.services.supabase_client import get_supabase_client
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/stories/{story_id}/play", tags=["play"])
+
+
+class PlayRequest(BaseModel):
+    choice_id: str = Field(..., min_length=1, max_length=40)
+    client_request_id: Optional[str] = Field(default=None, max_length=120)
+
+
+def get_planner():
+    """The model calls used for a turn. Replaced in tests."""
+    return default_planner()
+
+
+def _http_error(error: PlayError) -> HTTPException:
+    return HTTPException(status_code=error.status_code, detail=error.message)
+
+
+@router.get("", response_model=ApiResponse)
+async def get_play(
+    story_id: UUID,
+    background_tasks: BackgroundTasks,
+    authorization: Optional[str] = Header(default=None),
+):
+    """Where the reader is: the question, the choices (each with 'lasting'), whether choices are still being
+    prepared, whether the story is finished, who is present and which earlier choices the scene called back."""
+    try:
+        client = get_supabase_client()
+        ensure_story_access(client, story_id, authorization)
+        context = load_context(client, str(story_id))
+        if planning_is_stalled(client, context):
+            background_tasks.add_task(plan_next_segment, str(story_id))
+        return ApiResponse.ok(data=play_status(context))
+    except PlayError as error:
+        raise _http_error(error)
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.error("Failed to read play state of %s: %s", story_id, error)
+        raise HTTPException(status_code=500, detail="Failed to read play state")
+
+
+def _replay_existing(content: str):
+    async def replay():
+        if content:
+            yield content
+    return StreamingResponse(replay(), media_type="text/plain")
+
+
+@router.post("")
+async def post_play(
+    story_id: UUID,
+    request: PlayRequest,
+    authorization: Optional[str] = Header(default=None),
+):
+    """Pick a choice and stream the next scene as plain text, like /api/chat/stream.
+
+    The turn is saved when the scene is complete. A failure while streaming ends
+    the stream with [STREAM_ERROR:message] and saves nothing.
+    """
+    client = get_supabase_client()
+    ensure_story_access(client, story_id, authorization)
+    existing = find_chat_turn_by_client_request_id(client, story_id, request.client_request_id)
+    if existing:
+        return _replay_existing(existing["ai_scene"].get("content", ""))
+    planner = get_planner()
+    try:
+        turn = await prepare_turn(client, str(story_id), request.choice_id, planner)
+    except PlayError as error:
+        raise _http_error(error)
+
+    async def scene_stream():
+        prose = ""
+        try:
+            async for chunk in stream_turn(client, turn, planner):
+                if chunk:
+                    prose += chunk
+                    yield chunk
+            if not prose.strip():
+                raise PlayError(502, GENERIC_MESSAGE)
+            finish_turn(client, turn, prose, request.client_request_id)
+        except PlayError as error:
+            yield f"\n[STREAM_ERROR:{error.message}]"
+        except Exception as error:
+            logger.error("Turn of %s failed before it was saved: %s", story_id, error)
+            message = error.user_message if isinstance(error, ExternalServiceError) else GENERIC_MESSAGE
+            yield f"\n[STREAM_ERROR:{message}]"
+
+    # After a major event's scene, plan its choices and the next segment while the reader reads.
+    # If the turn was not saved, the task finds nothing to plan.
+    background = BackgroundTask(plan_next_segment, str(story_id)) if needs_next_segment(turn) else None
+    return StreamingResponse(scene_stream(), media_type="text/plain", background=background)
+
+
+@router.post("/undo", response_model=ApiResponse)
+async def undo_play(
+    story_id: UUID,
+    authorization: Optional[str] = Header(default=None),
+):
+    """Undo the latest turn. The first scene cannot be undone."""
+    try:
+        client = get_supabase_client()
+        ensure_story_access(client, story_id, authorization)
+        return ApiResponse.ok(data=play_status(undo_last_turn(client, str(story_id))))
+    except PlayError as error:
+        raise _http_error(error)
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.error("Failed to undo the last turn of %s: %s", story_id, error)
+        raise HTTPException(status_code=500, detail="Failed to undo the last turn")
