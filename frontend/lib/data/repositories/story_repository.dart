@@ -156,8 +156,11 @@ class StoryRepository {
         return [];
       }
 
-      // Sync to local
+      // Sync to local. Mirror the server: scenes removed there (an undone turn) must not linger.
       try {
+        await (database.delete(
+          database.scenes,
+        )..where((t) => t.storyId.equals(storyId))).go();
         for (var s in remoteScenes) {
           // 백엔드 응답에서 내용(content)을 찾기 위해 가능한 모든 필드명 확인
           final String contentBody =

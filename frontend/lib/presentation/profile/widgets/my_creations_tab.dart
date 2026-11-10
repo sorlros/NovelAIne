@@ -6,6 +6,7 @@ import '../../../data/models/story_model.dart';
 import '../../../data/models/character_model.dart';
 import '../../../data/services/api_service.dart';
 import '../../../data/repositories/story_repository.dart'; // Added
+import '../../screens/story_generation_screen.dart';
 import '../../screens/story_screen.dart';
 import '../../screens/profile/character_builder_screen.dart';
 import '../../widgets/custom_toast.dart';
@@ -221,7 +222,9 @@ class MyCreationsTab extends ConsumerWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => StoryScreen(initialStory: story),
+              builder: (context) => story.isGenerating
+                  ? StoryGenerationScreen(story: story)
+                  : StoryScreen(initialStory: story),
             ),
           );
         },

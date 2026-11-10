@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../core/constants.dart'; // Added missing import
+import 'story_generation_screen.dart';
 import 'story_screen.dart';
 
 import 'creation/mode_selection_screen.dart' as creation_screen;
@@ -292,7 +293,9 @@ class _StoryCard extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => StoryScreen(initialStory: story),
+            builder: (context) => story.isGenerating
+                ? StoryGenerationScreen(story: story)
+                : StoryScreen(initialStory: story),
           ),
         );
       },
@@ -370,6 +373,12 @@ class _StoryCard extends StatelessWidget {
                 ),
               ),
             ),
+            if (story.isGenerating)
+              Positioned(
+                top: 12,
+                left: 12,
+                child: _GenerationBadge(failed: story.status == 'failed'),
+              ),
             Positioned(
               top: 8,
               right: 8,
@@ -379,6 +388,30 @@ class _StoryCard extends StatelessWidget {
         ),
       ),
     ).animate().fadeIn(delay: (index * 100).ms).slideX(begin: 0.2, end: 0);
+  }
+}
+
+class _GenerationBadge extends StatelessWidget {
+  final bool failed;
+  const _GenerationBadge({required this.failed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: failed ? const Color(0xFFB3261E) : const Color(0xFF6B4EFF),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        failed ? '생성 실패' : '생성 중',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
   }
 }
 
