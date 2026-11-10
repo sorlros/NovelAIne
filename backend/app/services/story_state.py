@@ -32,6 +32,8 @@ State = Dict[str, Any]
 Event = Dict[str, Any]
 
 RELATION_KINDS = ("ally", "enemy", "lover", "family", "stranger")
+# How relation kinds read in prompts and briefs. The stored values stay language-neutral.
+RELATION_LABELS = {"ally": "동맹", "enemy": "적대", "lover": "연인", "family": "가족", "stranger": "남남"}
 # A relation moving to one of these counts as a loss (used by the ending-cost check).
 LOSS_RELATION_KINDS = ("enemy", "stranger")
 EVENT_TYPES = ("act", "move", "die", "give", "relate", "mark")
@@ -85,9 +87,9 @@ def build_initial_state(world: Dict[str, Any]) -> State:
 def _require_alive(state: State, name: Any) -> Dict[str, Any]:
     character = state["chars"].get(name)
     if character is None:
-        raise EventRejected(f"'{name}' is not a character")
+        raise EventRejected(f"'{name}' 은(는) 등장인물이 아니다")
     if not character["alive"]:
-        raise EventRejected(f"{name} is already dead")
+        raise EventRejected(f"{name} 은(는) 이미 죽었다")
     return character
 
 
@@ -96,7 +98,7 @@ def _require_together(state: State, first_name: Any, second_name: Any) -> None:
     second = _require_alive(state, second_name)
     if first["at"] != second["at"]:
         raise EventRejected(
-            f"{first_name} ({first['at']}) and {second_name} ({second['at']}) are not in the same place"
+            f"{first_name}({first['at']})와(과) {second_name}({second['at']})은(는) 같은 장소에 없다"
         )
 
 
@@ -109,7 +111,7 @@ def _apply_act(draft: State, event: Event, origin: str) -> None:
 def _apply_move(draft: State, event: Event, origin: str) -> None:
     character = _require_alive(draft, event["who"])
     if event["to"] not in draft["locations"]:
-        raise EventRejected(f"'{event['to']}' is not a defined location")
+        raise EventRejected(f"'{event['to']}' 은(는) 정의되지 않은 장소다")
     character["at"] = event["to"]
 
 
@@ -120,7 +122,7 @@ def _apply_die(draft: State, event: Event, origin: str) -> None:
 def _apply_give(draft: State, event: Event, origin: str) -> None:
     _require_together(draft, event["who"], event["to"])
     if draft["items"].get(event["item"]) != event["who"]:
-        raise EventRejected(f"{event['who']} does not hold '{event['item']}'")
+        raise EventRejected(f"{event['who']} 은(는) '{event['item']}' 을(를) 갖고 있지 않다")
     draft["items"][event["item"]] = event["to"]
 
 
@@ -128,7 +130,7 @@ def _apply_relate(draft: State, event: Event, origin: str) -> None:
     _require_alive(draft, event["a"])
     _require_alive(draft, event["b"])
     if event["kind"] not in RELATION_KINDS:
-        raise EventRejected(f"'{event['kind']}' is not a defined relation")
+        raise EventRejected(f"'{event['kind']}' 은(는) 정의되지 않은 관계다")
     draft["rels"][relation_key(event["a"], event["b"])] = event["kind"]
 
 
@@ -136,10 +138,10 @@ def _apply_mark(draft: State, event: Event, origin: str) -> None:
     _require_alive(draft, event["who"])
     partner = event.get("with")
     if partner and partner not in draft["chars"]:
-        raise EventRejected(f"'{partner}' is not a character")
+        raise EventRejected(f"'{partner}' 은(는) 등장인물이 아니다")
     fact_name = clean_name(event.get("fact"), MAX_FACT_LENGTH)
     if not fact_name:
-        raise EventRejected("the fact to establish has no name")
+        raise EventRejected("성립시킬 사실의 이름이 없다")
     people = [name for name in (event["who"], partner) if name]
     # A fact that is already established keeps its first record.
     draft["facts"].setdefault(fact_name, {"people": people, "origin": origin})
@@ -163,14 +165,14 @@ def apply_event(state: State, event: Event, origin: str = "scene") -> State:
     """
     handler = _EVENT_HANDLERS.get(event.get("type"))
     if handler is None:
-        raise EventRejected(f"undefined event type: {event.get('type')}")
+        raise EventRejected(f"정의되지 않은 사건 종류: {event.get('type')}")
     if origin not in FACT_ORIGINS:
         raise ValueError(f"unknown origin: {origin}")
     draft = copy.deepcopy(state)
     try:
         handler(draft, event, origin)
     except KeyError as missing_key:
-        raise EventRejected(f"the event is missing a required value: {missing_key}") from missing_key
+        raise EventRejected(f"사건에 필요한 값이 없다: {missing_key}") from missing_key
     return draft
 
 
@@ -187,7 +189,7 @@ def _add_characters(draft: State, characters: Iterable[Dict[str, Any]]) -> None:
         if not name or name in draft["chars"]:
             continue
         if character.get("at") not in draft["locations"]:
-            raise EventRejected(f"new character {name} starts at an undefined location: {character.get('at')}")
+            raise EventRejected(f"새 인물 {name} 의 시작 장소 '{character.get('at')}' 은(는) 정의되지 않은 장소다")
         draft["chars"][name] = {"alive": True, "at": character["at"]}
 
 

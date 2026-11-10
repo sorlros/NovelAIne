@@ -62,6 +62,22 @@ async def readyz():
     }
 
 
+_background_tasks: set = set()
+
+
+@app.on_event("startup")
+async def resume_story_generation():
+    """Resume story generations that a restart or deploy cut off."""
+    import asyncio
+
+    from app.services.story_generation import is_skeleton_mode_enabled, resume_stalled_generations
+
+    if is_skeleton_mode_enabled():
+        task = asyncio.create_task(resume_stalled_generations())
+        _background_tasks.add(task)  # keep a reference so the task is not garbage collected
+        task.add_done_callback(_background_tasks.discard)
+
+
 app.include_router(chat_router, prefix="/api")
 app.include_router(stories.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")

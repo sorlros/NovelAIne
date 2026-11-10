@@ -114,6 +114,8 @@ def insert_scene_record(
     image_url: Optional[str] = None,
     bgm_url: Optional[str] = None,
     client_request_id: Optional[str] = None,
+    beat_id: Optional[str] = None,
+    events: Optional[list] = None,
 ) -> Dict[str, Any]:
     """Insert a scene row and tolerate older DBs missing new optional columns."""
     if sequence is None:
@@ -139,6 +141,10 @@ def insert_scene_record(
     normalised_request_id = _normalise_client_request_id(client_request_id)
     if normalised_request_id is not None:
         row["client_request_id"] = normalised_request_id
+    if beat_id is not None:
+        row["beat_id"] = str(beat_id)
+    if events is not None:
+        row["events"] = events
 
     try:
         response = client.table("scenes").insert(row).execute()
