@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query
 from typing import Optional
 from uuid import UUID
 from datetime import datetime, timezone
@@ -15,6 +15,18 @@ from app.services.chat_service import ChatService # Added
 from app.services.rag_service import RagService
 from app.services.auth_context import ensure_story_access, ensure_story_read_access, resolve_request_user_id
 from app.services.scene_service import insert_scene_record, update_story_scene_pointer
+from app.services.story_generation import (
+    GenerationLimitReached,
+    RequestIdConflict,
+    create_skeleton_story,
+    fetch_plan,
+    generation_status,
+    is_skeleton_mode_enabled,
+    is_stalled,
+    reset_failed_generation,
+    run_generation,
+    stalled_story_ids,
+)
 
 # Logger setup
 logger = logging.getLogger(__name__)
@@ -33,8 +45,21 @@ def _normalise_public_story(row: dict) -> dict:
     }
 
 
+def _resume_stalled_in_list(client, rows: list, background_tasks: BackgroundTasks) -> None:
+    """Pick up generations whose runner died (restart, deploy) when their owner looks at the list."""
+    generating_ids = [row["id"] for row in rows if row.get("status") == "generating"]
+    if not generating_ids:
+        return
+    try:
+        for story_id in stalled_story_ids(client, generating_ids):
+            background_tasks.add_task(run_generation, story_id)
+    except Exception as error:
+        logger.warning("Failed to check stalled story generations: %s", error)
+
+
 @router.get("", response_model=ApiResponse)
 async def list_stories(
+    background_tasks: BackgroundTasks,
     user_id: Optional[str] = None,
     genre: Optional[str] = None,
     status: Optional[str] = None,
@@ -63,7 +88,8 @@ async def list_stories(
                 query = query.eq("status", status)
 
             response = query.range(offset, offset + limit - 1).execute()
-            
+            _resume_stalled_in_list(client, response.data or [], background_tasks)
+
             return ApiResponse.ok(
                 data=response.data if response.data else [],
                 meta={"total": len(response.data) if response.data else 0, "limit": limit, "offset": offset},
@@ -114,9 +140,23 @@ async def list_public_stories(
         return ApiResponse.fail(str(error))
 
 
+def _start_skeleton_story(client, story: StoryCreate, user_id: str, background_tasks: BackgroundTasks) -> ApiResponse:
+    """Insert the story and queue its generation. The response returns at once with status 'generating'."""
+    try:
+        created_story, _ = create_skeleton_story(client, story, user_id)
+    except GenerationLimitReached:
+        raise HTTPException(status_code=429, detail="이미 만들고 있는 이야기가 있습니다. 완성된 뒤에 다시 시작해 주세요.")
+    except RequestIdConflict:
+        raise HTTPException(status_code=409, detail="Request id is already in use")
+    # Also for a repeated request: a run that is still alive makes this a no-op.
+    background_tasks.add_task(run_generation, str(created_story["id"]))
+    return ApiResponse.ok(data=created_story)
+
+
 @router.post("", response_model=ApiResponse)
 async def create_story(
     story: StoryCreate,
+    background_tasks: BackgroundTasks,
     authorization: Optional[str] = Header(default=None),
 ):
     """Create a new story. If title is missing, generates content via AI."""
@@ -131,6 +171,8 @@ async def create_story(
             required=True,
         )
         story.llm_model = normalize_llm_model(story.llm_model)
+        if is_skeleton_mode_enabled():
+            return _start_skeleton_story(client, story, user_id, background_tasks)
 
         # Check if we need to generate story content
         generated_data = None
@@ -155,7 +197,7 @@ async def create_story(
         # 1. Insert Story
         story_db_data = story.model_dump(exclude={
             "user_id", "character_ids", "tone", "protagonist_name", "protagonist_traits",
-            "protagonist_appearance_description", "opening_scenario", "language"
+            "protagonist_appearance_description", "opening_scenario", "language", "request_id"
         })
         story_db_data["status"] = "active"
         story_db_data["total_scenes"] = 0
@@ -246,6 +288,52 @@ async def create_story(
         error_msg = f"Failed to create story: {str(e)}"
         logger.exception(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
+
+
+@router.get("/{story_id}/generation", response_model=ApiResponse)
+async def get_story_generation(
+    story_id: UUID,
+    background_tasks: BackgroundTasks,
+    authorization: Optional[str] = Header(default=None),
+):
+    """Progress of a story being generated: status, last finished step and a user-facing error."""
+    try:
+        client = get_supabase_client()
+        ensure_story_access(client, story_id, authorization)
+        plan = fetch_plan(client, str(story_id))
+        if not plan:
+            raise HTTPException(status_code=404, detail="Story generation not found")
+        if is_stalled(plan):
+            background_tasks.add_task(run_generation, str(story_id))
+        return ApiResponse.ok(data=generation_status(plan))
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.error("Failed to fetch story generation %s: %s", story_id, error)
+        raise HTTPException(status_code=500, detail="Failed to fetch story generation")
+
+
+@router.post("/{story_id}/generation/retry", response_model=ApiResponse)
+async def retry_story_generation(
+    story_id: UUID,
+    background_tasks: BackgroundTasks,
+    authorization: Optional[str] = Header(default=None),
+):
+    """Start a failed generation again from the step where it stopped."""
+    try:
+        client = get_supabase_client()
+        ensure_story_access(client, story_id, authorization)
+        if not fetch_plan(client, str(story_id)):
+            raise HTTPException(status_code=404, detail="Story generation not found")
+        if not reset_failed_generation(client, str(story_id)):
+            raise HTTPException(status_code=409, detail="Only a failed generation can be retried")
+        background_tasks.add_task(run_generation, str(story_id))
+        return ApiResponse.ok(data=generation_status(fetch_plan(client, str(story_id)) or {}))
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.error("Failed to retry story generation %s: %s", story_id, error)
+        raise HTTPException(status_code=500, detail="Failed to retry story generation")
 
 
 @router.get("/{story_id}", response_model=ApiResponse)
