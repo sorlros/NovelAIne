@@ -476,7 +476,12 @@ class ChatService:
             "stream": True
         }
 
-        candidate_models = self._candidate_models(target_model)
+        async for chunk in self.stream_payload(data):
+            yield chunk
+
+    async def stream_payload(self, data: dict, service_name: str = "OpenRouter streaming"):
+        """Stream a chat completion payload, falling back to the next model only before any text was sent."""
+        candidate_models = self._candidate_models(data.get("model"))
         emitted_chunk = False
 
         for index, candidate_model in enumerate(candidate_models):
@@ -487,7 +492,7 @@ class ChatService:
                         if response.status_code != 200:
                             err_body = await response.aread()
                             raise error_from_response(
-                                "OpenRouter streaming",
+                                service_name,
                                 response.status_code,
                                 err_body.decode(errors="ignore"),
                             )
@@ -511,7 +516,7 @@ class ChatService:
             except Exception as error:
                 classified_error = (
                     error if isinstance(error, ExternalServiceError)
-                    else error_from_exception("OpenRouter streaming", error)
+                    else error_from_exception(service_name, error)
                 )
                 has_fallback = index + 1 < len(candidate_models)
                 if (
