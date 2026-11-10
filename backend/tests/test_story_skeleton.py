@@ -190,10 +190,11 @@ class ChoiceTest(unittest.TestCase):
         self.assertTrue(offered["c3"]["replan"])  # 도윤 leaves the forest, so the cabin scene fails
         self.assertFalse(offered["c2"]["replan"])
 
-    def test_three_are_picked_with_at_least_one_quiet_and_one_lasting_choice(self):
+    def test_three_are_picked_for_variety_in_the_cards_order(self):
         cards = self.world["segment"]
         choices = offer_choices(self.state, cards[0], cards[1:], self.world["spine"][1:], self.world["facts"])
-        self.assertEqual([choice["id"] for choice in choices], ["c1", "c2", "c3"])
+        # c1: attitude, c2: a move that lasts, then c6 (does something new: acts) over c3 (another move)
+        self.assertEqual([choice["id"] for choice in choices], ["c1", "c2", "c6"])
 
     def test_talking_alone_does_not_count_as_changing_state(self):
         self.assertFalse(choice_changes_state({"events": [{"type": "act", "who": "카엘", "with": "세라"}]}))
@@ -365,6 +366,49 @@ class BriefWordingTest(unittest.TestCase):
         brief = build_brief({**SCENE_CARD, "question": "세라를 믿을 것인가"}, state)
         self.assertIn("독자에게 묻는 것: 세라를 믿을 것인가", brief)
         self.assertNotIn("독자에게 묻는 것", build_brief(SCENE_CARD, state))
+
+
+class DiverseChoiceTest(unittest.TestCase):
+    def choice(self, choice_id, lasting, events=(), label=""):
+        return {"id": choice_id, "lasting": lasting, "events": list(events), "label": label}
+
+    def test_one_choice_involving_another_character_is_kept_when_available(self):
+        from app.services.story_skeleton import pick_diverse_choices
+
+        offered = [
+            self.choice("a", False, label="차분하게 말한다"),
+            self.choice("b", True, [{"type": "mark", "who": "카엘", "fact": "x"}]),
+            self.choice("c", True, [{"type": "mark", "who": "카엘", "fact": "y"}]),
+            self.choice("d", False, label="세라의 손을 잡는다"),
+        ]
+        picked = [choice["id"] for choice in pick_diverse_choices(offered, 3, others=["세라", "도윤"])]
+        self.assertEqual(picked, ["a", "b", "d"])  # d brings in 세라; c only repeats what b does
+
+    def test_partners_in_events_count_as_involving_others(self):
+        from app.services.story_skeleton import pick_diverse_choices
+
+        offered = [
+            self.choice("a", False),
+            self.choice("b", True, [{"type": "mark", "who": "카엘", "fact": "x"}]),
+            self.choice("c", True, [{"type": "give", "who": "카엘", "to": "도윤", "item": "단검"}]),
+        ]
+        self.assertEqual([choice["id"] for choice in pick_diverse_choices(offered, 2, others=["도윤"])], ["a", "c"])
+
+    def test_without_variety_choices_are_still_offered(self):
+        from app.services.story_skeleton import pick_diverse_choices
+
+        offered = [self.choice(str(n), False) for n in range(4)]
+        self.assertEqual([choice["id"] for choice in pick_diverse_choices(offered, 3)], ["0", "1", "2"])
+
+
+class CallbackTest(unittest.TestCase):
+    def test_only_reader_choices_in_the_brief_are_callbacks(self):
+        from app.services.story_skeleton import brief_callbacks
+
+        state = mark(build_initial_state(sample_world()), "choice", "카엘", "카엘이 돌아오겠다고 약속했다")
+        state = mark(state, "scene", "카엘", "카엘이 말에게 물을 먹였다")
+        state = mark(state, "choice", "도윤", "도윤이 비밀을 지키기로 했다")  # 도윤 is not in this scene
+        self.assertEqual(brief_callbacks(SCENE_CARD, state), ["카엘이 돌아오겠다고 약속했다"])
 
 if __name__ == "__main__":
     unittest.main()
