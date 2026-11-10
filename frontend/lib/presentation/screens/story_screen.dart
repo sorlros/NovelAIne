@@ -15,11 +15,13 @@ import '../../core/constants.dart';
 import '../../data/services/api_service.dart';
 import '../../data/repositories/story_repository.dart';
 import 'character_sheet_widget.dart';
+import '../../data/models/play_models.dart';
 import '../../data/models/story_model.dart';
 import '../providers/content_provider.dart';
 import '../widgets/character_card.dart';
 import '../widgets/custom_loading_indicator.dart';
 import '../widgets/custom_toast.dart';
+import '../widgets/play_choices_panel.dart';
 import '../widgets/writing_effect.dart';
 
 // 화면 전용 상태 관리
@@ -124,6 +126,12 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   bool _isSendingMessage = false;
   bool _isInitLoaded = false;
 
+  /// Skeleton stories advance by choices through `/play` instead of free chat.
+  late bool _isSkeleton = widget.initialStory?.isSkeleton ?? false;
+  PlayStatus? _play;
+  bool _playLoadFailed = false;
+  Timer? _preparingTimer;
+
   @override
   void initState() {
     super.initState();
@@ -140,6 +148,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
 
   @override
   void dispose() {
+    _preparingTimer?.cancel();
     _bgmStateSubscription?.cancel();
     _bgmPlayer.dispose();
     _controller.dispose();
@@ -222,14 +231,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
 
       if (!mounted) return;
 
-      if (storyData['llm_model'] != null) {
-        ref.read(currentStoryModelProvider.notifier).state =
-            storyData['llm_model'];
-      }
-      final List<dynamic> chars = storyData['characters'] ?? [];
-      ref.read(storyCharactersProvider.notifier).state = chars
-          .map((c) => Map<String, dynamic>.from(c))
-          .toList();
+      _applyStoryDetails(storyData);
 
       final processedMessages = await compute(_processScenesIsolate, allScenes);
 
@@ -272,7 +274,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   }
 
   void _showNarrativeTips() {
-    if (!mounted) return;
+    // The tips are about typing free text; skeleton stories offer choices.
+    if (!mounted || _isSkeleton) return;
 
     final type = widget.initialStory?.narrativeType ?? 'hero';
     final bool isEnsemble = type == 'ensemble';
@@ -387,16 +390,208 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     try {
       final storyData = await _apiService.fetchStory(widget.initialStory!.id);
       if (!mounted) return;
-      if (storyData['llm_model'] != null) {
-        ref.read(currentStoryModelProvider.notifier).state =
-            storyData['llm_model'];
-      }
-      final List<dynamic> chars = storyData['characters'] ?? [];
-      ref.read(storyCharactersProvider.notifier).state = chars
-          .map((c) => Map<String, dynamic>.from(c))
-          .toList();
+      _applyStoryDetails(storyData);
     } catch (e) {
       debugPrint("Background detail fetch failed: $e");
+    }
+  }
+
+  void _applyStoryDetails(Map<String, dynamic> storyData) {
+    if (storyData['llm_model'] != null) {
+      ref.read(currentStoryModelProvider.notifier).state =
+          storyData['llm_model'];
+    }
+    final List<dynamic> chars = storyData['characters'] ?? [];
+    ref.read(storyCharactersProvider.notifier).state = chars
+        .map((c) => Map<String, dynamic>.from(c))
+        .toList();
+    // The cached story list does not keep the mode, so the server decides.
+    if (storyData['mode'] == 'skeleton') {
+      setState(() => _isSkeleton = true);
+    }
+    if (_isSkeleton && !widget.readOnly) _loadPlay();
+  }
+
+  // ---------- skeleton stories ----------
+
+  Future<void> _loadPlay() async {
+    _preparingTimer?.cancel();
+    try {
+      final play = await _apiService.fetchPlay(widget.initialStory!.id);
+      if (!mounted) return;
+      _applyPlay(play);
+    } catch (error) {
+      debugPrint("Play status failed: $error");
+      if (mounted) setState(() => _playLoadFailed = true);
+    }
+  }
+
+  void _applyPlay(PlayStatus play) {
+    setState(() {
+      _play = play;
+      _playLoadFailed = false;
+    });
+    ref.read(presentCharacterNamesProvider.notifier).state =
+        play.presentCharacters;
+    if (play.preparing) {
+      // The server is planning what comes after a major event; ask again shortly.
+      _preparingTimer = Timer(const Duration(seconds: 3), _loadPlay);
+    }
+  }
+
+  void _updateMessage(String messageId, Map<String, dynamic> fields) {
+    ref.read(messageProvider.notifier).update((state) {
+      return state.map((msg) {
+        return msg['id'] == messageId ? {...msg, ...fields} : msg;
+      }).toList();
+    });
+  }
+
+  /// Shows [stream] in the message as it arrives and returns the whole text.
+  Future<String> _streamInto(String messageId, Stream<String> stream) async {
+    var text = '';
+    var lastUpdate = 0;
+    await for (final chunk in stream) {
+      text += chunk;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (now - lastUpdate > 100 && mounted) {
+        _updateMessage(messageId, {'content': text});
+        lastUpdate = now;
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        }
+      }
+    }
+    if (mounted) _updateMessage(messageId, {'content': text});
+    return text;
+  }
+
+  Future<void> _choose(PlayChoice choice) async {
+    if (widget.readOnly || _isSendingMessage) return;
+    HapticFeedback.mediumImpact();
+    final clientRequestId = const Uuid().v4();
+    final aiMessageId = 'ai_$clientRequestId';
+    ref
+        .read(messageProvider.notifier)
+        .update(
+          (state) => [
+            ...state,
+            {
+              'id': 'user_$clientRequestId',
+              'role': 'user',
+              'content': choice.label,
+              'imageUrl': null,
+            },
+            {
+              'id': aiMessageId,
+              'role': 'ai',
+              'content': '...',
+              'imageUrl': null,
+              'sceneType': 'narrative',
+              'clientRequestId': clientRequestId,
+              'choiceId': choice.id,
+              'streamFailed': false,
+            },
+          ],
+        );
+    _scrollToBottom();
+    await _playTurn(aiMessageId, choice.id, clientRequestId);
+  }
+
+  /// Writes the scene after [choiceId]. Retrying with the same
+  /// [clientRequestId] replays a scene the server already saved.
+  Future<void> _playTurn(
+    String aiMessageId,
+    String choiceId,
+    String clientRequestId,
+  ) async {
+    setState(() => _isSendingMessage = true);
+    ref.read(streamingMessageIdProvider.notifier).state = aiMessageId;
+    try {
+      await _streamInto(
+        aiMessageId,
+        _apiService.streamPlay(
+          widget.initialStory!.id,
+          choiceId,
+          clientRequestId: clientRequestId,
+        ),
+      );
+      if (mounted) await _refreshScenesFromServer(replaceMessages: true);
+    } catch (error) {
+      debugPrint("Play turn failed: $error");
+      if (!mounted) return;
+      if (error is ApiException && error.statusCode == 409) {
+        // The choice is no longer offered (e.g. played on another device): show the server's story.
+        await _refreshScenesFromServer(replaceMessages: true);
+      } else {
+        _updateMessage(aiMessageId, {
+          'content': '장면을 쓰지 못했습니다. 다시 시도해 주세요.',
+          'streamFailed': true,
+        });
+      }
+      if (mounted) {
+        CustomToast.show(
+          context,
+          ApiException.messageOf(error),
+          type: ToastType.error,
+        );
+      }
+    } finally {
+      if (mounted) {
+        ref.read(streamingMessageIdProvider.notifier).state = null;
+        setState(() => _isSendingMessage = false);
+        await _loadPlay();
+      }
+    }
+  }
+
+  Future<void> _retryChoice(Map<String, dynamic> failedMessage) async {
+    if (_isSendingMessage) return;
+    final aiMessageId = failedMessage['id'].toString();
+    _updateMessage(aiMessageId, {'content': '...', 'streamFailed': false});
+    await _playTurn(
+      aiMessageId,
+      failedMessage['choiceId'].toString(),
+      failedMessage['clientRequestId'].toString(),
+    );
+  }
+
+  Future<void> _undo() async {
+    if (_isSendingMessage) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('직전 선택을 되돌릴까요?'),
+        content: const Text('마지막 장면이 지워지고 그 전의 선택지로 돌아갑니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('되돌리기'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _isSendingMessage = true);
+    try {
+      final play = await _apiService.undoPlay(widget.initialStory!.id);
+      if (!mounted) return;
+      await _refreshScenesFromServer(replaceMessages: true);
+      if (mounted) _applyPlay(play);
+    } catch (error) {
+      if (mounted) {
+        CustomToast.show(
+          context,
+          ApiException.messageOf(error),
+          type: ToastType.error,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSendingMessage = false);
     }
   }
 
@@ -703,6 +898,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   }
 
   Future<void> _recoverStreamMessage(Map<String, dynamic> failedMessage) async {
+    if (failedMessage['choiceId'] != null) return _retryChoice(failedMessage);
     if (_isSendingMessage) {
       CustomToast.show(context, "이전 응답을 생성 중입니다.");
       return;
@@ -849,7 +1045,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                             isMobile ? 16 : 24,
                             20,
                             isMobile ? 16 : 24,
-                            isMobile ? 180 : 250,
+                            // The choices panel is taller than the text input.
+                            _isSkeleton ? 440 : (isMobile ? 180 : 250),
                           ),
                           itemCount:
                               messages.length +
@@ -1515,65 +1712,79 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 850),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(35),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-              ),
-              child: Row(
-                children: [
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      style: GoogleFonts.lato(
-                        color: Colors.white,
-                        fontSize: 15,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: isSending ? "응답 생성 중..." : "어떻게 행동할까요?",
-                        hintStyle: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.3),
-                          fontSize: 14,
-                        ),
-                        border: InputBorder.none,
-                      ),
-                      onSubmitted: (_) {
-                        if (!isSending) _sendMessage();
-                      },
+            child: _isSkeleton
+                ? PlayChoicesPanel(
+                    status: _play,
+                    busy: isSending,
+                    loadFailed: _playLoadFailed,
+                    onChoose: _choose,
+                    onUndo: _undo,
+                    onReload: _loadPlay,
+                  )
+                : Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
                     ),
-                  ),
-                  GestureDetector(
-                    onTap: isSending ? null : _sendMessage,
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: isSending
-                            ? Colors.white24
-                            : const Color(0xFF7C3AED),
-                        shape: BoxShape.circle,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(35),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.12),
                       ),
-                      child: isSending
-                          ? const Padding(
-                              padding: EdgeInsets.all(12),
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(
-                              Icons.auto_fix_high_rounded,
+                    ),
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextField(
+                            controller: _controller,
+                            style: GoogleFonts.lato(
                               color: Colors.white,
-                              size: 20,
+                              fontSize: 15,
                             ),
+                            decoration: InputDecoration(
+                              hintText: isSending ? "응답 생성 중..." : "어떻게 행동할까요?",
+                              hintStyle: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.3),
+                                fontSize: 14,
+                              ),
+                              border: InputBorder.none,
+                            ),
+                            onSubmitted: (_) {
+                              if (!isSending) _sendMessage();
+                            },
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: isSending ? null : _sendMessage,
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: isSending
+                                  ? Colors.white24
+                                  : const Color(0xFF7C3AED),
+                              shape: BoxShape.circle,
+                            ),
+                            child: isSending
+                                ? const Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.auto_fix_high_rounded,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
           ),
         ),
       ),
