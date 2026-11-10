@@ -4,8 +4,24 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../core/constants.dart';
 import '../models/community_models.dart';
+import '../models/play_models.dart';
 import '../models/story_model.dart';
 import '../models/creation_config.dart';
+
+/// A failed request whose [message] can be shown to the user as is.
+class ApiException implements Exception {
+  final int statusCode;
+  final String message;
+
+  const ApiException(this.statusCode, this.message);
+
+  /// The server's message, or a generic one for network and other failures.
+  static String messageOf(Object error) =>
+      error is ApiException ? error.message : '연결에 문제가 생겼습니다. 잠시 후 다시 시도해 주세요.';
+
+  @override
+  String toString() => message;
+}
 
 class ApiService {
   final String _baseUrl = AppConstants.baseUrl;
@@ -161,18 +177,24 @@ class ApiService {
     String message, {
     List<Map<String, String>>? history,
     String? clientRequestId,
-  }) async* {
+  }) {
+    return _streamText('/chat/stream', {
+      'story_id': storyId,
+      'message': message,
+      'history': history ?? [],
+      if (clientRequestId != null) 'client_request_id': clientRequestId,
+    });
+  }
+
+  /// Posts [body] and yields the plain-text stream, turning the server's
+  /// `[STREAM_ERROR:...]` marker into an exception.
+  Stream<String> _streamText(String path, Map<String, dynamic> body) async* {
     await _ensureFreshAccessToken();
     final client = http.Client();
     try {
-      final request = http.Request('POST', Uri.parse('$_baseUrl/chat/stream'));
+      final request = http.Request('POST', Uri.parse('$_baseUrl$path'));
       request.headers.addAll(_jsonHeaders);
-      request.body = jsonEncode({
-        'story_id': storyId,
-        'message': message,
-        'history': history ?? [],
-        if (clientRequestId != null) 'client_request_id': clientRequestId,
-      });
+      request.body = jsonEncode(body);
 
       final response = await client
           .send(request)
@@ -189,16 +211,101 @@ class ApiService {
                     markerIndex + '[STREAM_ERROR:'.length,
                     markerEnd,
                   );
-            throw Exception(message);
+            throw ApiException(response.statusCode, message);
           }
           yield chunk;
         }
       } else {
-        throw Exception('Streaming failed: ${response.statusCode}');
+        final errorBody = await response.stream.bytesToString();
+        throw ApiException(
+          response.statusCode,
+          _errorDetail(errorBody) ?? 'Streaming failed: ${response.statusCode}',
+        );
       }
     } finally {
       client.close();
     }
+  }
+
+  /// FastAPI puts the message of an HTTPException in `detail`.
+  static String? _errorDetail(String body) {
+    try {
+      final detail = jsonDecode(body)['detail'];
+      return detail is String ? detail : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Returns `data` of a `{success, data}` response, or throws [ApiException].
+  Map<String, dynamic> _dataOf(http.Response response, String action) {
+    final body = utf8.decode(response.bodyBytes);
+    if (response.statusCode == 200) {
+      final json = jsonDecode(body);
+      if (json['success'] == true) {
+        return Map<String, dynamic>.from(json['data'] ?? const {});
+      }
+      throw ApiException(200, '$action: ${json['error']}');
+    }
+    throw ApiException(
+      response.statusCode,
+      _errorDetail(body) ?? '$action: ${response.statusCode}',
+    );
+  }
+
+  // Skeleton stories: generation progress
+  Future<GenerationStatus> fetchGeneration(String storyId) async {
+    await _ensureFreshAccessToken();
+    final response = await http.get(
+      Uri.parse('$_baseUrl/stories/$storyId/generation'),
+      headers: _authHeaders,
+    );
+    return GenerationStatus.fromJson(
+      _dataOf(response, 'Failed to fetch generation'),
+    );
+  }
+
+  Future<GenerationStatus> retryGeneration(String storyId) async {
+    await _ensureFreshAccessToken();
+    final response = await http.post(
+      Uri.parse('$_baseUrl/stories/$storyId/generation/retry'),
+      headers: _authHeaders,
+    );
+    return GenerationStatus.fromJson(
+      _dataOf(response, 'Failed to retry generation'),
+    );
+  }
+
+  // Skeleton stories: play
+  Future<PlayStatus> fetchPlay(String storyId) async {
+    await _ensureFreshAccessToken();
+    final response = await http.get(
+      Uri.parse('$_baseUrl/stories/$storyId/play'),
+      headers: _authHeaders,
+    );
+    return PlayStatus.fromJson(_dataOf(response, 'Failed to fetch play'));
+  }
+
+  /// Streams the scene that follows [choiceId]. Sending the same
+  /// [clientRequestId] again replays a scene the server already saved.
+  Stream<String> streamPlay(
+    String storyId,
+    String choiceId, {
+    required String clientRequestId,
+  }) {
+    return _streamText('/stories/$storyId/play', {
+      'choice_id': choiceId,
+      'client_request_id': clientRequestId,
+    });
+  }
+
+  Future<PlayStatus> undoPlay(String storyId) async {
+    await _ensureFreshAccessToken();
+    final response = await http.post(
+      Uri.parse('$_baseUrl/stories/$storyId/play/undo'),
+      headers: _authHeaders,
+    );
+    return PlayStatus.fromJson(_dataOf(response, 'Failed to undo'));
   }
 
   // Generate Image API
@@ -695,9 +802,11 @@ class ApiService {
   }
 
   // Create Story (Wizard)
+  /// [requestId] makes a retried request return the same story instead of a second one.
   Future<StoryModel> createStory(
     CreationConfig config, {
     String? userId,
+    String? requestId,
   }) async {
     await _ensureFreshAccessToken();
     final url = Uri.parse('$_baseUrl/stories');
@@ -718,6 +827,7 @@ class ApiService {
       "language": ui.PlatformDispatcher.instance.locale
           .toLanguageTag(), // e.g., 'ko-KR', 'en-US'
       "llm_model": config.llmModel ?? AppConstants.defaultLlmModel,
+      if (requestId != null) "request_id": requestId,
     };
 
     final response = await http.post(
@@ -744,8 +854,10 @@ class ApiService {
         rethrow;
       }
     } else {
-      throw Exception(
-        'Failed to create story: ${response.statusCode} - ${response.body}',
+      throw ApiException(
+        response.statusCode,
+        _errorDetail(utf8.decode(response.bodyBytes)) ??
+            'Failed to create story: ${response.statusCode} - ${response.body}',
       );
     }
   }
