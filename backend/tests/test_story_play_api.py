@@ -119,5 +119,46 @@ class LegacyEndpointsTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.data, {"present_characters": ["카엘", "세라"], "important_characters": ["카엘", "세라"]})
 
 
+
+class BeforeMigrationTest(unittest.TestCase):
+    """Deploying before the migration must leave legacy stories working as before."""
+
+    class NoModeColumn:
+        def __init__(self, row):
+            self.row = row
+
+        def table(self, _name):
+            outer = self
+
+            class Query:
+                def select(self, columns):
+                    self.columns = columns
+                    return self
+
+                def eq(self, *_args):
+                    return self
+
+                def single(self):
+                    return self
+
+                def limit(self, *_args):
+                    return self
+
+                def execute(self):
+                    if "mode" in [column.strip() for column in self.columns.split(",")]:
+                        raise RuntimeError('column stories.mode does not exist')
+                    from story_fakes import FakeResponse
+                    return FakeResponse(outer.row)
+
+            return Query()
+
+    def test_chat_keeps_the_story_settings_without_the_mode_column(self):
+        client = self.NoModeColumn({"llm_model": "pro", "narrative_type": "ensemble", "user_id": "user-1"})
+        self.assertEqual(chat_api._get_story_metadata(client, "story-1"),
+                         {"llm_model": "pro", "narrative_type": "ensemble", "user_id": "user-1"})
+
+    def test_scenes_treat_every_story_as_legacy_without_the_mode_column(self):
+        self.assertFalse(scenes_api._is_skeleton_story(self.NoModeColumn(None), "story-1"))
+
 if __name__ == "__main__":
     unittest.main()

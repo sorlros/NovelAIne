@@ -17,7 +17,12 @@ router = APIRouter(prefix="/stories/{story_id}/scenes", tags=["scenes"])
 logger = logging.getLogger(__name__)
 
 def _is_skeleton_story(client, story_id: UUID) -> bool:
-    response = client.table("stories").select("mode").eq("id", str(story_id)).limit(1).execute()
+    try:
+        response = client.table("stories").select("mode").eq("id", str(story_id)).limit(1).execute()
+    except Exception as error:
+        # Before the skeleton-mode migration the column does not exist and every story is a legacy story.
+        logger.warning("Could not read the mode of story %s: %s", story_id, error)
+        return False
     return bool(response.data) and response.data[0].get("mode") == "skeleton"
 
 

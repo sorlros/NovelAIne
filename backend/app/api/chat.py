@@ -1,4 +1,5 @@
 import logging
+import re
 from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -30,17 +31,21 @@ def _reject_skeleton_story(metadata: Dict) -> None:
         raise HTTPException(status_code=409, detail="이 이야기는 선택지로 진행합니다.")
 
 
+def _select_story_metadata(client, story_id: UUID, columns: str) -> Dict:
+    story_res = client.table("stories").select(columns).eq("id", str(story_id)).single().execute()
+    return story_res.data if story_res.data else {}
+
+
 def _get_story_metadata(client, story_id: UUID) -> Dict:
     """Helper to fetch the metadata for a specific story."""
     try:
-        story_res = (
-            client.table("stories")
-            .select("llm_model, narrative_type, user_id, mode")
-            .eq("id", str(story_id))
-            .single()
-            .execute()
-        )
-        return story_res.data if story_res.data else {}
+        try:
+            return _select_story_metadata(client, story_id, "llm_model, narrative_type, user_id, mode")
+        except Exception as error:
+            if not re.search(r"\bmode\b", str(error).lower()):  # not "llm_model"
+                raise
+            # The skeleton-mode migration is not applied yet: every story is a legacy story.
+            return _select_story_metadata(client, story_id, "llm_model, narrative_type, user_id")
     except Exception as e:
         logger.warning(f"Failed to fetch metadata for story {story_id}: {e}")
         return {}
