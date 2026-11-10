@@ -90,6 +90,8 @@ class StoryCreate(BaseModel):
     character_ids: Optional[List[UUID]] = None
     llm_model: Optional[str] = DEFAULT_LLM_MODEL
     visibility: Optional[str] = Field(default="private", pattern="^(private|public)$")
+    # Sent by the app with every create request. A retried request with the same id returns the same story.
+    request_id: Optional[str] = Field(default=None, min_length=1, max_length=120)
 
 
 class Story(StoryBase):
