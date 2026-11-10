@@ -109,7 +109,8 @@ class FakeClient:
             self.next_id += 1
             row = {"id": f"{table_name}-{self.next_id}", **copy.deepcopy(item)}
             if table_name == "story_plans":
-                row = {"lease_owner": None, "lease_until": None, "attempts": 0, "error": None, "world": None, "spine": None, **row}
+                row = {"lease_owner": None, "lease_until": None, "attempts": 0, "error": None, "world": None, "spine": None,
+                       "retry_log": [], **row}
             rows.append(row)
             inserted.append(dict(row))
         return inserted

@@ -302,5 +302,54 @@ class ParsingTest(unittest.TestCase):
             self.assertTrue(generation.is_skeleton_mode_enabled())
 
 
+
+class WaitTimeTest(unittest.IsolatedAsyncioTestCase):
+    async def test_the_first_segment_and_the_opening_scene_are_generated_at_the_same_time(self):
+        client, model = FakeClient(), FakeModel()
+        scene_started = asyncio.Event()
+        plan_json, write_text = model.complete_json, model.complete_text
+
+        async def segment_waits_for_scene(system, user, llm_model):
+            if model.kind_of(system) == "segment":
+                await asyncio.wait_for(scene_started.wait(), timeout=2)  # deadlocks if the two run one after the other
+            return await plan_json(system, user, llm_model)
+
+        async def scene_signals(system, user, llm_model):
+            scene_started.set()
+            return await write_text(system, user, llm_model)
+
+        model.complete_json, model.complete_text = segment_waits_for_scene, scene_signals
+        story_id = new_story(client)
+        await run_generation(story_id, planner_for(model), client)
+        self.assertEqual(client.plan(story_id)["status"], "ready")
+        self.assertEqual(len(client.rows("scenes", story_id=story_id)), 1)
+
+    async def test_a_failed_segment_cancels_the_opening_draft_and_nothing_is_saved_half_way(self):
+        client = FakeClient()
+        model = FakeModel(segments=(SEGMENT_STUCK,))
+        story_id = new_story(client)
+        await run_generation(story_id, planner_for(model), client)
+        self.assertEqual(client.plan(story_id)["status"], "failed")
+        self.assertEqual(client.rows("scenes", story_id=story_id), [])
+
+    async def test_why_steps_were_asked_again_is_recorded(self):
+        client, model = FakeClient(), FakeModel(spines=(SPINE_WITH_PROBLEM,), segments=(SEGMENT_STUCK, SEGMENT))
+        story_id = new_story(client)
+        await run_generation(story_id, planner_for(model), client)
+        log = client.plan(story_id)["retry_log"]
+        self.assertEqual([entry["step"] for entry in log], ["spine", "segment"])
+        self.assertIn("e04: 원인(because)이 없다", log[0]["problems"])
+        self.assertTrue(any("구간이 끝나도 갖춰지지 않는다" in problem for problem in log[1]["problems"]))
+
+    async def test_failed_attempts_are_recorded_with_their_error(self):
+        client = FakeClient()
+        outage = ExternalServiceError("OpenRouter story scene", "일시적인 서버 문제가 발생했습니다.", "503")
+        story_id = new_story(client)
+        await run_generation(story_id, planner_for(FakeModel(fail_on={"scene": outage})), client)
+        errors = [entry for entry in client.plan(story_id)["retry_log"] if "error" in entry]
+        self.assertEqual(len(errors), 3)
+        self.assertEqual(errors[0]["step"], "after:segment")  # the segment was saved; only the scene is retried
+        self.assertIn("ExternalServiceError", errors[0]["error"])
+
 if __name__ == "__main__":
     unittest.main()

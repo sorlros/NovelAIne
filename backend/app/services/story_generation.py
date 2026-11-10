@@ -5,6 +5,9 @@ independent of the request, so the user may leave the screen or close the app:
 
     world -> spine (ending and major events) -> segment (first beat cards) -> opening (first scene)
 
+The first segment and the opening scene both need only the spine, so they run
+at the same time; the segment is saved first, then the scene.
+
 Each step saves its result and story_plans.step before the next one starts, so
 a run that dies (restart, deploy, sleep) resumes from the next step instead of
 starting over. A run holds a lease (lease_owner, lease_until). Another run may
@@ -13,6 +16,7 @@ on lease_owner, so two runs never work on the same story at once.
 """
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -48,6 +52,8 @@ MAX_WORLD_TRIES = 2
 MAX_SPINE_REPAIRS = 2
 MAX_SEGMENT_TRIES = 3
 LLM_TIMEOUT_SECONDS = 120.0
+RETRY_LOG_LIMIT = 50       # entries kept in story_plans.retry_log
+RETRY_LOG_PROBLEMS = 12    # problems kept per entry
 FAILURE_MESSAGE = "이야기의 뼈대를 만들지 못했습니다. 다시 시도해 주세요."
 ROLE_IN_STORY = {"protagonist": "protagonist", "ally": "supporting", "antagonist": "antagonist", "neutral": "npc"}
 
@@ -179,6 +185,18 @@ class Job:
     owner: str
     planner: Planner
     story: Dict[str, Any] = field(default_factory=dict)
+    retry_log: List[Dict[str, Any]] = field(default_factory=list)
+
+    def log_retry(self, step: str, problems: Sequence[str] = (), error: Optional[str] = None) -> None:
+        """Record why a step was asked again or failed, so the most common causes can be found and fixed."""
+        entry = {"step": step, "at": now_utc().isoformat()}
+        if problems:
+            entry["problems"] = [str(problem)[:300] for problem in problems[:RETRY_LOG_PROBLEMS]]
+        if error:
+            entry["error"] = error[:300]
+        logger.info("Story generation %s: %s retried: %s", self.story_id, step, entry.get("problems") or error)
+        self.retry_log = (self.retry_log + [entry])[-RETRY_LOG_LIMIT:]
+        self.save({"retry_log": self.retry_log})
 
     def save(self, fields: Dict[str, Any]) -> None:
         """Update the plan while still holding the lease. Also renews the lease."""
@@ -211,6 +229,7 @@ async def step_world(job: Job, plan: Dict[str, Any]) -> Dict[str, Any]:
         if not problems:
             break
         feedback = "; ".join(problems)
+        job.log_retry("world", problems)
     if problems:
         raise StepFailed(f"world: {feedback}")
     job.save({"world": world, "step": "world"})
@@ -227,6 +246,10 @@ def spine_problems(world: Dict[str, Any], events: List[Dict[str, Any]]) -> List[
     return problems
 
 
+def problem_lines(problems: Sequence[Tuple[str, str]]) -> List[str]:
+    return [f"{item_id}: {reason}" for item_id, reason in problems]
+
+
 async def step_spine(job: Job, plan: Dict[str, Any]) -> Dict[str, Any]:
     seed, model, complete = plan["seed"], job.planner.pro_model, job.planner.complete_json
     job.renew()
@@ -236,7 +259,7 @@ async def step_spine(job: Job, plan: Dict[str, Any]) -> Dict[str, Any]:
     for _ in range(MAX_SPINE_REPAIRS):
         if not problems:
             break
-        job.renew()
+        job.log_retry("spine", problem_lines(problems))
         facts, events = await repair_spine(world, seed, events, problems, model, complete)
         world = {**world, "facts": facts}
         problems = spine_problems(world, events)
@@ -278,7 +301,8 @@ async def step_segment(job: Job, plan: Dict[str, Any]) -> Dict[str, Any]:
         )
         if not problems:
             break
-        feedback = "; ".join(f"{card_id}: {reason}" for card_id, reason in problems)
+        feedback = "; ".join(problem_lines(problems))
+        job.log_retry("segment", problem_lines(problems))
     if problems:
         raise StepFailed(f"segment: {feedback}")
     save_first_beats(job, world["spine"][0], after_event, cards)
@@ -298,22 +322,39 @@ def fetch_scene_for_beat(client: Any, story_id: str, beat_id: str) -> Optional[D
     return response.data[0] if response.data else None
 
 
-async def step_opening(job: Job, plan: Dict[str, Any]) -> Dict[str, Any]:
-    """Write the first scene once the ending and the skeleton exist. A scene already written is kept."""
+async def draft_opening(job: Job, plan: Dict[str, Any]) -> str:
+    """Write the first scene from the first major event. Needs only the spine, so it can run beside the segment."""
     world = planned_world(plan)
+    card, state = spine_event_card(world["spine"][0]), build_initial_state(world)
+    job.renew()
+    return await write_scene(world, plan["seed"], build_brief(card, state, world["facts"]), scene_cast(card, state)[0],
+                             card.get("intensity"), job.story.get("llm_model") or job.planner.fast_model,
+                             job.planner.complete_text, is_opening=True)
+
+
+async def step_opening(job: Job, plan: Dict[str, Any], drafted: Optional[str] = None) -> Dict[str, Any]:
+    """Save the first scene. A scene already saved is kept; without a draft (a resumed run) it is written now."""
     beat = fetch_first_beat(job.client, job.story_id)
     if not fetch_scene_for_beat(job.client, job.story_id, beat["id"]):
-        card, state = beat["card"], build_initial_state(world)
-        brief = build_brief(card, state, world["facts"])
-        job.renew()
-        text = await write_scene(world, plan["seed"], brief, scene_cast(card, state)[0], card.get("intensity"),
-                                 job.story.get("llm_model") or job.planner.fast_model, job.planner.complete_text,
-                                 is_opening=True)
+        text = drafted or await draft_opening(job, plan)
         job.renew()
         insert_scene_record(job.client, job.story_id, content=text, sequence=1, scene_type="narrative",
-                            role="ai", beat_id=beat["id"], events=card["fixed"])
+                            role="ai", beat_id=beat["id"], events=beat["card"]["fixed"])
     job.save({"step": "opening"})
     return {**plan, "step": "opening"}
+
+
+async def step_segment_and_opening(job: Job, plan: Dict[str, Any]) -> Dict[str, Any]:
+    """Plan the first segment and write the opening scene at the same time. The segment is saved first."""
+    opening = asyncio.ensure_future(draft_opening(job, plan))
+    try:
+        plan = await step_segment(job, plan)
+    except BaseException:
+        opening.cancel()
+        with contextlib.suppress(BaseException):
+            await opening
+        raise
+    return await step_opening(job, plan, await opening)
 
 
 # ---------- finishing ----------
@@ -352,7 +393,7 @@ def finish_generation(job: Job, plan: Dict[str, Any]) -> None:
     job.save({"status": "ready", "error": None, "lease_owner": None, "lease_until": None})
 
 
-STEP_RUNNERS = {"none": step_world, "world": step_spine, "spine": step_segment, "segment": step_opening}
+STEP_RUNNERS = {"none": step_world, "world": step_spine, "spine": step_segment_and_opening, "segment": step_opening}
 
 
 async def advance(job: Job, plan: Dict[str, Any]) -> Dict[str, Any]:
@@ -400,6 +441,7 @@ async def run_claimed(job: Job, plan: Dict[str, Any]) -> None:
             attempts += 1
             plan = fetch_plan(job.client, job.story_id) or plan  # resume from the last step that was saved
             logger.exception("Story generation %s failed after step '%s' (attempt %s)", job.story_id, plan.get("step"), attempts)
+            job.log_retry(f"after:{plan.get('step')}", error=f"{type(error).__name__}: {error}")
             if record_failure(job, attempts, error):
                 return
 
@@ -419,7 +461,8 @@ async def run_generation(story_id: str, planner: Optional[Planner] = None, clien
         plan = claim_generation(client, story_id, owner)
         if not plan:
             return
-        job = Job(client, story_id, owner, planner or default_planner(), load_story(client, story_id))
+        job = Job(client, story_id, owner, planner or default_planner(), load_story(client, story_id),
+                  list(plan.get("retry_log") or []))
         await run_claimed(job, plan)
     except LeaseLost:
         logger.warning("Story generation %s stopped: lease lost or story deleted", story_id)

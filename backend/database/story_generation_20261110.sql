@@ -6,6 +6,11 @@
 ALTER TABLE public.story_plans
 ADD COLUMN IF NOT EXISTS lease_owner text;
 
+-- Why steps were asked again or failed: [{"step", "at", "problems" | "error"}].
+-- Kept to find the most common causes of slow generation. The app never sees it.
+ALTER TABLE public.story_plans
+ADD COLUMN IF NOT EXISTS retry_log jsonb NOT NULL DEFAULT '[]'::jsonb;
+
 -- Used to count a user's stories still being generated (concurrency limit).
 CREATE INDEX IF NOT EXISTS idx_stories_user_status
 ON public.stories(user_id, status);
