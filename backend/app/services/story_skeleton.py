@@ -42,6 +42,7 @@ from typing import Any, Collection, Dict, List, Optional, Sequence, Set, Tuple
 
 from app.services.story_state import (
     LOSS_RELATION_KINDS,
+    RELATION_LABELS,
     EventRejected,
     Event,
     State,
@@ -58,7 +59,8 @@ Problem = Tuple[str, str]  # (event or card id, or "story" for the whole spine, 
 
 # Fact importance. It is decided by where the fact was established, not by the model.
 CORE, CHOICE, SCENE = 3, 2, 1
-FACT_LABELS = {CORE: "Fact", CHOICE: "Reader's choice", SCENE: "Recently"}
+FACT_LABELS = {CORE: "사실", CHOICE: "독자의 선택", SCENE: "최근의 일"}
+ROLE_LABELS = {"protagonist": "주인공", "ally": "조력자", "antagonist": "적대자", "neutral": "주변 인물"}
 FACTS_IN_BRIEF = 8
 # Per-tier caps inside the brief, so minor facts cannot push out important ones.
 FACT_TIER_CAPS = {CHOICE: 4, SCENE: 2}
@@ -67,7 +69,7 @@ REAPPEAR_AFTER = 3
 
 CHARACTER_KEYS = ("who", "with", "a", "b", "to")
 NEED_PEOPLE_COUNT = {"alive": 1, "at": 1, "together": 2, "has": 1, "rel": 2, "fact": 0}
-WHOLE_STORY = "story"
+WHOLE_STORY = "전체"
 
 
 @dataclass
@@ -161,16 +163,16 @@ def _bystanders(characters: List[str], state: State) -> List[str]:
 
 def _state_lines(characters: List[str], bystanders: List[str], items: List[str], state: State) -> List[str]:
     chars = state["chars"]
-    described = [f"{name} ({chars[name]['at'] if chars[name]['alive'] else 'dead'})" for name in characters]
-    lines = ["Characters: " + ", ".join(described)]
+    described = [f"{name}({chars[name]['at'] if chars[name]['alive'] else '사망'})" for name in characters]
+    lines = ["인물: " + ", ".join(described)]
     if bystanders:
-        lines.append("Also present: " + ", ".join(bystanders))
-    lines += [f"Item: {item} — held by {state['items'].get(item, 'nobody')}" for item in items]
+        lines.append("같은 장소: " + ", ".join(bystanders))
+    lines += [f"물건: {item} — {state['items'].get(item, '소지자 없음')}" for item in items]
     for index, first in enumerate(characters):
         for second in characters[index + 1:]:
             kind = state["rels"].get(relation_key(first, second))
             if kind:
-                lines.append(f"Relation: {relation_key(first, second)} {kind}")
+                lines.append(f"관계: {relation_key(first, second)} {RELATION_LABELS.get(kind, kind)}")
     return lines
 
 
@@ -182,16 +184,38 @@ def build_brief(card: Card, state: State, core_facts: Collection[str] = ()) -> s
     """
     characters, items = scene_cast(card, state)
     bystanders = _bystanders(characters, state)
-    lines = [f"Scene: {card['id']} {card.get('title', '')}".rstrip()]
+    lines = [f"장면: {card['id']} {card.get('title', '')}".rstrip()]
     lines += _state_lines(characters, bystanders, items, state)
     nearby = set(characters) | set(bystanders)
     lines += [f"{FACT_LABELS[tier]}: {name}" for tier, name in select_brief_facts(card, state, core_facts, nearby)]
-    for event in card.get("fixed") or []:
-        lines.append("Must happen: " + " ".join(f"{key}={value}" for key, value in event.items()))
-    for key, label in (("open", "Open"), ("plants", "Plants"), ("pays", "Pays")):
+    lines += [f"반드시: {describe_event(event)}" for event in card.get("fixed") or []]
+    if card.get("question"):
+        lines.append(f"독자에게 묻는 것: {card['question']}")
+    for key, label in (("open", "열린 부분"), ("plants", "복선 심기"), ("pays", "복선 회수")):
         if card.get(key):
             lines.append(f"{label}: " + ", ".join(card[key]))
     return "\n".join(lines)
+
+
+def describe_event(event: Event) -> str:
+    """One event as a sentence for a writer."""
+    event_type = event.get("type")
+    if event_type == "act":
+        partner = f" {event['with']}와(과) 마주하여" if event.get("with") else ""
+        return f"{event.get('who')} 이(가){partner} 직접 행동한다"
+    if event_type == "move":
+        return f"{event.get('who')} 이(가) {event.get('to')}(으)로 간다"
+    if event_type == "die":
+        return f"{event.get('who')} 이(가) 죽는다"
+    if event_type == "give":
+        return f"{event.get('who')} 이(가) {event.get('to')}에게 {event.get('item')} 을(를) 건넨다"
+    if event_type == "relate":
+        kind = RELATION_LABELS.get(event.get("kind"), event.get("kind"))
+        return f"{event.get('a')} 와(과) {event.get('b')} 의 관계가 {kind}(으)로 바뀐다"
+    if event_type == "mark":
+        people = ", ".join(name for name in (event.get("who"), event.get("with")) if name)
+        return f"'{event.get('fact')}' 이(가) 성립한다({people})"
+    return str(event)
 
 
 def _check_used_items(card: Card, state: State) -> List[str]:
@@ -200,9 +224,9 @@ def _check_used_items(card: Card, state: State) -> List[str]:
     for item in card.get("uses") or []:
         holder = state["items"].get(item)
         if item not in state["items"]:
-            errors.append(f"'{item}' is not a defined item")
+            errors.append(f"'{item}' 은(는) 정의되지 않은 물건이다")
         elif holder not in characters or not state["chars"][holder]["alive"]:
-            errors.append(f"nobody in this scene holds '{item}' (holder: {holder})")
+            errors.append(f"이 장면의 인물 가운데 '{item}' 을(를) 가진 사람이 없다(소지자: {holder})")
     return errors
 
 
@@ -229,13 +253,15 @@ def walk_cards(
 def describe_need(need: Need) -> str:
     kind, *args = need
     templates = {
-        "alive": "{0} is alive",
-        "at": "{0} is at {1}",
-        "together": "{0} and {1} are in the same place",
-        "has": "{0} holds {1}",
-        "rel": "the relation between {0} and {1} is {2}",
-        "fact": "'{0}' is established",
+        "alive": "{0} 이(가) 살아 있다",
+        "at": "{0} 이(가) {1}에 있다",
+        "together": "{0} 와(과) {1} 이(가) 같은 장소에 있다",
+        "has": "{0} 이(가) {1} 을(를) 갖고 있다",
+        "rel": "{0} 와(과) {1} 의 관계가 {2}",
+        "fact": "'{0}' 이(가) 성립해 있다",
     }
+    if kind == "rel":
+        args = [*args[:2], RELATION_LABELS.get(args[2], args[2])]
     return templates.get(kind, f"{kind} {args}").format(*args)
 
 
@@ -248,17 +274,17 @@ def find_unknown_name(state: State, need: Need, core_facts: Optional[Collection[
     """Return a reason if the need refers to a name that is not defined."""
     kind, *args = need
     if kind not in NEED_PEOPLE_COUNT:
-        return f"undefined need: {kind}"
+        return f"정의되지 않은 조건: {kind}"
     if kind == "fact":
         # When the spine fixed a fact list, the name must be on it. This catches names that drift.
-        return f"'{args[0]}' is not a defined fact" if core_facts is not None and args[0] not in core_facts else None
+        return f"'{args[0]}' 은(는) 정의되지 않은 사실이다" if core_facts is not None and args[0] not in core_facts else None
     for name in _need_people(need):
         if name not in state["chars"]:
-            return f"'{name}' is not a character"
+            return f"'{name}' 은(는) 등장인물이 아니다"
     if kind == "at" and args[1] not in state["locations"]:
-        return f"'{args[1]}' is not a defined location"
+        return f"'{args[1]}' 은(는) 정의되지 않은 장소다"
     if kind == "has" and args[1] not in state["items"]:
-        return f"'{args[1]}' is not a defined item"
+        return f"'{args[1]}' 은(는) 정의되지 않은 물건이다"
     return None
 
 
@@ -300,8 +326,8 @@ def _explain_lost_need(state: State, need: Need) -> str:
     kind, *args = need
     dead = [name for name in _need_people(need) if not state["chars"][name]["alive"]]
     if dead:
-        return f"{dead[0]} is already dead"
-    return f"{state['items'][args[1]]}, who holds {args[1]}, is already dead"  # only "has" reaches here
+        return f"{dead[0]} 은(는) 이미 죽었다"
+    return f"{args[1]} 을(를) 가진 {state['items'][args[1]]} 이(가) 이미 죽었다"  # only "has" reaches here
 
 
 def _assume_need(state: State, need: Need) -> State:
@@ -351,7 +377,7 @@ def _require_need(
     if need_is_recoverable(state, need):
         result.gaps.append(need)
         return _assume_need(state, need)
-    result.errors.append(f"{_explain_lost_need(state, need)} — needed: {describe_need(need)}")
+    result.errors.append(f"{_explain_lost_need(state, need)} — 필요한 조건: {describe_need(need)}")
     return state
 
 
@@ -367,11 +393,11 @@ def _enter_spine_event(
                 state = _require_need(state, need, result, core_facts)
             state = apply_event(state, event, "spine")
         except EventRejected as rejection:
-            subject = str(rejection).split(" is ")[0]
+            subject = str(rejection).split(" 은(는)")[0]
             if not any(subject in known_error for known_error in result.errors):  # do not report one cause twice
                 result.errors.append(str(rejection))
         except KeyError as missing_key:
-            result.errors.append(f"the event is missing a required value: {missing_key}")
+            result.errors.append(f"사건에 필요한 값이 없다: {missing_key}")
     return result, state
 
 
@@ -417,18 +443,18 @@ def _check_order(spine_events: Sequence[SpineEvent]) -> List[Problem]:
     for index, spine_event in enumerate(spine_events):
         event_id = str(spine_event.get("id"))
         if event_id in seen_ids:
-            errors.append((event_id, "the event id is used twice"))
+            errors.append((event_id, "사건 ID 가 겹친다"))
         day = spine_event.get("when")
         if not isinstance(day, int):
-            errors.append((event_id, "'when' is not an integer"))
+            errors.append((event_id, "시점(when)이 정수가 아니다"))
         elif latest_day is not None and day < latest_day:
-            errors.append((event_id, f"time runs backwards (day {latest_day} -> day {day})"))
+            errors.append((event_id, f"시간이 거꾸로 간다({latest_day}일 → {day}일)"))
         else:
             latest_day = day
         causes = spine_event.get("because") or []
         if index and not causes:
-            errors.append((event_id, "it has no cause (because)"))
-        errors += [(event_id, f"cause '{cause}' is not an earlier event") for cause in causes if cause not in seen_ids]
+            errors.append((event_id, "원인(because)이 없다"))
+        errors += [(event_id, f"원인 '{cause}' 이(가) 앞선 사건이 아니다") for cause in causes if cause not in seen_ids]
         seen_ids.add(event_id)
     return errors
 
@@ -444,10 +470,10 @@ def _check_fact_names(
         for event in spine_event.get("events") or []
         if event.get("type") == "mark"
     ]
-    errors = [(event_id, f"'{name}' is not a defined fact") for event_id, name in established if name not in core_facts]
+    errors = [(event_id, f"'{name}' 은(는) 정의되지 않은 사실이다") for event_id, name in established if name not in core_facts]
     needed = {need[1] for spine_event in spine_events for need in spine_event.get("needs") or [] if need[0] == "fact"}
     used = {name for _, name in established} | needed
-    warnings = [f"fact '{name}' is not used by any major event" for name in core_facts if name not in used]
+    warnings = [f"사실 '{name}' 이(가) 어느 주요 사건에서도 쓰이지 않는다" for name in core_facts if name not in used]
     return errors, warnings
 
 
@@ -459,11 +485,11 @@ def _check_foreshadowing(spine_events: Sequence[SpineEvent]) -> Tuple[List[Probl
         event_id = str(spine_event.get("id"))
         for hook in spine_event.get("pays") or []:
             if hook not in planted:
-                errors.append((event_id, f"it pays off a hook that was never planted: {hook}"))
+                errors.append((event_id, f"심지 않은 복선을 회수한다: {hook}"))
             paid.add(hook)
         for hook in spine_event.get("plants") or []:
             planted.setdefault(hook, event_id)
-    warnings = [f"{event_id}: hook '{hook}' is never paid off" for hook, event_id in planted.items() if hook not in paid]
+    warnings = [f"{event_id}: 복선 '{hook}' 이(가) 끝까지 회수되지 않는다" for hook, event_id in planted.items() if hook not in paid]
     return errors, warnings
 
 
@@ -480,10 +506,10 @@ def check_spine(world: Dict[str, Any]) -> SpineReport:
     warnings += hook_warnings
 
     appearing = {name for spine_event in spine_events for name in spine_event_cast(spine_event, world["characters"])}
-    warnings += [f"{name} does not appear in any major event" for name in world["characters"] if name not in appearing]
+    warnings += [f"{name} 이(가) 어느 주요 사건에도 나오지 않는다" for name in world["characters"] if name not in appearing]
     for index, names in enumerate(characters_to_reintroduce(world)):
         event_id = spine_events[index]["id"]
-        warnings += [f"{event_id}: {name} returns after a long absence and must be reintroduced first" for name in names]
+        warnings += [f"{event_id}: {name} 이(가) 오랜만에 나온다. 앞 구간에서 다시 등장시켜야 한다" for name in names]
     return SpineReport(errors, warnings, results)
 
 
@@ -530,11 +556,11 @@ def _check_event_fields(spine_events: Sequence[SpineEvent], hero: Optional[str])
         event_id = str(spine_event.get("id"))
         intensity = spine_event.get("intensity")
         if not isinstance(intensity, int) or not 1 <= intensity <= 5:
-            problems.append((event_id, "intensity is not an integer from 1 to 5"))
+            problems.append((event_id, "강도(intensity)가 1~5 의 정수가 아니다"))
         elif intensity >= 3 and not (spine_event.get("cost") or "").strip():
-            problems.append((event_id, "intensity is 3 or more but the cost is empty"))
+            problems.append((event_id, "강도 3 이상인 사건인데 대가(cost)가 비어 있다"))
         if hero in event_actors(spine_event) and not (spine_event.get("dilemma") or "").strip():
-            problems.append((event_id, "the protagonist acts but the dilemma is empty"))
+            problems.append((event_id, "주인공이 행동하는 사건인데 딜레마(dilemma)가 비어 있다"))
     return problems
 
 
@@ -549,7 +575,7 @@ def _check_ending_cost(final_events: Sequence[SpineEvent], hero: Optional[str]) 
                 return []
             if event_type == "give" and (hero is None or event.get("who") == hero):
                 return []
-    return [(WHOLE_STORY, f"the last {len(final_events)} events hold no irreversible cost (a death, a broken relation, the protagonist giving something up)")]
+    return [(WHOLE_STORY, f"마지막 {len(final_events)}개 사건에 되돌릴 수 없는 대가(죽음, 관계의 단절, 주인공이 무언가를 내놓음)가 없다")]
 
 
 def _check_agency(world: Dict[str, Any], acting: Sequence[List[str]]) -> List[Problem]:
@@ -558,20 +584,20 @@ def _check_agency(world: Dict[str, Any], acting: Sequence[List[str]]) -> List[Pr
     hero = world.get("viewpoint")
     if hero:
         if acting and hero not in acting[0]:
-            problems.append((WHOLE_STORY, "the first event does not involve the protagonist (the opening scene must be theirs)"))
+            problems.append((WHOLE_STORY, "첫 사건에서 주인공이 행동하지 않는다(첫 장면은 주인공의 장면이어야 한다)"))
         hero_events = sum(hero in actors for actors in acting)
         if hero_events * 2 < event_count:
-            problems.append((WHOLE_STORY, f"the protagonist acts in only {hero_events} of {event_count} events (at least half needed)"))
+            problems.append((WHOLE_STORY, f"주인공이 직접 행동하는 사건이 {event_count}개 중 {hero_events}개뿐이다(절반 이상 필요)"))
     roles = {name: character.get("role") for name, character in world["characters"].items()}
     antagonists = [name for name, role in roles.items() if role == "antagonist"]
     if antagonists:
         moves_first = sum(bool(actors) and actors[0] in antagonists for actors in acting)
         required = max(1, event_count // 5)
         if moves_first < required:
-            problems.append((WHOLE_STORY, f"an antagonist moves first in only {moves_first} events ({required} or more needed)"))
+            problems.append((WHOLE_STORY, f"적대자가 먼저 움직이는 사건이 {moves_first}개뿐이다({required}개 이상 필요)"))
     for name, role in roles.items():
         if role in ("ally", "antagonist") and not any(name in actors for actors in acting):
-            problems.append((WHOLE_STORY, f"{name} ({role}) never acts in any event"))
+            problems.append((WHOLE_STORY, f"{name}({ROLE_LABELS.get(role, role)}) 이(가) 어느 사건에서도 직접 행동하지 않는다"))
     return problems
 
 
@@ -583,12 +609,12 @@ def _check_intensity_curve(spine_events: Sequence[SpineEvent], third: int) -> Li
     problems: List[Problem] = []
     peak = max(range(event_count), key=lambda index: (levels[index], index))  # the highest event, the later one on ties
     if peak < event_count - third:
-        problems.append((WHOLE_STORY, f"the most intense event ({spine_events[peak].get('id')}) is not among the last {third}"))
+        problems.append((WHOLE_STORY, f"강도가 가장 높은 사건({spine_events[peak].get('id')})이 마지막 {third}개 안에 없다"))
     if sum(levels[-third:]) / third <= sum(levels[:third]) / third:
-        problems.append((WHOLE_STORY, "intensity does not rise (the last third must average higher than the first third)"))
+        problems.append((WHOLE_STORY, "뒤로 갈수록 강도가 오르지 않는다(마지막 3분의 1의 평균이 처음 3분의 1보다 높아야 한다)"))
     second_half = range(max(1, math.ceil(event_count / 2)), peak)
     if not any(levels[index] < levels[index - 1] for index in second_half):
-        problems.append((WHOLE_STORY, "there is no dip in intensity in the second half before the climax"))
+        problems.append((WHOLE_STORY, "후반부에 절정을 앞두고 강도가 한 번 꺾이는 사건이 없다"))
     return problems
 
 

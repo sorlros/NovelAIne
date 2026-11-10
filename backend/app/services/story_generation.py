@@ -35,7 +35,7 @@ from app.services.story_planner import (
     repair_spine,
     write_scene,
 )
-from app.services.story_skeleton import build_brief, check_craft, check_spine, scene_cast, walk_spine
+from app.services.story_skeleton import WHOLE_STORY, build_brief, check_craft, check_spine, scene_cast, walk_spine
 from app.services.story_state import build_initial_state
 
 logger = logging.getLogger(__name__)
@@ -223,7 +223,7 @@ def spine_problems(world: Dict[str, Any], events: List[Dict[str, Any]]) -> List[
     planned = {**world, "spine": events}
     problems = list(check_spine(planned).errors) + check_craft(planned)
     if len(events) < 2:
-        problems.append(("story", "there must be at least two major events"))
+        problems.append((WHOLE_STORY, "주요 사건이 두 개 이상이어야 한다"))
     return problems
 
 
@@ -251,16 +251,17 @@ def planned_world(plan: Dict[str, Any]) -> Dict[str, Any]:
     return {**plan["world"], "spine": plan["spine"]["events"]}
 
 
-def spine_event_card(event: Dict[str, Any], choices: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+def spine_event_card(event: Dict[str, Any], choices: Sequence[Dict[str, Any]] = (), question: str = "") -> Dict[str, Any]:
     keys = ("id", "title", "meaning", "intensity", "needs", "plants", "pays")
-    return {**{key: event.get(key) for key in keys}, "fixed": event["events"], "choices": list(choices)}
+    card = {**{key: event.get(key) for key in keys}, "fixed": event["events"], "choices": list(choices)}
+    return {**card, "question": question} if question else card
 
 
-def save_first_beats(job: Job, first_event: Dict[str, Any], after_event: Sequence[Dict[str, Any]], cards: Sequence[Dict[str, Any]]) -> None:
+def save_first_beats(job: Job, first_event: Dict[str, Any], after_event: Dict[str, Any], cards: Sequence[Dict[str, Any]]) -> None:
     """Replace the story's beat cards: the first major event, then the first segment."""
     job.client.table("story_beats").delete().eq("story_id", job.story_id).execute()
-    rows = [{"story_id": job.story_id, "seq": 1, "spine_event_id": first_event["id"],
-             "card": spine_event_card(first_event, after_event), "status": "planned"}]
+    card = spine_event_card(first_event, after_event["choices"], after_event.get("question") or "")
+    rows = [{"story_id": job.story_id, "seq": 1, "spine_event_id": first_event["id"], "card": card, "status": "planned"}]
     rows += [{"story_id": job.story_id, "seq": seq, "spine_event_id": None, "card": card, "status": "planned"}
              for seq, card in enumerate(cards, 2)]
     job.client.table("story_beats").insert(rows).execute()

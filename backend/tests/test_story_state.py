@@ -67,19 +67,19 @@ class ApplyEventTest(unittest.TestCase):
 
     def test_dead_character_cannot_act_move_or_die_again(self):
         dead = apply_event(self.state, {"type": "die", "who": "도윤"})
-        self.assert_rejected({"type": "act", "who": "도윤"}, "already dead", dead)
-        self.assert_rejected({"type": "move", "who": "도윤", "to": "왕성"}, "already dead", dead)
-        self.assert_rejected({"type": "die", "who": "도윤"}, "already dead", dead)
-        self.assert_rejected({"type": "mark", "who": "도윤", "fact": "도윤이 비밀을 털어놓았다"}, "already dead", dead)
+        self.assert_rejected({"type": "act", "who": "도윤"}, "이미 죽었다", dead)
+        self.assert_rejected({"type": "move", "who": "도윤", "to": "왕성"}, "이미 죽었다", dead)
+        self.assert_rejected({"type": "die", "who": "도윤"}, "이미 죽었다", dead)
+        self.assert_rejected({"type": "mark", "who": "도윤", "fact": "도윤이 비밀을 털어놓았다"}, "이미 죽었다", dead)
 
     def test_preconditions_are_checked(self):
-        self.assert_rejected({"type": "act", "who": "카엘", "with": "도윤"}, "not in the same place")
-        self.assert_rejected({"type": "give", "who": "카엘", "to": "세라", "item": "은빛 단검"}, "does not hold")
-        self.assert_rejected({"type": "move", "who": "카엘", "to": "달"}, "not a defined location")
-        self.assert_rejected({"type": "relate", "a": "카엘", "b": "세라", "kind": "rival"}, "not a defined relation")
-        self.assert_rejected({"type": "act", "who": "하린"}, "not a character")
-        self.assert_rejected({"type": "revive", "who": "도윤"}, "undefined event type")
-        self.assert_rejected({"type": "move", "who": "카엘"}, "missing a required value")
+        self.assert_rejected({"type": "act", "who": "카엘", "with": "도윤"}, "같은 장소에 없다")
+        self.assert_rejected({"type": "give", "who": "카엘", "to": "세라", "item": "은빛 단검"}, "갖고 있지 않다")
+        self.assert_rejected({"type": "move", "who": "카엘", "to": "달"}, "정의되지 않은 장소")
+        self.assert_rejected({"type": "relate", "a": "카엘", "b": "세라", "kind": "rival"}, "정의되지 않은 관계")
+        self.assert_rejected({"type": "act", "who": "하린"}, "등장인물이 아니다")
+        self.assert_rejected({"type": "revive", "who": "도윤"}, "정의되지 않은 사건 종류")
+        self.assert_rejected({"type": "move", "who": "카엘"}, "필요한 값이 없다")
 
     def test_unknown_origin_is_a_programming_error(self):
         with self.assertRaises(ValueError):

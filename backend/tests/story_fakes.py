@@ -191,10 +191,13 @@ def choices(prefix):
 
 
 SEGMENT = {
+    "after_event_question": "세라의 망설임을 캐물을 것인가",
     "after_event_choices": choices("출정 전야"),
     "scenes": [
-        {"title": "길을 나서다", "changes": [change("move", "카엘", "숲")], "open": ["길에서 나누는 말"], "choices": choices("길")},
-        {"title": "숲의 오두막", "changes": [change("act", "카엘", "도윤")], "open": ["도윤의 첫마디"], "choices": choices("오두막")},
+        {"title": "길을 나서다", "changes": [change("move", "카엘", "숲")], "open": ["길에서 나누는 말"],
+         "question": "세라에게 무엇을 말할 것인가", "choices": choices("길")},
+        {"title": "숲의 오두막", "changes": [change("act", "카엘", "도윤")], "open": ["도윤의 첫마디"],
+         "question": "도윤을 믿을 것인가", "choices": choices("오두막")},
     ],
 }
 # The scenes never bring 카엘 to the forest, so the next major event cannot start.
@@ -213,11 +216,11 @@ class FakeModel:
 
     @staticmethod
     def kind_of(system: str) -> str:
-        if "fixing problems" in system:
+        if "문제를 고치는 단계" in system:
             return "repair"
-        if "major events from the given world" in system:
+        if "주요 사건을 설계" in system:
             return "spine"
-        if "connect two major events" in system:
+        if "두 주요 사건 사이를 잇는" in system:
             return "segment"
         return "world"
 

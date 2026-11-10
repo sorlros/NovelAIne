@@ -93,8 +93,8 @@ class FullRunTest(unittest.IsolatedAsyncioTestCase):
     def test_the_scene_writer_never_sees_the_ending(self):
         scene_prompt = next(user for kind, _, user in self.model.calls if kind == "scene")
         self.assertNotIn(SPINE["ending"], scene_prompt)
-        self.assertIn("Must happen: type=act who=카엘 with=세라", scene_prompt)
-        self.assertIn("Plants: 세라의 망설임", scene_prompt)
+        self.assertIn("반드시: 카엘 이(가) 세라와(과) 마주하여 직접 행동한다", scene_prompt)
+        self.assertIn("복선 심기: 세라의 망설임", scene_prompt)
 
     def test_status_for_the_app_hides_the_plan(self):
         self.assertEqual(generation_status(self.client.plan(self.story_id)),
@@ -108,7 +108,7 @@ class RepairAndFailureTest(unittest.IsolatedAsyncioTestCase):
         await run_generation(story_id, planner_for(model), client)
         self.assertEqual(model.kinds(), ["world", "spine", "repair", "segment", "scene"])
         repair_prompt = model.calls[2][2]
-        self.assertIn("e04: it has no cause (because)", repair_prompt)
+        self.assertIn("e04: 원인(because)이 없다", repair_prompt)
         self.assertEqual(client.plan(story_id)["status"], "ready")
 
     async def test_a_segment_that_never_arrives_is_asked_again_with_what_is_missing(self):
@@ -116,7 +116,7 @@ class RepairAndFailureTest(unittest.IsolatedAsyncioTestCase):
         story_id = new_story(client)
         await run_generation(story_id, planner_for(model), client)
         self.assertEqual(model.kinds(), ["world", "spine", "segment", "segment", "scene"])
-        self.assertIn("still unmet when the segment ends: 도윤 and 카엘 are in the same place", model.calls[3][2])
+        self.assertIn("구간이 끝나도 갖춰지지 않는다: 도윤 와(과) 카엘 이(가) 같은 장소에 있다", model.calls[3][2])
 
     async def test_three_failed_attempts_give_up_with_a_user_facing_message(self):
         client = FakeClient()

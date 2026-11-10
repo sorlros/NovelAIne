@@ -94,12 +94,12 @@ class SpineTest(unittest.TestCase):
 
     def test_a_dead_character_is_an_error_not_a_gap(self):
         event_by_id(self.world, "e05")["needs"].append(["alive", "도윤"])
-        self.assertIn(("e05", "도윤 is already dead — needed: 도윤 is alive"), check_spine(self.world).errors)
+        self.assertIn(("e05", "도윤 은(는) 이미 죽었다 — 필요한 조건: 도윤 이(가) 살아 있다"), check_spine(self.world).errors)
 
     def test_an_item_held_by_the_dead_cannot_be_handed_over(self):
         event_by_id(self.world, "e02")["events"] = [{"type": "act", "who": "카엘", "with": "도윤"}]
         errors = check_spine(self.world).errors
-        self.assertIn(("e05", "도윤, who holds 은빛 단검, is already dead — needed: 카엘 holds 은빛 단검"), errors)
+        self.assertIn(("e05", "은빛 단검 을(를) 가진 도윤 이(가) 이미 죽었다 — 필요한 조건: 카엘 이(가) 은빛 단검 을(를) 갖고 있다"), errors)
 
     def test_order_cause_and_ids_are_checked(self):
         event_by_id(self.world, "e03")["because"] = []
@@ -107,17 +107,17 @@ class SpineTest(unittest.TestCase):
         event_by_id(self.world, "e04")["when"] = 2
         event_by_id(self.world, "e05")["id"] = "e04"
         errors = check_spine(self.world).errors
-        self.assertIn(("e03", "it has no cause (because)"), errors)
-        self.assertIn(("e02", "cause 'e04' is not an earlier event"), errors)
-        self.assertIn(("e04", "time runs backwards (day 3 -> day 2)"), errors)
-        self.assertIn(("e04", "the event id is used twice"), errors)
+        self.assertIn(("e03", "원인(because)이 없다"), errors)
+        self.assertIn(("e02", "원인 'e04' 이(가) 앞선 사건이 아니다"), errors)
+        self.assertIn(("e04", "시간이 거꾸로 간다(3일 → 2일)"), errors)
+        self.assertIn(("e04", "사건 ID 가 겹친다"), errors)
 
     def test_fact_names_must_be_on_the_spine_list(self):
         event_by_id(self.world, "e05")["needs"].append(["fact", "세라의 배신이 드러남"])
         event_by_id(self.world, "e03")["events"].append({"type": "mark", "who": "카엘", "fact": "카엘이 복수를 맹세했다"})
         errors = check_spine(self.world).errors
-        self.assertIn(("e05", "'세라의 배신이 드러남' is not a defined fact"), errors)
-        self.assertIn(("e03", "'카엘이 복수를 맹세했다' is not a defined fact"), errors)
+        self.assertIn(("e05", "'세라의 배신이 드러남' 은(는) 정의되지 않은 사실이다"), errors)
+        self.assertIn(("e03", "'카엘이 복수를 맹세했다' 은(는) 정의되지 않은 사실이다"), errors)
 
     def test_an_unset_fact_becomes_a_gap(self):
         event_by_id(self.world, "e04")["events"] = [{"type": "relate", "a": "세라", "b": "카엘", "kind": "enemy"}]
@@ -129,9 +129,9 @@ class SpineTest(unittest.TestCase):
         self.world["spine"][0]["plants"] = ["왕의 밀명"]
         self.world["characters"]["하린"] = {"at": "항구"}
         report = check_spine(self.world)
-        self.assertIn(("e04", "it pays off a hook that was never planted: 세라의 망설임"), report.errors)
+        self.assertIn(("e04", "심지 않은 복선을 회수한다: 세라의 망설임"), report.errors)
         self.assertTrue(any("왕의 밀명" in warning for warning in report.warnings))
-        self.assertIn("하린 does not appear in any major event", report.warnings)
+        self.assertIn("하린 이(가) 어느 주요 사건에도 나오지 않는다", report.warnings)
 
     def test_segment_task_lists_gaps_and_days(self):
         self.assertEqual(segment_task(self.world, 3), {"gaps": [("together", "세라", "카엘")], "days": 7, "reintroduce": []})
@@ -160,11 +160,11 @@ class SegmentTest(unittest.TestCase):
         cards = [{"id": "s1", "fixed": [{"type": "act", "who": "카엘", "with": "도윤"}]}]
         errors, _ = check_segment(self.state, cards, self.world["spine"][1], self.world["facts"])
         self.assertEqual(errors[0][0], "s1")
-        self.assertIn("not in the same place", errors[0][1])
+        self.assertIn("같은 장소에 없다", errors[0][1])
 
     def test_a_used_item_must_be_held_by_someone_in_the_scene(self):
         results, _ = walk_cards(self.state, [{"id": "s1", "fixed": [{"type": "act", "who": "카엘"}], "uses": ["은빛 단검"]}])
-        self.assertEqual(results[0].errors, ["nobody in this scene holds '은빛 단검' (holder: 도윤)"])
+        self.assertEqual(results[0].errors, ["이 장면의 인물 가운데 '은빛 단검' 을(를) 가진 사람이 없다(소지자: 도윤)"])
 
 
 class ChoiceTest(unittest.TestCase):
@@ -209,29 +209,29 @@ class BriefTest(unittest.TestCase):
         _, end = walk_spine(self.state, self.world["spine"][:4], self.world["facts"])
         end = apply_event(end, {"type": "move", "who": "세라", "to": "항구"})
         brief = build_brief({"id": "b", "title": "추격", "fixed": [{"type": "move", "who": "카엘", "to": "항구"}]}, end)
-        self.assertNotIn("Also present", brief)  # 세라 already left for the harbour
+        self.assertNotIn("같은 장소", brief)  # 세라 already left for the harbour
         self.assertNotIn("단검", brief)  # the dagger plays no part in this scene
-        self.assertNotIn("Relation", brief)
-        self.assertIn("Fact: " + BETRAYAL_REVEALED, brief)  # the betrayal involves 카엘, so it travels with him
+        self.assertNotIn("관계:", brief)
+        self.assertIn("사실: " + BETRAYAL_REVEALED, brief)  # the betrayal involves 카엘, so it travels with him
 
     def test_bystanders_relations_and_items_are_included(self):
         _, end = walk_spine(self.state, self.world["spine"][:2], self.world["facts"])
         card = {"id": "b", "title": "숲", "fixed": [{"type": "act", "who": "카엘", "with": "도윤"}], "uses": ["은빛 단검"]}
         brief = build_brief(card, end)
-        self.assertIn("Characters: 카엘 (숲), 도윤 (숲)", brief)
-        self.assertIn("Item: 은빛 단검 — held by 카엘", brief)
-        self.assertIn("Relation: 도윤·카엘 ally", brief)
+        self.assertIn("인물: 카엘(숲), 도윤(숲)", brief)
+        self.assertIn("물건: 은빛 단검 — 카엘", brief)
+        self.assertIn("관계: 도윤·카엘 동맹", brief)
 
     def test_facts_are_ordered_by_tier_and_labelled(self):
         state = mark(self.state, "scene", "카엘", "카엘이 말에게 물을 먹였다")
         state = mark(state, "choice", "카엘", "카엘이 돌아오겠다고 약속했다")
         state = mark(state, "scene", "세라", BETRAYAL_REVEALED)  # on the spine list, so core whoever set it
         brief = build_brief(SCENE_CARD, state, self.world["facts"])
-        fact_lines = [line for line in brief.split("\n") if line.startswith(("Fact", "Reader", "Recently"))]
+        fact_lines = [line for line in brief.split("\n") if line.startswith(("사실", "독자의 선택", "최근의 일"))]
         self.assertEqual(fact_lines, [
-            "Fact: " + BETRAYAL_REVEALED,  # tied to 세라, who is at the same place as 카엘
-            "Reader's choice: 카엘이 돌아오겠다고 약속했다",
-            "Recently: 카엘이 말에게 물을 먹였다",
+            "사실: " + BETRAYAL_REVEALED,  # tied to 세라, who is at the same place as 카엘
+            "독자의 선택: 카엘이 돌아오겠다고 약속했다",
+            "최근의 일: 카엘이 말에게 물을 먹였다",
         ])
         away = apply_event(state, {"type": "move", "who": "세라", "to": "항구"})
         self.assertNotIn(BETRAYAL_REVEALED, build_brief(SCENE_CARD, away, self.world["facts"]))
@@ -242,17 +242,17 @@ class BriefTest(unittest.TestCase):
         for index in range(20):
             state = mark(state, "scene", "카엘", f"사소한 일 {index}")
         brief = build_brief(SCENE_CARD, state, self.world["facts"])
-        self.assertIn("Fact: 핵심 사실", brief)
-        self.assertIn("Reader's choice: 카엘이 돌아오겠다고 약속했다", brief)
-        recent = [line for line in brief.split("\n") if line.startswith("Recently")]
-        self.assertEqual(recent, ["Recently: 사소한 일 18", "Recently: 사소한 일 19"])
+        self.assertIn("사실: 핵심 사실", brief)
+        self.assertIn("독자의 선택: 카엘이 돌아오겠다고 약속했다", brief)
+        recent = [line for line in brief.split("\n") if line.startswith("최근의 일")]
+        self.assertEqual(recent, ["최근의 일: 사소한 일 18", "최근의 일: 사소한 일 19"])
 
     def test_reader_choices_are_capped_to_the_latest_four(self):
         state = self.state
         for index in range(6):
             state = mark(state, "choice", "카엘", f"선택 {index}")
-        choices = [line for line in build_brief(SCENE_CARD, state).split("\n") if line.startswith("Reader's choice")]
-        self.assertEqual(choices, [f"Reader's choice: 선택 {index}" for index in range(2, 6)])
+        choices = [line for line in build_brief(SCENE_CARD, state).split("\n") if line.startswith("독자의 선택")]
+        self.assertEqual(choices, [f"독자의 선택: 선택 {index}" for index in range(2, 6)])
 
     def test_a_needed_fact_is_always_included(self):
         state = mark(self.state, "spine", "세라", BETRAYAL_REVEALED)
@@ -260,8 +260,8 @@ class BriefTest(unittest.TestCase):
             state = mark(state, "spine", "카엘", f"핵심 {index}")
         card = {**SCENE_CARD, "needs": [["fact", BETRAYAL_REVEALED]]}
         brief = build_brief(card, state, self.world["facts"])
-        self.assertIn("Fact: " + BETRAYAL_REVEALED, brief)
-        self.assertEqual(len([line for line in brief.split("\n") if line.startswith("Fact:")]), 8)
+        self.assertIn("사실: " + BETRAYAL_REVEALED, brief)
+        self.assertEqual(len([line for line in brief.split("\n") if line.startswith("사실:")]), 8)
 
     def test_scene_facts_are_forgotten_after_a_major_event(self):
         state = mark(self.state, "scene", "카엘", "카엘이 말에게 물을 먹였다")
@@ -284,34 +284,34 @@ class CraftTest(unittest.TestCase):
 
     def test_an_ending_without_cost_is_flagged(self):
         event_by_id(self.world, "e04")["events"] = [{"type": "act", "who": "세라", "with": "카엘"}]
-        self.assertTrue(any("no irreversible cost" in problem for problem in self.problems()))
+        self.assertTrue(any("되돌릴 수 없는 대가" in problem for problem in self.problems()))
         event_by_id(self.world, "e05")["events"].append({"type": "give", "who": "카엘", "to": "세라", "item": "은빛 단검"})
-        self.assertFalse(any("no irreversible cost" in problem for problem in self.problems()))
+        self.assertFalse(any("되돌릴 수 없는 대가" in problem for problem in self.problems()))
 
     def test_a_passive_protagonist_and_idle_cast_are_flagged(self):
         event_by_id(self.world, "e01")["events"] = [{"type": "act", "who": "세라"}]
         event_by_id(self.world, "e05")["events"] = [{"type": "act", "who": "세라", "with": "카엘"}]
         event_by_id(self.world, "e02")["events"] = [{"type": "act", "who": "카엘", "with": "도윤"}]
         problems = self.problems()
-        self.assertIn("the protagonist acts in only 2 of 5 events (at least half needed)", problems)
-        self.assertIn("도윤 (ally) never acts in any event", problems)
+        self.assertIn("주인공이 직접 행동하는 사건이 5개 중 2개뿐이다(절반 이상 필요)", problems)
+        self.assertIn("도윤(조력자) 이(가) 어느 사건에서도 직접 행동하지 않는다", problems)
 
     def test_the_tension_curve_is_checked(self):
         for spine_event, level in zip(self.world["spine"], [1, 2, 3, 4, 5]):
             spine_event["intensity"] = level
-        self.assertEqual(self.problems(), ["there is no dip in intensity in the second half before the climax"])
+        self.assertEqual(self.problems(), ["후반부에 절정을 앞두고 강도가 한 번 꺾이는 사건이 없다"])
         for spine_event, level in zip(self.world["spine"], [5, 4, 3, 3, 3]):
             spine_event["intensity"] = level
         problems = self.problems()
-        self.assertIn("the most intense event (e01) is not among the last 2", problems)
-        self.assertTrue(any("intensity does not rise" in problem for problem in problems))
+        self.assertIn("강도가 가장 높은 사건(e01)이 마지막 2개 안에 없다", problems)
+        self.assertTrue(any("뒤로 갈수록 강도가 오르지 않는다" in problem for problem in problems))
 
     def test_empty_cost_and_dilemma_point_at_the_event(self):
         event_by_id(self.world, "e03")["cost"] = " "
         event_by_id(self.world, "e05")["dilemma"] = ""
         self.assertEqual(check_craft(self.world), [
-            ("e03", "intensity is 3 or more but the cost is empty"),
-            ("e05", "the protagonist acts but the dilemma is empty"),
+            ("e03", "강도 3 이상인 사건인데 대가(cost)가 비어 있다"),
+            ("e05", "주인공이 행동하는 사건인데 딜레마(dilemma)가 비어 있다"),
         ])
 
     def test_ensemble_without_roles_skips_role_checks(self):
@@ -346,9 +346,25 @@ class OpeningCraftTest(unittest.TestCase):
     def test_a_hero_story_must_open_with_the_protagonist(self):
         world = sample_world()
         event_by_id(world, "e01")["events"] = [{"type": "act", "who": "세라"}]
-        self.assertIn(("story", "the first event does not involve the protagonist (the opening scene must be theirs)"), check_craft(world))
+        self.assertIn(("전체", "첫 사건에서 주인공이 행동하지 않는다(첫 장면은 주인공의 장면이어야 한다)"), check_craft(world))
         world["viewpoint"] = None  # an ensemble story has no protagonist to open with
-        self.assertFalse(any("first event" in reason for _, reason in check_craft(world)))
+        self.assertFalse(any("첫 사건" in reason for _, reason in check_craft(world)))
+
+
+class BriefWordingTest(unittest.TestCase):
+    def test_events_are_written_as_sentences(self):
+        from app.services.story_skeleton import describe_event
+
+        self.assertEqual(describe_event({"type": "move", "who": "카엘", "to": "숲"}), "카엘 이(가) 숲(으)로 간다")
+        self.assertEqual(describe_event({"type": "relate", "a": "세라", "b": "카엘", "kind": "enemy"}),
+                         "세라 와(과) 카엘 의 관계가 적대(으)로 바뀐다")
+        self.assertEqual(describe_event({"type": "mark", "who": "카엘", "with": "세라", "fact": "약속"}), "'약속' 이(가) 성립한다(카엘, 세라)")
+
+    def test_the_scenes_question_goes_into_the_brief(self):
+        state = build_initial_state(sample_world())
+        brief = build_brief({**SCENE_CARD, "question": "세라를 믿을 것인가"}, state)
+        self.assertIn("독자에게 묻는 것: 세라를 믿을 것인가", brief)
+        self.assertNotIn("독자에게 묻는 것", build_brief(SCENE_CARD, state))
 
 if __name__ == "__main__":
     unittest.main()

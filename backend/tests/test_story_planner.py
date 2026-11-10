@@ -12,8 +12,7 @@ from app.services.story_skeleton import walk_spine
 from app.services.story_state import build_initial_state
 from story_fakes import SEGMENT, SPINE, WORLD, FakeModel, change, choices, promise, tone
 
-NO_TRACE = ("no choice leaves a trace (a new fact, a move, a hand-over or a relation change); "
-            "establishing a fact that already holds changes nothing")
+NO_TRACE = "뒤에 흔적을 남기는 선택지(새 사실, 이동, 건네기, 관계 변화)가 없다. 이미 성립한 사실을 다시 성립시키는 것은 흔적이 아니다"
 
 SEED = {"genre": "fantasy", "tone": "진지하고 무거운", "protagonist_name": "카엘", "language": "ko-KR",
         "opening_scenario": "폭풍이 치는 밤에 시작한다"}
@@ -47,7 +46,7 @@ class WorldTest(unittest.IsolatedAsyncioTestCase):
             return await original(system, user, llm_model)
 
         await plan_world({**SEED, "language": "en_US"}, "fast", capture)
-        self.assertIn("in en_US", captured["system"])
+        self.assertIn("영어로", captured["system"])
 
     async def test_ensemble_stories_have_no_viewpoint(self):
         world, _ = await plan_world({**SEED, "narrative_type": "ensemble"}, "fast", FakeModel().complete_json)
@@ -58,8 +57,8 @@ class WorldTest(unittest.IsolatedAsyncioTestCase):
                   "characters": WORLD["characters"] + [{"name": "카엘", "role": "ally", "wants": "", "voice": "", "at": "사막"}],
                   "relations": [{"a": "카엘", "b": "하린", "kind": "rival"}]}
         _, problems = await plan_world(SEED, "fast", FakeModel(world=broken).complete_json)
-        self.assertIn("character names are not unique", problems)
-        self.assertIn("relation names '하린', who is not a character", problems)
+        self.assertIn("인물 이름이 겹친다", problems)
+        self.assertIn("관계에 나온 '하린' 이(가) 인물 목록에 없다", problems)
         self.assertTrue(any("rival" in problem for problem in problems))
 
     async def test_a_missing_list_is_a_format_error(self):
@@ -69,7 +68,7 @@ class WorldTest(unittest.IsolatedAsyncioTestCase):
     def test_the_requested_protagonist_must_keep_the_role(self):
         world = {"characters": {"카엘": {"role": "ally", "at": "숲"}, "세라": {"role": "protagonist", "at": "숲"}},
                  "locations": ["숲"], "items": {}, "relations": []}
-        self.assertIn("the protagonist must be '카엘'", find_world_problems(world, SEED, 2))
+        self.assertIn("주인공은 '카엘' 이어야 한다", find_world_problems(world, SEED, 2))
 
 
 class SpineTest(unittest.IsolatedAsyncioTestCase):
@@ -112,7 +111,9 @@ class SegmentTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(problems, [])
         self.assertEqual([card["id"] for card in cards], ["s1", "s2"])
         self.assertEqual(cards[0]["fixed"], [{"type": "move", "who": "카엘", "to": "숲"}])
-        self.assertEqual(len(after_event), 4)
+        self.assertEqual(len(after_event["choices"]), 4)
+        self.assertEqual(after_event["question"], "세라의 망설임을 캐물을 것인가")
+        self.assertEqual(cards[0]["question"], "세라에게 무엇을 말할 것인가")
 
     async def test_choice_kind_comes_from_the_effect(self):
         talk = {"label": "말을 건다", "kind": "action", "changes": [change("act", "카엘")]}
@@ -127,8 +128,8 @@ class SegmentTest(unittest.IsolatedAsyncioTestCase):
                    "scenes": [{**SEGMENT["scenes"][0], "choices": lasting_only}, {**SEGMENT["scenes"][1], "choices": choices("x")[:2]}]}
         _, _, problems = await self.plan(segment)
         self.assertIn(("e01", NO_TRACE), problems)
-        self.assertIn(("s1", "no choice is only about attitude (empty changes)"), problems)
-        self.assertIn(("s2", "only 2 choices can be offered (3 or more needed)"), problems)
+        self.assertIn(("s1", "태도만 고르는 선택지(changes 가 빈 것)가 없다"), problems)
+        self.assertIn(("s2", "내놓을 수 있는 선택지가 2개뿐이다(3개 이상 필요)"), problems)
 
     async def test_re_establishing_a_fact_that_already_holds_is_not_a_trace(self):
         already = [tone("a"), tone("b"), promise("c", "같은 약속"), promise("d", "같은 약속")]
@@ -140,15 +141,15 @@ class SegmentTest(unittest.IsolatedAsyncioTestCase):
     async def test_a_segment_that_does_not_arrive_reports_the_missing_condition(self):
         stuck = {**SEGMENT, "scenes": [{**SEGMENT["scenes"][0], "changes": [change("act", "카엘")]}]}
         _, _, problems = await self.plan(stuck)
-        self.assertIn(("e02", "still unmet when the segment ends: 도윤 and 카엘 are in the same place"), problems)
+        self.assertIn(("e02", "구간이 끝나도 갖춰지지 않는다: 도윤 와(과) 카엘 이(가) 같은 장소에 있다"), problems)
 
     async def test_later_events_are_listed_as_not_yet(self):
         model = FakeModel()
         await plan_segment(self.world, SEED, self.state, 1, "fast", model.complete_json)
         user = model.calls[-1][2]
-        self.assertIn("Not yet (do not bring these forward):", user)
+        self.assertIn("아직 일어나면 안 되는 일:", user)
         self.assertIn("- e03", user)
-        self.assertIn("Tasks to solve:\n- 도윤 and 카엘 are in the same place", user)
+        self.assertIn("풀어야 할 과제:\n- 도윤 와(과) 카엘 이(가) 같은 장소에 있다", user)
 
 
 class SceneLengthTest(unittest.TestCase):
@@ -159,6 +160,29 @@ class SceneLengthTest(unittest.TestCase):
     def test_the_opening_is_long_whatever_its_intensity(self):
         self.assertEqual(scene_length(1, is_opening=True), 3000)
 
+
+
+class RecallTest(unittest.IsolatedAsyncioTestCase):
+    async def test_the_readers_earlier_choices_are_given_to_the_segment_planner(self):
+        from app.services.story_state import apply_event
+
+        world, _ = await planned_world()
+        _, state = walk_spine(build_initial_state(world), world["spine"][:1], world["facts"])
+        state = apply_event(state, {"type": "mark", "who": "카엘", "fact": "카엘이 세라를 지키겠다고 약속했다"}, "choice")
+        state = apply_event(state, {"type": "mark", "who": "카엘", "fact": "카엘이 길을 살폈다"}, "scene")
+        model = FakeModel()
+        await plan_segment(world, SEED, state, 1, "fast", model.complete_json)
+        user = model.calls[-1][2]
+        self.assertIn("독자가 앞서 고른 것(지키거나 어기는 선택지를 만든다):\n- 카엘이 세라를 지키겠다고 약속했다", user)
+        self.assertNotIn("- 카엘이 길을 살폈다", user)  # a scene's own fact is not the reader's choice
+        self.assertIn("인물이 원하는 것:\n- 카엘: 진실을 알고 싶다", user)
+
+    async def test_without_earlier_choices_the_section_is_left_out(self):
+        world, _ = await planned_world()
+        _, state = walk_spine(build_initial_state(world), world["spine"][:1], world["facts"])
+        model = FakeModel()
+        await plan_segment(world, SEED, state, 1, "fast", model.complete_json)
+        self.assertNotIn("독자가 앞서 고른 것", model.calls[-1][2])
 
 if __name__ == "__main__":
     unittest.main()
