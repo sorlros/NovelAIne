@@ -24,11 +24,13 @@ SQL
 
 for file in schema.sql service_hardening_20260601.sql update_genre_constraint.sql \
             update_llm_model_defaults_20260604.sql story_skeleton_20261110.sql \
-            story_generation_20261110.sql story_play_atomic_20261111.sql; do
+            story_generation_20261110.sql story_play_atomic_20261111.sql \
+            story_play_limits_20261111.sql; do
     psql < "$database/$file"
 done
 
 psql -o /dev/null < "$here/story_play_atomic_test.sql"
+psql -o /dev/null < "$here/story_play_limits_test.sql"
 
 # Two turns sent at once: the second waits for the first, then finds the story moved on.
 psql -c "UPDATE public.stories SET current_beat_seq = 1" >/dev/null

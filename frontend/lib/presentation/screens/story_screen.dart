@@ -547,8 +547,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     } catch (error) {
       debugPrint("Play turn failed: $error");
       if (!mounted) return;
-      if (await _storyMovedOn(error, startedAt)) {
-        // Another device played this turn first: show the story as the server has it.
+      if (await _showServerStory(error, startedAt)) {
+        // Nothing of this turn was saved: drop its placeholder and show the server's story.
         await _refreshScenesFromServer(replaceMessages: true);
       } else {
         _updateMessage(aiMessageId, {
@@ -572,10 +572,14 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     }
   }
 
-  /// Whether a failed turn lost to another one: refused before streaming (409),
-  /// or refused when saving, which arrives as a stream error once the story has moved on.
-  Future<bool> _storyMovedOn(Object error, int? startedAt) async {
-    if (error is ApiException && error.statusCode == 409) return true;
+  /// Whether a failed turn should give way to the story as the server has it: the request was refused
+  /// before anything was written (another turn in progress or lost to, or today's written actions used
+  /// up), or it was refused when saving, which arrives as a stream error once the story has moved on.
+  Future<bool> _showServerStory(Object error, int? startedAt) async {
+    if (error is ApiException &&
+        (error.statusCode == 409 || error.statusCode == 429)) {
+      return true;
+    }
     try {
       final latest = await _apiService.fetchPlay(widget.initialStory!.id);
       return latest.beatSeq != startedAt;

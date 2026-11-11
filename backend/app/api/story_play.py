@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Optional
 from uuid import UUID
 
@@ -14,6 +15,7 @@ from app.services.scene_service import find_chat_turn_by_client_request_id
 from app.services.story_generation import default_planner
 from app.services.story_play import (
     PlayError,
+    claim_turn_slot,
     finish_turn,
     load_context,
     needs_next_segment,
@@ -22,8 +24,10 @@ from app.services.story_play import (
     play_status,
     prepare_input_turn,
     prepare_turn,
+    release_turn_slot,
     stream_turn,
     undo_last_turn,
+    use_direct_input,
 )
 from app.services.supabase_client import get_supabase_client
 
@@ -32,6 +36,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/stories/{story_id}/play", tags=["play"])
 
 MAX_INPUT_LENGTH = 300
+DEFAULT_DAILY_INPUT_LIMIT = 50  # written actions per user per day; DIRECT_INPUT_DAILY_LIMIT overrides
+INPUT_LIMIT_MESSAGE = "오늘 쓸 수 있는 직접 입력 {limit}회를 모두 썼습니다. 선택지로 이어 가거나 내일 다시 써 주세요."
+TURN_BUSY_MESSAGE = "이야기를 이어 쓰고 있습니다. 잠시 후 다시 시도해 주세요."
 
 
 class PlayRequest(BaseModel):
@@ -89,6 +96,26 @@ def _replay_existing(content: str):
     return StreamingResponse(replay(), media_type="text/plain")
 
 
+def daily_input_limit() -> int:
+    return int(os.getenv("DIRECT_INPUT_DAILY_LIMIT", str(DEFAULT_DAILY_INPUT_LIMIT)))
+
+
+async def _prepare(client, story_id: str, request: PlayRequest, user_id: str, planner):
+    """Everything before the scene, as HTTP errors. A written action is counted before its model call,
+    so a request refused later (rare: the app hides the input then) still uses one."""
+    try:
+        if request.text is not None:
+            limit = daily_input_limit()
+            if not use_direct_input(client, user_id, limit):
+                raise HTTPException(status_code=429, detail=INPUT_LIMIT_MESSAGE.format(limit=limit))
+            return await prepare_input_turn(client, story_id, request.text, planner)
+        return await prepare_turn(client, story_id, request.choice_id, planner)
+    except PlayError as error:
+        raise _http_error(error)
+    except ExternalServiceError as error:  # reading the reader's input, or replanning the segment
+        raise HTTPException(status_code=503, detail=error.user_message)
+
+
 @router.post("")
 async def post_play(
     story_id: UUID,
@@ -104,22 +131,22 @@ async def post_play(
     the stream with [STREAM_ERROR:message] and saves nothing.
     """
     client = get_supabase_client()
-    ensure_story_access(client, story_id, authorization)
+    user_id = ensure_story_access(client, story_id, authorization)
     existing = find_chat_turn_by_client_request_id(client, story_id, request.client_request_id)
     if existing:
         return _replay_existing(existing["ai_scene"].get("content", ""))
+    owner = claim_turn_slot(client, str(story_id))
+    if not owner:
+        raise HTTPException(status_code=409, detail=TURN_BUSY_MESSAGE)
     planner = get_planner()
     try:
-        if request.text is not None:
-            turn = await prepare_input_turn(client, str(story_id), request.text, planner)
-        else:
-            turn = await prepare_turn(client, str(story_id), request.choice_id, planner)
-    except PlayError as error:
-        raise _http_error(error)
-    except ExternalServiceError as error:  # reading the reader's input, or replanning the segment
-        raise HTTPException(status_code=503, detail=error.user_message)
+        turn = await _prepare(client, str(story_id), request, user_id, planner)
+    except BaseException:
+        release_turn_slot(client, str(story_id), owner)
+        raise
 
     async def scene_stream():
+        # Released when the stream ends or is closed. A response never read expires after TURN_SLOT_SECONDS.
         prose = ""
         try:
             async for chunk in stream_turn(client, turn, planner):
@@ -135,6 +162,8 @@ async def post_play(
             logger.error("Turn of %s failed before it was saved: %s", story_id, error)
             message = error.user_message if isinstance(error, ExternalServiceError) else GENERIC_MESSAGE
             yield f"\n[STREAM_ERROR:{message}]"
+        finally:
+            release_turn_slot(client, str(story_id), owner)
 
     # After a major event's scene, plan its choices and the next segment while the reader reads.
     # If the turn was not saved, the task finds nothing to plan.

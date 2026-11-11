@@ -232,6 +232,33 @@ class FakeClient:
         plan.update({"step": "segment", "lease_until": p_lease_until})
         return True
 
+    # ---------- the functions of story_play_limits_20261111.sql ----------
+
+    def rpc_claim_story_turn(self, p_story_id, p_owner, p_seconds):
+        from datetime import datetime, timedelta, timezone
+
+        story, now = self.story(p_story_id), datetime.now(timezone.utc)
+        if not story or (story.get("turn_lock_until") and story["turn_lock_until"] >= now):
+            return False
+        story.update({"turn_lock_owner": p_owner, "turn_lock_until": now + timedelta(seconds=p_seconds)})
+        return True
+
+    def rpc_release_story_turn(self, p_story_id, p_owner):
+        story = self.story(p_story_id)
+        if story and story.get("turn_lock_owner") == p_owner:
+            story.update({"turn_lock_owner": None, "turn_lock_until": None})
+
+    def rpc_use_direct_input(self, p_user_id, p_limit):
+        usage = self.tables.setdefault("play_input_usage", [])
+        row = next((r for r in usage if r["user_id"] == p_user_id), None)  # one day is enough for the tests
+        if p_limit <= 0 or (row and row["count"] >= p_limit):
+            return False
+        if row:
+            row["count"] += 1
+        else:
+            usage.append({"user_id": p_user_id, "count": 1})
+        return True
+
     def plan(self, story_id) -> Optional[Dict[str, Any]]:
         return next((row for row in self.tables.get("story_plans", []) if row["story_id"] == story_id), None)
 
