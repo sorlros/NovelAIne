@@ -93,7 +93,9 @@ class _StoryGenerationScreenState extends ConsumerState<StoryGenerationScreen> {
     ref.invalidate(storiesProvider);
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => StoryScreen(initialStory: story)),
+      MaterialPageRoute(
+        builder: (context) => StoryScreen(initialStory: story, showGuide: true),
+      ),
     );
   }
 

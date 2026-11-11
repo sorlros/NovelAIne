@@ -15,6 +15,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants.dart';
 import '../../data/services/api_service.dart';
+import '../../data/services/reading_guide_store.dart';
 import '../../data/repositories/story_repository.dart';
 import 'character_sheet_widget.dart';
 import '../../data/models/play_models.dart';
@@ -24,6 +25,7 @@ import '../widgets/character_card.dart';
 import '../widgets/custom_loading_indicator.dart';
 import '../widgets/custom_toast.dart';
 import '../widgets/play_choices_panel.dart';
+import '../widgets/reading_guide.dart';
 import '../widgets/writing_effect.dart';
 
 // 화면 전용 상태 관리
@@ -141,7 +143,15 @@ class StoryScreen extends ConsumerStatefulWidget {
   final StoryModel? initialStory;
   final bool readOnly;
 
-  const StoryScreen({super.key, this.initialStory, this.readOnly = false});
+  /// Opened right after the story was created: a first-time reader gets a tour of the screen.
+  final bool showGuide;
+
+  const StoryScreen({
+    super.key,
+    this.initialStory,
+    this.readOnly = false,
+    this.showGuide = false,
+  });
 
   @override
   ConsumerState<StoryScreen> createState() => _StoryScreenState();
@@ -169,6 +179,15 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   /// Streaming scene the list lifts toward the top, and the offset last set for it.
   String? _risingSceneId;
   double _risingOffset = 0;
+
+  bool _guideChecked = false;
+  bool _guideActive = false;
+  final _guideSceneKey = GlobalKey();
+  final _guideCharactersKey = GlobalKey();
+  final _guideViewModeKey = GlobalKey();
+  final _guideEngineKey = GlobalKey();
+  final _guideFontKey = GlobalKey();
+  final _guideChoicesKey = GlobalKey();
 
   @override
   void initState() {
@@ -483,6 +502,68 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
       // The server is planning what comes after a major event; ask again shortly.
       _preparingTimer = Timer(const Duration(seconds: 3), _loadPlay);
     }
+    _maybeShowGuide();
+  }
+
+  Future<void> _maybeShowGuide() async {
+    if (_guideChecked || !widget.showGuide || widget.readOnly) return;
+    _guideChecked = true;
+    final store = ReadingGuideStore();
+    if (await store.seen()) return;
+    // The screen fades in once the scenes are laid out; wait for it.
+    for (var i = 0; i < 20 && mounted && !ref.read(isUIReadyProvider); i++) {
+      await Future.delayed(const Duration(milliseconds: 300));
+    }
+    await Future.delayed(const Duration(milliseconds: 900));
+    if (!mounted) return;
+    await store.markSeen();
+    setState(() => _guideActive = true);
+  }
+
+  List<GuideStep> _guideSteps(bool showsCharacters) {
+    Future<void> toTop() async {
+      if (_scrollController.hasClients) _scrollController.jumpTo(0);
+    }
+
+    return [
+      GuideStep(
+        target: _guideSceneKey,
+        reveal: toTop,
+        text: "이야기는 장면 단위로 이어져요. 장면 아래 'BGM 생성'을 누르면 장면에 어울리는 배경음악을 들을 수 있어요.",
+      ),
+      if (showsCharacters)
+        GuideStep(
+          target: _guideCharactersKey,
+          reveal: toTop,
+          text: "지금 장면의 등장인물이에요. 인물을 누르면 자세한 정보를 볼 수 있어요.",
+        ),
+      GuideStep(
+        target: _guideViewModeKey,
+        text: "원고 모드와 집중 모드를 바꿔요. 집중 모드에서는 배경과 인물을 숨기고 본문만 보여요.",
+      ),
+      GuideStep(
+        target: _guideEngineKey,
+        text: "장면을 쓰는 AI 엔진을 바꿔요. 바꿔도 이야기는 그대로 이어져요.",
+      ),
+      GuideStep(target: _guideFontKey, text: "본문 서체를 바꿔요."),
+      GuideStep(
+        target: _guideChoicesKey,
+        // The panel is the last item of a lazily built list: going to the end builds it.
+        reveal: () async {
+          if (_scrollController.hasClients) {
+            _scrollController.jumpTo(
+              _scrollController.position.maxScrollExtent,
+            );
+          }
+        },
+        text: "장면을 다 읽으면 여기서 다음 행동을 골라요. 원하는 선택지가 없으면 '직접 입력'으로 행동을 써도 돼요.",
+      ),
+    ];
+  }
+
+  void _endGuide() {
+    setState(() => _guideActive = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLatestScene());
   }
 
   void _updateMessage(String messageId, Map<String, dynamic> fields) {
@@ -1183,10 +1264,13 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
               children: [
                 // [데스크탑 전용] 사이드 패널
                 if (!isMobile && viewMode == StoryViewMode.manuscript)
-                  _buildDesktopSidePanel(
-                    context,
-                    visibleCharacters,
-                    importantNames,
+                  KeyedSubtree(
+                    key: _guideCharactersKey,
+                    child: _buildDesktopSidePanel(
+                      context,
+                      visibleCharacters,
+                      importantNames,
+                    ),
                   ),
 
                 Expanded(
@@ -1218,10 +1302,13 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                               // Integrated Character Section as the first item in the list
                               if (isMobile &&
                                   viewMode == StoryViewMode.manuscript) {
-                                return _buildIntegratedCharacterSection(
-                                  context,
-                                  visibleCharacters,
-                                  importantNames,
+                                return KeyedSubtree(
+                                  key: _guideCharactersKey,
+                                  child: _buildIntegratedCharacterSection(
+                                    context,
+                                    visibleCharacters,
+                                    importantNames,
+                                  ),
                                 );
                               }
                               return const SizedBox.shrink();
@@ -1229,6 +1316,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
 
                             if (_isSkeleton && index == messages.length + 1) {
                               return Padding(
+                                key: _guideChoicesKey,
                                 padding: const EdgeInsets.only(top: 8),
                                 child: PlayChoicesPanel(
                                   status: _play,
@@ -1243,7 +1331,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                             }
 
                             final msg = messages[index - 1];
-                            return _RefinedNarrativeCard(
+                            final card = _RefinedNarrativeCard(
                               key: ValueKey(msg['id'].toString()),
                               msg: msg,
                               activeBgmUrl: _activeBgmUrl,
@@ -1253,6 +1341,10 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                               onBgmPressed: _handleBgmAction,
                               onRetryPressed: _recoverStreamMessage,
                             );
+                            // The opening scene, lit by the first-time guide.
+                            return index == 1
+                                ? KeyedSubtree(key: _guideSceneKey, child: card)
+                                : card;
                           },
                         ),
                       ),
@@ -1265,6 +1357,16 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           if (isUIReady && !widget.readOnly && !_isSkeleton)
             _buildFloatingControls(context),
           if (!isUIReady) _buildFullScreenLoading(),
+          if (_guideActive)
+            Positioned.fill(
+              child: ReadingGuide(
+                steps: _guideSteps(
+                  viewMode == StoryViewMode.manuscript &&
+                      visibleCharacters.isNotEmpty,
+                ),
+                onDone: _endGuide,
+              ),
+            ),
         ],
       ),
     );
@@ -1523,6 +1625,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
       ),
       actions: [
         IconButton(
+          key: _guideViewModeKey,
           icon: Icon(
             viewMode == StoryViewMode.manuscript
                 ? Icons.visibility_outlined
@@ -1541,6 +1644,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           tooltip: viewMode == StoryViewMode.manuscript ? "집중 모드" : "원고 모드",
         ),
         IconButton(
+          key: _guideEngineKey,
           icon: const Icon(
             Icons.psychology_rounded,
             color: Colors.white,
@@ -1550,6 +1654,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           tooltip: "AI 엔진 변경",
         ),
         IconButton(
+          key: _guideFontKey,
           icon: const Icon(
             Icons.text_fields_rounded,
             color: Colors.white,
