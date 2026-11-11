@@ -231,6 +231,7 @@ class _OwnActionState extends State<_OwnAction> {
               hintStyle: const TextStyle(color: Colors.white38),
               helperText: '이루어질 수 없는 행동은 이야기 속에서 실패로 그려집니다.',
               helperStyle: const TextStyle(color: Colors.white38),
+              helperMaxLines: 2,
               counterStyle: const TextStyle(color: Colors.white38),
               filled: true,
               fillColor: Colors.white.withValues(alpha: 0.06),
