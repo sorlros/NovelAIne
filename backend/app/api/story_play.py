@@ -33,6 +33,7 @@ from app.services.story_play import (
     load_context,
     media_prompts,
     needs_next_segment,
+    plan_ahead,
     plan_next_segment,
     planning_is_stalled,
     play_status,
@@ -140,11 +141,16 @@ async def _write_scene(client, story_id: str, turn, planner, request_id, owner: 
     outcome, error, scene_id = "failed", "stream closed", None
     guard = EchoGuard(turn.next_card.get("question"))
     try:
-        async for chunk in stream_turn(client, turn, planner):
-            ready = guard.feed(chunk) if chunk else ""
-            if ready:
-                first_chunk_ms = first_chunk_ms if first_chunk_ms is not None else _elapsed_ms(started)
-                yield ready
+        for fallback in (False, True):
+            async for chunk in stream_turn(client, turn, planner, fallback):
+                ready = guard.feed(chunk) if chunk else ""
+                if ready:
+                    first_chunk_ms = first_chunk_ms if first_chunk_ms is not None else _elapsed_ms(started)
+                    yield ready
+            if guard.prose.strip():
+                break
+            # The engine ended the stream without a word (seen in production): write it once more with its fallback.
+            logger.warning("Empty scene for %s; writing it again with the fallback engine", story_id)
         prose = guard.prose
         if not prose.strip():
             raise PlayError(502, GENERIC_MESSAGE)
@@ -223,18 +229,19 @@ async def post_play(
     saved: dict = {}
     scene = _write_scene(client, str(story_id), turn, planner, request.client_request_id, owner, user_id,
                          _elapsed_ms(started), saved, counted, with_media)
-    needed = needs_next_segment(turn) or (with_media and wants_media(turn))
-    background = BackgroundTask(after_turn, str(story_id), turn, saved) if needed else None
+    background = BackgroundTask(after_turn, str(story_id), turn, saved)
     return StreamingResponse(scene, media_type="text/plain", background=background)
 
 
 async def after_turn(story_id: str, turn, saved: dict) -> None:
     """Runs once the scene has been sent. After a major event's scene, plan its choices and the next segment
-    while the reader reads (if the turn was not saved, there is nothing to plan), and make the media queued
-    with the turn."""
+    while the reader reads (if the turn was not saved, there is nothing to plan); at the last scene before a
+    major event, plan the segment after it ahead; and make the media queued with the turn."""
     work = [run_media_jobs(saved.get("media_jobs") or [])]
     if needs_next_segment(turn):
         work.append(plan_next_segment(story_id))
+    elif not turn.spine_event:
+        work.append(plan_ahead(story_id))  # does nothing unless a major event comes next
     await asyncio.gather(*work)
 
 
