@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch
 
 from fastapi import BackgroundTasks, HTTPException
+from pydantic import ValidationError
 
 from app.api import chat as chat_api
 from app.api import scenes as scenes_api
@@ -77,6 +78,26 @@ class PlayApiTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(text, "\n[STREAM_ERROR:일시적인 서버 문제가 발생했습니다.]")
         self.assertEqual(self.client.story(self.story_id)["current_beat_seq"], 1)
         self.assertEqual(self.client.rows("scenes", client_request_id="turn-1"), [])
+
+    async def test_post_with_text_writes_the_readers_own_action(self):
+        request = play_api.PlayRequest(text="  세라를 바라본다  ", client_request_id="free-1")
+        response = await play_api.post_play(self.story_id, request, authorization=AUTH)
+        self.assertEqual(await read_stream(response), "숲길에 바람이 불었다.\n\n「가자.」")
+        self.assertIn("interpret", self.model.kinds())
+        user_scene = next(s for s in self.client.rows("scenes", client_request_id="free-1") if s["role"] == "user")
+        self.assertEqual(user_scene["content"], "세라를 바라본다")
+
+    def test_a_request_sends_a_choice_or_text_but_not_both(self):
+        for fields in ({}, {"choice_id": "e1", "text": "간다"}, {"text": "   "}, {"text": "가" * 301}):
+            with self.assertRaises(ValidationError, msg=fields):
+                play_api.PlayRequest(**fields)
+
+    async def test_an_outage_while_reading_the_input_is_a_503_before_streaming(self):
+        outage = ExternalServiceError("OpenRouter story input", "일시적인 서버 문제가 발생했습니다.", "503")
+        with patch.object(play_api, "get_planner", return_value=planner_for(FakeModel(fail_on={"interpret": outage}))):
+            with self.assertRaises(HTTPException) as caught:
+                await play_api.post_play(self.story_id, play_api.PlayRequest(text="간다"), authorization=AUTH)
+        self.assertEqual((caught.exception.status_code, caught.exception.detail), (503, "일시적인 서버 문제가 발생했습니다."))
 
     async def test_undo_endpoint(self):
         await read_stream(await self.post(self.first_choice()))
