@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -89,6 +91,34 @@ List<Map<String, dynamic>> _processScenesIsolate(List<dynamic> scenes) {
       .toList();
 }
 
+/// Index of the latest scene in [messages] (the reader's moves are not scenes), or null without one.
+@visibleForTesting
+int? latestSceneIndex(List<Map<String, dynamic>> messages) {
+  final index = messages.lastIndexWhere((m) => m['role'] != 'user');
+  return index < 0 ? null : index;
+}
+
+/// Scroll offset of [position] that puts the list item keyed `ValueKey(id)` at the top of the list,
+/// or null while the lazily built list has not built that item.
+@visibleForTesting
+double? itemTopOffset(ScrollPosition position, String id) {
+  final key = ValueKey(id);
+  RenderObject? item;
+  void visit(Element element) {
+    if (item != null) return;
+    if (element.widget.key == key) {
+      item = element.renderObject;
+      return;
+    }
+    element.visitChildren(visit);
+  }
+
+  position.context.notificationContext?.visitChildElements(visit);
+  final found = item;
+  if (found == null) return null;
+  return RenderAbstractViewport.of(found).getOffsetToReveal(found, 0).offset;
+}
+
 final List<String> availableFonts = [
   'Noto Serif KR',
   'EB Garamond',
@@ -138,6 +168,10 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   /// Height of the controls pinned at the bottom (the choices panel grows with its content).
   double _controlsHeight = 0;
   Timer? _preparingTimer;
+
+  /// Streaming scene the list lifts toward the top, and the offset last set for it.
+  String? _risingSceneId;
+  double _risingOffset = 0;
 
   @override
   void initState() {
@@ -192,7 +226,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
 
     if (mounted) {
       ref.read(isInitialLoadDoneProvider.notifier).state = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _isSkeleton ? _scrollToLatestScene() : _scrollToBottom(),
+      );
     }
   }
 
@@ -413,8 +449,14 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         .map((c) => Map<String, dynamic>.from(c))
         .toList();
     // The cached story list does not keep the mode, so the server decides.
-    if (storyData['mode'] == 'skeleton') {
+    if (storyData['mode'] == 'skeleton' && !_isSkeleton) {
       setState(() => _isSkeleton = true);
+      // Already scrolled to the end as a chat story: move to the latest scene's start instead.
+      if (ref.read(isInitialLoadDoneProvider)) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _scrollToLatestScene(),
+        );
+      }
     }
     if (_isSkeleton && !widget.readOnly) _loadPlay();
   }
@@ -464,12 +506,13 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
       if (now - lastUpdate > 100 && mounted) {
         _updateMessage(messageId, {'content': text});
         lastUpdate = now;
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) => _keepSceneRising());
       }
     }
-    if (mounted) _updateMessage(messageId, {'content': text});
+    if (mounted) {
+      _updateMessage(messageId, {'content': text});
+      WidgetsBinding.instance.addPostFrameCallback((_) => _keepSceneRising());
+    }
     return text;
   }
 
@@ -513,7 +556,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             },
           ],
         );
-    _scrollToBottom();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _scrollToLatestScene(rising: true),
+    );
     await _playTurn(
       aiMessageId,
       clientRequestId,
@@ -543,7 +588,10 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           clientRequestId: clientRequestId,
         ),
       );
-      if (mounted) await _refreshScenesFromServer(replaceMessages: true);
+      // The reader is reading the new scene: leave the list where it is.
+      if (mounted) {
+        await _refreshScenesFromServer(replaceMessages: true, scroll: false);
+      }
     } catch (error) {
       debugPrint("Play turn failed: $error");
       if (!mounted) return;
@@ -564,6 +612,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         );
       }
     } finally {
+      _risingSceneId = null;
       if (mounted) {
         ref.read(streamingMessageIdProvider.notifier).state = null;
         setState(() => _isSendingMessage = false);
@@ -595,6 +644,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     if (_isSendingMessage) return;
     final aiMessageId = failedMessage['id'].toString();
     _updateMessage(aiMessageId, {'content': '...', 'streamFailed': false});
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _scrollToLatestScene(rising: true),
+    );
     await _playTurn(
       aiMessageId,
       failedMessage['clientRequestId'].toString(),
@@ -708,8 +760,64 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     }
   }
 
+  /// Puts the start of the latest scene at the top of the list: a skeleton story is read from a
+  /// scene's start. With [rising], a scene still too short to reach the top keeps rising as it streams in.
+  void _scrollToLatestScene({bool rising = false}) {
+    _risingSceneId = null;
+    final messages = ref.read(messageProvider);
+    final index = latestSceneIndex(messages);
+    if (index == null) return;
+    _revealScene(messages[index]['id'].toString(), rising: rising, tries: 4);
+  }
+
+  void _revealScene(String id, {required bool rising, required int tries}) {
+    if (!mounted || !_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    final top = itemTopOffset(position, id);
+    if (top == null) {
+      if (tries == 0) return;
+      // The list builds items lazily: go to the end, then further up, until the scene is built.
+      final atEnd = position.pixels >= position.maxScrollExtent;
+      _scrollController.jumpTo(
+        atEnd
+            ? math.max(0, position.pixels - position.viewportDimension)
+            : position.maxScrollExtent,
+      );
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _revealScene(id, rising: rising, tries: tries - 1),
+      );
+      return;
+    }
+    final target = math.min(top, position.maxScrollExtent);
+    _scrollController.jumpTo(target);
+    if (rising && top > target) {
+      _risingSceneId = id;
+      _risingOffset = target;
+    }
+  }
+
+  /// Lifts the streaming scene toward the top as it grows, until it gets there or the reader scrolls.
+  void _keepSceneRising() {
+    final id = _risingSceneId;
+    if (id == null || !mounted || !_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    final top = itemTopOffset(position, id);
+    // Scrolled up by the reader, scrolled past the scene's start, or the scene is gone: stop.
+    if (top == null ||
+        position.pixels < _risingOffset - 1 ||
+        position.pixels >= top - 1) {
+      _risingSceneId = null;
+      return;
+    }
+    final target = math.min(top, position.maxScrollExtent);
+    if (target > position.pixels) _scrollController.jumpTo(target);
+    _risingOffset = target;
+    if (top <= target) _risingSceneId = null;
+  }
+
   Future<List<Map<String, dynamic>>> _refreshScenesFromServer({
     bool replaceMessages = false,
+    bool scroll = true,
   }) async {
     if (widget.initialStory == null) return [];
 
@@ -733,7 +841,11 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
       if (lastImage != null) {
         ref.read(currentBackdropProvider.notifier).state = lastImage;
       }
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+      if (scroll) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _isSkeleton ? _scrollToLatestScene() : _scrollToBottom(),
+        );
+      }
     }
 
     return refreshedScenes;
