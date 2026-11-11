@@ -406,7 +406,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   void _applyStoryDetails(Map<String, dynamic> storyData) {
     if (storyData['llm_model'] != null) {
       ref.read(currentStoryModelProvider.notifier).state =
-          storyData['llm_model'];
+          AppConstants.currentLlmModel(storyData['llm_model']);
     }
     final List<dynamic> chars = storyData['characters'] ?? [];
     ref.read(storyCharactersProvider.notifier).state = chars
@@ -1265,7 +1265,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                       children: [
                         _buildModelToggleOption(
                           ref,
-                          "Gemini 3.1 Flash Lite",
+                          "DeepSeek V4.1 Flash",
                           "빠른 전개",
                           AppConstants.defaultLlmModel,
                           currentModel == AppConstants.defaultLlmModel,
@@ -1273,7 +1273,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                         const SizedBox(height: 12),
                         _buildModelToggleOption(
                           ref,
-                          "Gemini 3.1 Pro Preview",
+                          "Claude Sonnet 5.5",
                           "치밀한 묘사",
                           AppConstants.proLlmModel,
                           currentModel == AppConstants.proLlmModel,
@@ -1576,7 +1576,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                 const SizedBox(height: 24),
                 _buildModelToggleOption(
                   ref,
-                  "Gemini 3.1 Flash Lite",
+                  "DeepSeek V4.1 Flash",
                   "빠르고 가벼운 대화와 전개",
                   AppConstants.defaultLlmModel,
                   currentModel == AppConstants.defaultLlmModel,
@@ -1585,7 +1585,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                 const SizedBox(height: 12),
                 _buildModelToggleOption(
                   ref,
-                  "Gemini 3.1 Pro Preview",
+                  "Claude Sonnet 5.5",
                   "치밀한 묘사와 깊이 있는 서사",
                   AppConstants.proLlmModel,
                   currentModel == AppConstants.proLlmModel,

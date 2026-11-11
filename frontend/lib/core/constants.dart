@@ -3,10 +3,26 @@ import 'package:flutter/foundation.dart';
 class AppConstants {
   // Centralized breakpoint for desktop vs mobile layout
   static const double desktopBreakpoint = 900.0;
-  static const String defaultLlmModel = 'google/gemini-3.1-flash-lite';
-  static const String proLlmModel = 'google/gemini-3.1-pro-preview';
-  static const String fastFallbackLlmModel = 'qwen/qwen3.7-plus';
-  static const String proFallbackLlmModel = 'minimax/minimax-m3';
+  // Same engines as backend/app/llm_models.py.
+  static const String defaultLlmModel = 'deepseek/deepseek-v4.1-flash';
+  static const String proLlmModel = 'anthropic/claude-sonnet-5.5';
+  static const String fastFallbackLlmModel = 'google/gemini-3.1-flash-lite';
+  static const String proFallbackLlmModel = 'google/gemini-3.1-pro-preview';
+
+  /// A story saved with an earlier engine uses the current one of the same kind.
+  static String currentLlmModel(String? model) {
+    switch (model) {
+      case 'google/gemini-3.1-pro-preview':
+      case 'google/gemini-pro-1.5':
+        return proLlmModel;
+      case null:
+      case 'google/gemini-3.1-flash-lite':
+      case 'google/gemini-2.0-flash-001':
+        return defaultLlmModel;
+      default:
+        return model;
+    }
+  }
 
   /// Set with --dart-define=API_BASE_URL=http://127.0.0.1:8000/api to use a
   /// local or staging backend. Empty means the defaults below.

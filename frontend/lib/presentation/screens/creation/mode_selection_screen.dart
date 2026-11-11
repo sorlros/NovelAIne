@@ -224,7 +224,7 @@ class CreationModeSelectionScreen extends ConsumerWidget {
           children: [
             Expanded(
               child: _ModelOptionTile(
-                title: "Gemini 3.1 Flash Lite",
+                title: "DeepSeek V4.1 Flash",
                 subtitle: "빠르고 가벼운 전개",
                 isSelected: selectedModel == AppConstants.defaultLlmModel,
                 onTap: () => ref.read(selectedModelProvider.notifier).state =
@@ -234,7 +234,7 @@ class CreationModeSelectionScreen extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _ModelOptionTile(
-                title: "Gemini 3.1 Pro Preview",
+                title: "Claude Sonnet 5.5",
                 subtitle: "치밀하고 풍부한 서사",
                 isSelected: selectedModel == AppConstants.proLlmModel,
                 onTap: () => ref.read(selectedModelProvider.notifier).state =
