@@ -8,6 +8,44 @@ import '../models/play_models.dart';
 import '../models/story_model.dart';
 import '../models/creation_config.dart';
 
+const _streamErrorMarker = '[STREAM_ERROR:';
+const _streamErrorFallback = '응답 생성 중 문제가 발생했습니다.';
+
+/// Passes the text of a streamed response through, turning the server's
+/// `[STREAM_ERROR:message]` marker into an [ApiException]. The marker may be
+/// split across chunks, so a tail that could be its start is held back.
+Stream<String> readStreamErrors(Stream<String> chunks) async* {
+  var pending = '';
+  await for (final chunk in chunks) {
+    pending += chunk;
+    final at = pending.indexOf(_streamErrorMarker);
+    if (at != -1) {
+      final end = pending.indexOf(']', at);
+      if (end == -1) continue; // the message is still arriving
+      throw ApiException(
+        200,
+        pending.substring(at + _streamErrorMarker.length, end),
+      );
+    }
+    final held = _markerStartLength(pending);
+    final ready = pending.substring(0, pending.length - held);
+    if (ready.isNotEmpty) yield ready;
+    pending = pending.substring(pending.length - held);
+  }
+  if (pending.contains(_streamErrorMarker)) {
+    throw const ApiException(200, _streamErrorFallback);
+  }
+  if (pending.isNotEmpty) yield pending;
+}
+
+/// Length of the longest end of [text] that is a start of the marker.
+int _markerStartLength(String text) {
+  for (var length = _streamErrorMarker.length - 1; length > 0; length--) {
+    if (text.endsWith(_streamErrorMarker.substring(0, length))) return length;
+  }
+  return 0;
+}
+
 /// A failed request whose [message] can be shown to the user as is.
 class ApiException implements Exception {
   final int statusCode;
@@ -201,20 +239,7 @@ class ApiService {
           .timeout(const Duration(seconds: 150));
 
       if (response.statusCode == 200) {
-        await for (final chunk in response.stream.transform(utf8.decoder)) {
-          final markerIndex = chunk.indexOf('[STREAM_ERROR:');
-          if (markerIndex != -1) {
-            final markerEnd = chunk.indexOf(']', markerIndex);
-            final message = markerEnd == -1
-                ? '응답 생성 중 문제가 발생했습니다.'
-                : chunk.substring(
-                    markerIndex + '[STREAM_ERROR:'.length,
-                    markerEnd,
-                  );
-            throw ApiException(response.statusCode, message);
-          }
-          yield chunk;
-        }
+        yield* readStreamErrors(response.stream.transform(utf8.decoder));
       } else {
         final errorBody = await response.stream.bytesToString();
         throw ApiException(
