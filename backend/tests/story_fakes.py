@@ -1,6 +1,7 @@
 """Test doubles for skeleton story generation: an in-memory Supabase client and a scripted model."""
 
 import copy
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 
@@ -33,6 +34,10 @@ class FakeQuery:
     def is_(self, field, value):
         assert value == "null"
         self.filters.append(lambda row: row.get(field) is None)
+        return self
+
+    def gte(self, field, value):
+        self.filters.append(lambda row: row.get(field) is not None and str(row[field]) >= str(value))
         return self
 
     def in_(self, field, values):
@@ -135,6 +140,8 @@ class FakeClient:
             if table_name == "story_plans":
                 row = {"lease_owner": None, "lease_until": None, "attempts": 0, "error": None, "world": None, "spine": None,
                        "retry_log": [], **row}
+            if table_name == "media_jobs":
+                row = {"created_at": datetime.now(timezone.utc).isoformat(), **row}  # the column's default
             rows.append(row)
             inserted.append(dict(row))
         return inserted

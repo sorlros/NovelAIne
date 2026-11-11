@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import time
@@ -9,6 +10,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, model_validator
 from starlette.background import BackgroundTask
 
+from app.api.media import media_pending, queue_scene_media, run_media_jobs
 from app.schemas.models import ApiResponse
 from app.services.auth_context import ensure_story_access
 from app.services.external_errors import GENERIC_MESSAGE, ExternalServiceError
@@ -31,6 +33,7 @@ from app.services.story_play import (
     stream_turn,
     undo_last_turn,
     use_direct_input,
+    wants_media,
 )
 from app.services.supabase_client import get_supabase_client
 
@@ -82,7 +85,7 @@ async def get_play(
         context = load_context(client, str(story_id))
         if planning_is_stalled(client, context):
             background_tasks.add_task(plan_next_segment, str(story_id))
-        return ApiResponse.ok(data=play_status(context))
+        return ApiResponse.ok(data={**play_status(context), "media_pending": media_pending(client, story_id)})
     except PlayError as error:
         raise _http_error(error)
     except HTTPException:
@@ -123,9 +126,11 @@ def _elapsed_ms(since: float) -> int:
     return int((time.monotonic() - since) * 1000)
 
 
-async def _write_scene(client, story_id: str, turn, planner, request_id, owner: str, user_id, prepare_ms: int):
-    """Stream the scene and save the turn, then record it and free the story's turn slot.
-    The slot is freed when the stream ends or is closed; a response never read expires after TURN_SLOT_SECONDS."""
+async def _write_scene(client, story_id: str, turn, planner, request_id, owner: str, user_id, prepare_ms: int,
+                       saved: dict):
+    """Stream the scene and save the turn, then record it and free the story's turn slot. A turning point's
+    media is queued with the turn and its job ids go into `saved`. The slot is freed when the stream ends or is
+    closed; a response never read expires after TURN_SLOT_SECONDS."""
     started, first_chunk_ms, prose = time.monotonic(), None, ""
     outcome, error, scene_id = "failed", "stream closed", None
     guard = EchoGuard(turn.next_card.get("question"))
@@ -143,6 +148,8 @@ async def _write_scene(client, story_id: str, turn, planner, request_id, owner: 
             first_chunk_ms = first_chunk_ms if first_chunk_ms is not None else _elapsed_ms(started)
             yield rest
         scene_id = finish_turn(client, turn, prose, request_id)["ai_scene"]["id"]
+        if wants_media(turn):
+            saved["media_jobs"] = queue_scene_media(client, story_id, scene_id, user_id)
         outcome, error = "saved", None
     except PlayError as play_error:
         outcome, error = ("conflict" if play_error.status_code == 409 else "failed"), play_error.message
@@ -187,13 +194,22 @@ async def post_play(
     except BaseException:
         release_turn_slot(client, str(story_id), owner)
         raise
+    saved: dict = {}
     scene = _write_scene(client, str(story_id), turn, planner, request.client_request_id, owner, user_id,
-                         _elapsed_ms(started))
-
-    # After a major event's scene, plan its choices and the next segment while the reader reads.
-    # If the turn was not saved, the task finds nothing to plan.
-    background = BackgroundTask(plan_next_segment, str(story_id)) if needs_next_segment(turn) else None
+                         _elapsed_ms(started), saved)
+    needed = needs_next_segment(turn) or wants_media(turn)
+    background = BackgroundTask(after_turn, str(story_id), turn, saved) if needed else None
     return StreamingResponse(scene, media_type="text/plain", background=background)
+
+
+async def after_turn(story_id: str, turn, saved: dict) -> None:
+    """Runs once the scene has been sent. After a major event's scene, plan its choices and the next segment
+    while the reader reads (if the turn was not saved, there is nothing to plan), and make the media queued
+    with the turn."""
+    work = [run_media_jobs(saved.get("media_jobs") or [])]
+    if needs_next_segment(turn):
+        work.append(plan_next_segment(story_id))
+    await asyncio.gather(*work)
 
 
 @router.post("/undo", response_model=ApiResponse)

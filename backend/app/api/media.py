@@ -1,5 +1,6 @@
 import logging
-from typing import Any, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
@@ -177,6 +178,55 @@ async def _run_media_job(job_id: str) -> None:
             )
         except Exception as update_error:
             logger.error("Failed to persist media job failure %s: %s", job_id, update_error)
+
+
+ACTIVE_JOB_STATUSES = ("queued", "running")
+STALE_JOB_MINUTES = 15  # a job still active after this was lost with a server restart
+
+
+def media_pending(client: Any, story_id: UUID | str) -> bool:
+    """A picture or music for this story is still being made."""
+    since = (datetime.now(timezone.utc) - timedelta(minutes=STALE_JOB_MINUTES)).isoformat()
+    response = (
+        client.table("media_jobs")
+        .select("id")
+        .eq("story_id", str(story_id))
+        .in_("status", list(ACTIVE_JOB_STATUSES))
+        .gte("created_at", since)
+        .limit(1)
+        .execute()
+    )
+    return bool(response.data)
+
+
+def queue_scene_media(client: Any, story_id: str, scene_id: str, user_id: str) -> List[str]:
+    """Queue a picture and music for a scene the story marked as a turning point; returns the job ids.
+    Queued while the turn is saved, so the app sees them pending as soon as the scene arrives."""
+    try:
+        scene = _fetch_scene(client, story_id, scene_id)
+        jobs = []
+        for media_type in ("image", "bgm"):
+            response = client.table("media_jobs").insert(
+                {
+                    "user_id": user_id,
+                    "story_id": story_id,
+                    "scene_id": scene_id,
+                    "media_type": media_type,
+                    "scene_type": "event",
+                    "prompt": _build_prompt(media_type, scene.get("content") or "", None),
+                    "status": "queued",
+                }
+            ).execute()
+            jobs += [job["id"] for job in response.data or []]
+        return jobs
+    except Exception as error:
+        logger.error("Could not queue media for scene %s: %s", scene_id, error)
+        return []
+
+
+async def run_media_jobs(job_ids: List[str]) -> None:
+    for job_id in job_ids:
+        await _run_media_job(job_id)
 
 
 @router.post("/jobs", response_model=ApiResponse)

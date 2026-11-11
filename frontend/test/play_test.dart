@@ -53,6 +53,22 @@ Future<List<String>> pumpPanel(
 
 void main() {
   group('models', () {
+    test('media_pending is read, false when absent', () {
+      expect(PlayStatus.fromJson({'media_pending': true}).mediaPending, isTrue);
+      expect(PlayStatus.fromJson({}).mediaPending, isFalse);
+    });
+
+    test('newLatestSceneBgm finds a BGM that just appeared', () {
+      Map<String, dynamic> scene(String id, [String? bgm]) => {
+        'id': id,
+        'bgmUrl': bgm,
+      };
+      expect(newLatestSceneBgm([scene('a')], [scene('a', 'u')]), 'u');
+      expect(newLatestSceneBgm([scene('a', 'u')], [scene('a', 'u')]), isNull);
+      expect(newLatestSceneBgm([scene('a')], [scene('a'), scene('b')]), isNull);
+      expect(newLatestSceneBgm([], []), isNull);
+    });
+
     test('play status reads the server payload', () {
       final status = play(question: '');
       expect(status.question, isNull);

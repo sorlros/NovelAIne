@@ -37,6 +37,9 @@ class PlayStatus {
   /// Earlier reader choices that the current scene carried forward.
   final List<String> callbacks;
 
+  /// Scene image or BGM generation is still queued or running on the server.
+  final bool mediaPending;
+
   const PlayStatus({
     required this.beatSeq,
     required this.question,
@@ -45,6 +48,7 @@ class PlayStatus {
     required this.finished,
     required this.presentCharacters,
     required this.callbacks,
+    this.mediaPending = false,
   });
 
   bool get canUndo => beatSeq > 1;
@@ -63,8 +67,27 @@ class PlayStatus {
         json['present_characters'] ?? const [],
       ),
       callbacks: List<String>.from(json['callbacks'] ?? const []),
+      mediaPending: json['media_pending'] == true,
     );
   }
+}
+
+/// The latest scene's BGM url when it was not there in [before], else null.
+String? newLatestSceneBgm(
+  List<Map<String, dynamic>> before,
+  List<Map<String, dynamic>> after,
+) {
+  if (after.isEmpty) return null;
+  final latest = after.last;
+  final url = latest['bgmUrl']?.toString();
+  if (url == null || url.isEmpty) return null;
+  for (final scene in before) {
+    if (scene['id'] == latest['id']) {
+      final old = scene['bgmUrl']?.toString();
+      return old == null || old.isEmpty ? url : null;
+    }
+  }
+  return url;
 }
 
 class GenerationStatus {
