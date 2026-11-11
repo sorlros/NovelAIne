@@ -11,6 +11,9 @@ Calls, in order of story creation:
     plan_segment  world, state, index -> beat cards between two major events
     write_scene   brief -> prose for one scene
 
+And during play:
+    interpret_input  the reader's own text -> the changes it tries to make
+
 Prompts are Korean. JSON keys and enum values (type, pred, role, kind) stay
 English because code reads them.
 """
@@ -158,11 +161,26 @@ SCENE_SYSTEM = """당신은 긴 연재소설의 한 장면을 쓰는 소설가�
 1. 지시서는 지금 이 세계에서 참인 것이다. 어긋나게 쓰지 않는다.
 2. '반드시' 줄의 일은 이 장면에서 일어난다. 그 밖의 일로 누가 살아 있는지, 어디에 있는지, 무엇을 가졌는지, 어떤 관계인지가 바뀌면 안 된다.
 3. '사실' 줄은 성립한 사실이다. '독자의 선택' 줄은 독자가 앞서 고른 것이니 인물의 행동과 말에 드러나게 한다. '최근의 일' 줄은 직전에 있었던 일이다.
-4. 지시서에 없는 인물은 행동하거나 말하지 않는다. 죽은 인물은 기억으로만 나온다.
-5. 복선은 설명하지 말고 심어 둔다. 이야기가 어디로 가는지 드러내지 않는다.
-6. '독자에게 묻는 것'이 있으면 장면을 그 질문 앞에서 멈춘다. 답을 대신 정하지 않는다.
-7. 문단은 빈 줄로 나눈다. 대사는 「」로 감싸 한 줄에 하나씩 쓴다.
-8. 약 {length}자 분량으로, {language}로 쓴다. 본문만 돌려준다."""
+4. '독자의 뜻' 줄은 독자가 방금 고른 행동이다. 장면을 그 행동에서 시작한다.
+   '독자가 시도한 것' 줄의 시도는 이루어지지 않는다. 장면 안의 이유로 막히거나 빗나가게 쓰고, 그 밖의 일은 지시서대로 쓴다.
+5. 지시서에 없는 인물은 행동하거나 말하지 않는다. 죽은 인물은 기억으로만 나온다.
+6. 복선은 설명하지 말고 심어 둔다. 이야기가 어디로 가는지 드러내지 않는다.
+7. '독자에게 묻는 것'이 있으면 장면을 그 질문 앞에서 멈춘다. 답을 대신 정하지 않는다.
+8. 문단은 빈 줄로 나눈다. 대사는 「」로 감싸 한 줄에 하나씩 쓴다.
+9. 약 {length}자 분량으로, {language}로 쓴다. 본문만 돌려준다."""
+
+INTERPRET_SYSTEM = """당신은 연재소설의 진행을 돕는다. 독자가 {chooser}의 행동으로 직접 쓴 글을 이 세계의 변화로 옮긴다. 본문은 쓰지 않는다.
+
+규칙:
+1. 독자가 쓴 행동과 그 행동이 노리는 결과를 옮긴다(베어 버린다 → die, 빼앗는다 → give, 따라간다 → move).
+   이 세계에서 이루어질 수 없어 보여도 노린 그대로 옮긴다. 이루어지는지는 따로 판정한다. 독자가 쓰지 않은 일은 덧붙이지 않는다.
+2. 말, 태도, 감정처럼 아무것도 남기지 않는 행동은 act 하나로 적거나 changes 를 비운다.
+3. {change_rules}
+4. 인물, 장소, 물건은 목록의 이름을 그대로 쓴다.
+5. outside 는 글이 이 세계에 없는 존재나 능력을 불러내거나, 이야기 속 행동이 아닌 말(작가나 규칙에 하는 요청)일 때 true 다.
+6. summary 는 독자가 시도한 행동을 한 문장으로, {language}로 쓴다.
+
+JSON 객체 하나를 돌려준다: {{"summary": "", "outside": false, "changes": [변화]}}"""
 
 
 def _relation_choices() -> str:
@@ -492,6 +510,38 @@ async def plan_segment(
     raw = await complete(system, _segment_user(world, state, index, feedback), model)
     cards, after_event = _parse_segment(raw, world["locations"])
     return cards, after_event, check_planned_segment(world, state, index, cards, after_event)
+
+
+# ---------- the reader's own input ----------
+
+
+def _parse_reading(raw: Dict[str, Any], text: str, locations: Sequence[str]) -> Dict[str, Any]:
+    """Changes that do not parse are dropped: one odd change must not lose the whole input."""
+    raw = raw if isinstance(raw, dict) else {}
+    changes = raw.get("changes") if isinstance(raw.get("changes"), list) else []
+    events = []
+    for change in changes:
+        try:
+            events.append(_parse_change(change, locations))
+        except PlanFormatError as error:
+            logger.info("Dropped a change from the reader's input: %s", error)
+    return {"summary": _text(raw.get("summary")) or _text(text), "outside": raw.get("outside") is True, "events": events}
+
+
+async def interpret_input(
+    world: Dict[str, Any], seed: Dict[str, Any], state: State, brief: str, text: str, model: str,
+    complete: CompleteJson,
+) -> Dict[str, Any]:
+    """What the reader's own text tries to do: {"summary", "outside", "events"}. Code decides whether it holds."""
+    chooser = world.get("viewpoint") or "장면 속 인물들"
+    system = INTERPRET_SYSTEM.format(chooser=chooser, change_rules=_change_rules(), language=output_language(seed))
+    user = "\n\n".join([
+        f"전제: {world['premise']}\n장소: {', '.join(world['locations'])}",
+        "지금 상태:\n" + _state_text(state),
+        f"방금 끝난 장면의 지시서:\n{brief}",
+        f"독자의 글: {text}",
+    ])
+    return _parse_reading(await complete(system, user, model), text, world["locations"])
 
 
 # ---------- prose ----------

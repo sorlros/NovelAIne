@@ -40,6 +40,7 @@ Future<List<String>> pumpPanel(
           busy: busy,
           loadFailed: loadFailed,
           onChoose: (choice) => events.add('choose:${choice.id}'),
+          onWrite: (text) => events.add('write:$text'),
           onUndo: () => events.add('undo'),
           onReload: () => events.add('reload'),
         ),
@@ -106,11 +107,28 @@ void main() {
       expect(events, ['choose:c2', 'undo']);
     });
 
+    testWidgets('sends the reader\'s own action, trimmed, and not when empty', (
+      tester,
+    ) async {
+      final events = await pumpPanel(tester, play());
+      await tester.tap(find.text('직접 입력'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('보내기'));
+      expect(events, isEmpty);
+
+      await tester.enterText(find.byType(TextField), '  세라를 붙잡는다 ');
+      await tester.tap(find.byTooltip('보내기'));
+      await tester.pump();
+      expect(events, ['write:세라를 붙잡는다']);
+      expect(find.byType(TextField), findsNothing); // back to the choices
+    });
+
     testWidgets('hides choices and undo while a scene is being written', (
       tester,
     ) async {
       await pumpPanel(tester, play(), busy: true);
       expect(find.text('문을 연다'), findsNothing);
+      expect(find.text('직접 입력'), findsNothing);
       expect(find.text('직전 선택 되돌리기'), findsNothing);
     });
 

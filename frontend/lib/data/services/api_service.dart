@@ -286,15 +286,19 @@ class ApiService {
     return PlayStatus.fromJson(_dataOf(response, 'Failed to fetch play'));
   }
 
-  /// Streams the scene that follows [choiceId]. Sending the same
-  /// [clientRequestId] again replays a scene the server already saved.
+  /// Streams the scene that follows an offered [choiceId] or the reader's own
+  /// [text] (exactly one of them). Sending the same [clientRequestId] again
+  /// replays a scene the server already saved.
   Stream<String> streamPlay(
-    String storyId,
-    String choiceId, {
+    String storyId, {
+    String? choiceId,
+    String? text,
     required String clientRequestId,
   }) {
+    assert((choiceId == null) != (text == null));
     return _streamText('/stories/$storyId/play', {
-      'choice_id': choiceId,
+      if (choiceId != null) 'choice_id': choiceId,
+      if (text != null) 'text': text,
       'client_request_id': clientRequestId,
     });
   }

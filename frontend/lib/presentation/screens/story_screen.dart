@@ -466,7 +466,18 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     return text;
   }
 
-  Future<void> _choose(PlayChoice choice) async {
+  Future<void> _choose(PlayChoice choice) =>
+      _startTurn(label: choice.label, choiceId: choice.id);
+
+  Future<void> _write(String text) => _startTurn(label: text, text: text);
+
+  /// Shows the reader's move and a placeholder scene, then writes the scene.
+  /// Exactly one of [choiceId] and [text] is given.
+  Future<void> _startTurn({
+    required String label,
+    String? choiceId,
+    String? text,
+  }) async {
     if (widget.readOnly || _isSendingMessage) return;
     HapticFeedback.mediumImpact();
     final clientRequestId = const Uuid().v4();
@@ -479,7 +490,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             {
               'id': 'user_$clientRequestId',
               'role': 'user',
-              'content': choice.label,
+              'content': label,
               'imageUrl': null,
             },
             {
@@ -489,22 +500,29 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
               'imageUrl': null,
               'sceneType': 'narrative',
               'clientRequestId': clientRequestId,
-              'choiceId': choice.id,
+              'choiceId': choiceId,
+              'inputText': text,
               'streamFailed': false,
             },
           ],
         );
     _scrollToBottom();
-    await _playTurn(aiMessageId, choice.id, clientRequestId);
+    await _playTurn(
+      aiMessageId,
+      clientRequestId,
+      choiceId: choiceId,
+      text: text,
+    );
   }
 
-  /// Writes the scene after [choiceId]. Retrying with the same
+  /// Writes the scene after the reader's move. Retrying with the same
   /// [clientRequestId] replays a scene the server already saved.
   Future<void> _playTurn(
     String aiMessageId,
-    String choiceId,
-    String clientRequestId,
-  ) async {
+    String clientRequestId, {
+    String? choiceId,
+    String? text,
+  }) async {
     setState(() => _isSendingMessage = true);
     ref.read(streamingMessageIdProvider.notifier).state = aiMessageId;
     try {
@@ -512,7 +530,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         aiMessageId,
         _apiService.streamPlay(
           widget.initialStory!.id,
-          choiceId,
+          choiceId: choiceId,
+          text: text,
           clientRequestId: clientRequestId,
         ),
       );
@@ -521,7 +540,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
       debugPrint("Play turn failed: $error");
       if (!mounted) return;
       if (error is ApiException && error.statusCode == 409) {
-        // The choice is no longer offered (e.g. played on another device): show the server's story.
+        // The move is no longer possible (e.g. played on another device): show the server's story.
         await _refreshScenesFromServer(replaceMessages: true);
       } else {
         _updateMessage(aiMessageId, {
@@ -545,14 +564,18 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     }
   }
 
-  Future<void> _retryChoice(Map<String, dynamic> failedMessage) async {
+  static bool _isPlayMessage(Map<String, dynamic> message) =>
+      message['choiceId'] != null || message['inputText'] != null;
+
+  Future<void> _retryTurn(Map<String, dynamic> failedMessage) async {
     if (_isSendingMessage) return;
     final aiMessageId = failedMessage['id'].toString();
     _updateMessage(aiMessageId, {'content': '...', 'streamFailed': false});
     await _playTurn(
       aiMessageId,
-      failedMessage['choiceId'].toString(),
       failedMessage['clientRequestId'].toString(),
+      choiceId: failedMessage['choiceId']?.toString(),
+      text: failedMessage['inputText']?.toString(),
     );
   }
 
@@ -898,7 +921,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   }
 
   Future<void> _recoverStreamMessage(Map<String, dynamic> failedMessage) async {
-    if (failedMessage['choiceId'] != null) return _retryChoice(failedMessage);
+    if (_isPlayMessage(failedMessage)) return _retryTurn(failedMessage);
     if (_isSendingMessage) {
       CustomToast.show(context, "이전 응답을 생성 중입니다.");
       return;
@@ -1718,6 +1741,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                     busy: isSending,
                     loadFailed: _playLoadFailed,
                     onChoose: _choose,
+                    onWrite: _write,
                     onUndo: _undo,
                     onReload: _loadPlay,
                   )

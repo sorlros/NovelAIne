@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from starlette.background import BackgroundTask
 
 from app.schemas.models import ApiResponse
@@ -20,6 +20,7 @@ from app.services.story_play import (
     plan_next_segment,
     planning_is_stalled,
     play_status,
+    prepare_input_turn,
     prepare_turn,
     stream_turn,
     undo_last_turn,
@@ -30,10 +31,22 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/stories/{story_id}/play", tags=["play"])
 
+MAX_INPUT_LENGTH = 300
+
 
 class PlayRequest(BaseModel):
-    choice_id: str = Field(..., min_length=1, max_length=40)
+    """One of choice_id (an offered choice) or text (the reader's own action)."""
+
+    choice_id: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    text: Optional[str] = Field(default=None, max_length=MAX_INPUT_LENGTH)
     client_request_id: Optional[str] = Field(default=None, max_length=120)
+
+    @model_validator(mode="after")
+    def one_of_choice_or_text(self):
+        self.text = (self.text or "").strip() or None
+        if (self.choice_id is None) == (self.text is None):
+            raise ValueError("choice_id 와 text 가운데 하나만 보낸다")
+        return self
 
 
 def get_planner():
@@ -82,7 +95,10 @@ async def post_play(
     request: PlayRequest,
     authorization: Optional[str] = Header(default=None),
 ):
-    """Pick a choice and stream the next scene as plain text, like /api/chat/stream.
+    """Pick a choice, or write an action, and stream the next scene as plain text, like /api/chat/stream.
+
+    Written actions are interpreted and checked like choices. One that cannot
+    happen is not refused: the scene shows the attempt failing.
 
     The turn is saved when the scene is complete. A failure while streaming ends
     the stream with [STREAM_ERROR:message] and saves nothing.
@@ -94,9 +110,14 @@ async def post_play(
         return _replay_existing(existing["ai_scene"].get("content", ""))
     planner = get_planner()
     try:
-        turn = await prepare_turn(client, str(story_id), request.choice_id, planner)
+        if request.text is not None:
+            turn = await prepare_input_turn(client, str(story_id), request.text, planner)
+        else:
+            turn = await prepare_turn(client, str(story_id), request.choice_id, planner)
     except PlayError as error:
         raise _http_error(error)
+    except ExternalServiceError as error:  # reading the reader's input, or replanning the segment
+        raise HTTPException(status_code=503, detail=error.user_message)
 
     async def scene_stream():
         prose = ""
