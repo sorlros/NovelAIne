@@ -182,6 +182,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
 
   bool _guideChecked = false;
   bool _guideActive = false;
+
+  /// The reader moved the list: no automatic scroll may take them elsewhere.
+  bool _readerScrolled = false;
   final _guideSceneKey = GlobalKey();
   final _guideCharactersKey = GlobalKey();
   final _guideViewModeKey = GlobalKey();
@@ -242,9 +245,17 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
 
     if (mounted) {
       ref.read(isInitialLoadDoneProvider.notifier).state = true;
+      _readerScrolled = false;
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _isSkeleton ? _scrollToLatestScene() : _scrollToBottom(),
       );
+      // The text is laid out again once the web fonts arrive, which moves the scene's start.
+      GoogleFonts.pendingFonts().then((_) {
+        if (!mounted || !_isSkeleton || _readerScrolled) return;
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _scrollToLatestScene(),
+        );
+      });
     }
   }
 
@@ -1225,6 +1236,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   Widget build(BuildContext context) {
     final messages = ref.watch(messageProvider);
     final isUIReady = ref.watch(isUIReadyProvider);
+    // Keeps the auto-disposed flag alive: while no scene card is built it would reset, and every card
+    // would play the typing effect again.
+    ref.watch(isInitialLoadDoneProvider);
     final backdropUrl = ref.watch(currentBackdropProvider);
     final characters = ref.watch(storyCharactersProvider);
     final presentNames = ref.watch(presentCharacterNamesProvider);
@@ -1281,71 +1295,85 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                     body: Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 850),
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          padding: EdgeInsets.fromLTRB(
-                            isMobile ? 16 : 24,
-                            20,
-                            isMobile ? 16 : 24,
-                            _isSkeleton
-                                ? 40 + MediaQuery.of(context).padding.bottom
-                                : (isMobile ? 180 : 250),
-                          ),
-                          itemCount:
-                              messages.length +
-                              1 + // +1 for the character section header
-                              (_isSkeleton ? 1 : 0), // choices panel at the end
-                          // ignore: deprecated_member_use
-                          cacheExtent: 300,
-                          itemBuilder: (context, index) {
-                            if (index == 0) {
-                              // Integrated Character Section as the first item in the list
-                              if (isMobile &&
-                                  viewMode == StoryViewMode.manuscript) {
-                                return KeyedSubtree(
-                                  key: _guideCharactersKey,
-                                  child: _buildIntegratedCharacterSection(
-                                    context,
-                                    visibleCharacters,
-                                    importantNames,
+                        child: NotificationListener<UserScrollNotification>(
+                          onNotification: (notification) {
+                            if (notification.direction !=
+                                ScrollDirection.idle) {
+                              _readerScrolled = true;
+                            }
+                            return false;
+                          },
+                          child: ListView.builder(
+                            controller: _scrollController,
+                            padding: EdgeInsets.fromLTRB(
+                              isMobile ? 16 : 24,
+                              20,
+                              isMobile ? 16 : 24,
+                              _isSkeleton
+                                  ? 40 + MediaQuery.of(context).padding.bottom
+                                  : (isMobile ? 180 : 250),
+                            ),
+                            itemCount:
+                                messages.length +
+                                1 + // +1 for the character section header
+                                (_isSkeleton
+                                    ? 1
+                                    : 0), // choices panel at the end
+                            // ignore: deprecated_member_use
+                            cacheExtent: 300,
+                            itemBuilder: (context, index) {
+                              if (index == 0) {
+                                // Integrated Character Section as the first item in the list
+                                if (isMobile &&
+                                    viewMode == StoryViewMode.manuscript) {
+                                  return KeyedSubtree(
+                                    key: _guideCharactersKey,
+                                    child: _buildIntegratedCharacterSection(
+                                      context,
+                                      visibleCharacters,
+                                      importantNames,
+                                    ),
+                                  );
+                                }
+                                return const SizedBox.shrink();
+                              }
+
+                              if (_isSkeleton && index == messages.length + 1) {
+                                return Padding(
+                                  key: _guideChoicesKey,
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: PlayChoicesPanel(
+                                    status: _play,
+                                    busy: isSending,
+                                    loadFailed: _playLoadFailed,
+                                    onChoose: _choose,
+                                    onWrite: _write,
+                                    onUndo: _undo,
+                                    onReload: _loadPlay,
                                   ),
                                 );
                               }
-                              return const SizedBox.shrink();
-                            }
 
-                            if (_isSkeleton && index == messages.length + 1) {
-                              return Padding(
-                                key: _guideChoicesKey,
-                                padding: const EdgeInsets.only(top: 8),
-                                child: PlayChoicesPanel(
-                                  status: _play,
-                                  busy: isSending,
-                                  loadFailed: _playLoadFailed,
-                                  onChoose: _choose,
-                                  onWrite: _write,
-                                  onUndo: _undo,
-                                  onReload: _loadPlay,
-                                ),
+                              final msg = messages[index - 1];
+                              final card = _RefinedNarrativeCard(
+                                key: ValueKey(msg['id'].toString()),
+                                msg: msg,
+                                activeBgmUrl: _activeBgmUrl,
+                                isBgmPlaying: _isBgmPlaying,
+                                loadingBgmSceneId: _loadingBgmSceneId,
+                                canGenerateBgm: !widget.readOnly,
+                                onBgmPressed: _handleBgmAction,
+                                onRetryPressed: _recoverStreamMessage,
                               );
-                            }
-
-                            final msg = messages[index - 1];
-                            final card = _RefinedNarrativeCard(
-                              key: ValueKey(msg['id'].toString()),
-                              msg: msg,
-                              activeBgmUrl: _activeBgmUrl,
-                              isBgmPlaying: _isBgmPlaying,
-                              loadingBgmSceneId: _loadingBgmSceneId,
-                              canGenerateBgm: !widget.readOnly,
-                              onBgmPressed: _handleBgmAction,
-                              onRetryPressed: _recoverStreamMessage,
-                            );
-                            // The opening scene, lit by the first-time guide.
-                            return index == 1
-                                ? KeyedSubtree(key: _guideSceneKey, child: card)
-                                : card;
-                          },
+                              // The opening scene, lit by the first-time guide.
+                              return index == 1
+                                  ? KeyedSubtree(
+                                      key: _guideSceneKey,
+                                      child: card,
+                                    )
+                                  : card;
+                            },
+                          ),
                         ),
                       ),
                     ),
