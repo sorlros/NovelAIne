@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -21,7 +23,6 @@ import '../providers/content_provider.dart';
 import '../widgets/character_card.dart';
 import '../widgets/custom_loading_indicator.dart';
 import '../widgets/custom_toast.dart';
-import '../widgets/measure_size.dart';
 import '../widgets/play_choices_panel.dart';
 import '../widgets/writing_effect.dart';
 
@@ -89,6 +90,34 @@ List<Map<String, dynamic>> _processScenesIsolate(List<dynamic> scenes) {
       .toList();
 }
 
+/// Index of the latest scene in [messages] (the reader's moves are not scenes), or null without one.
+@visibleForTesting
+int? latestSceneIndex(List<Map<String, dynamic>> messages) {
+  final index = messages.lastIndexWhere((m) => m['role'] != 'user');
+  return index < 0 ? null : index;
+}
+
+/// Scroll offset of [position] that puts the list item keyed `ValueKey(id)` at the top of the list,
+/// or null while the lazily built list has not built that item.
+@visibleForTesting
+double? itemTopOffset(ScrollPosition position, String id) {
+  final key = ValueKey(id);
+  RenderObject? item;
+  void visit(Element element) {
+    if (item != null) return;
+    if (element.widget.key == key) {
+      item = element.renderObject;
+      return;
+    }
+    element.visitChildren(visit);
+  }
+
+  position.context.notificationContext?.visitChildElements(visit);
+  final found = item;
+  if (found == null) return null;
+  return RenderAbstractViewport.of(found).getOffsetToReveal(found, 0).offset;
+}
+
 final List<String> availableFonts = [
   'Noto Serif KR',
   'EB Garamond',
@@ -135,9 +164,11 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   PlayStatus? _play;
   bool _playLoadFailed = false;
 
-  /// Height of the controls pinned at the bottom (the choices panel grows with its content).
-  double _controlsHeight = 0;
   Timer? _preparingTimer;
+
+  /// Streaming scene the list lifts toward the top, and the offset last set for it.
+  String? _risingSceneId;
+  double _risingOffset = 0;
 
   @override
   void initState() {
@@ -192,7 +223,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
 
     if (mounted) {
       ref.read(isInitialLoadDoneProvider.notifier).state = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _isSkeleton ? _scrollToLatestScene() : _scrollToBottom(),
+      );
     }
   }
 
@@ -413,8 +446,14 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         .map((c) => Map<String, dynamic>.from(c))
         .toList();
     // The cached story list does not keep the mode, so the server decides.
-    if (storyData['mode'] == 'skeleton') {
+    if (storyData['mode'] == 'skeleton' && !_isSkeleton) {
       setState(() => _isSkeleton = true);
+      // Already scrolled to the end as a chat story: move to the latest scene's start instead.
+      if (ref.read(isInitialLoadDoneProvider)) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _scrollToLatestScene(),
+        );
+      }
     }
     if (_isSkeleton && !widget.readOnly) _loadPlay();
   }
@@ -464,12 +503,13 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
       if (now - lastUpdate > 100 && mounted) {
         _updateMessage(messageId, {'content': text});
         lastUpdate = now;
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) => _keepSceneRising());
       }
     }
-    if (mounted) _updateMessage(messageId, {'content': text});
+    if (mounted) {
+      _updateMessage(messageId, {'content': text});
+      WidgetsBinding.instance.addPostFrameCallback((_) => _keepSceneRising());
+    }
     return text;
   }
 
@@ -513,7 +553,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             },
           ],
         );
-    _scrollToBottom();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _scrollToLatestScene(rising: true),
+    );
     await _playTurn(
       aiMessageId,
       clientRequestId,
@@ -543,7 +585,10 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           clientRequestId: clientRequestId,
         ),
       );
-      if (mounted) await _refreshScenesFromServer(replaceMessages: true);
+      // The reader is reading the new scene: leave the list where it is.
+      if (mounted) {
+        await _refreshScenesFromServer(replaceMessages: true, scroll: false);
+      }
     } catch (error) {
       debugPrint("Play turn failed: $error");
       if (!mounted) return;
@@ -564,6 +609,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         );
       }
     } finally {
+      _risingSceneId = null;
       if (mounted) {
         ref.read(streamingMessageIdProvider.notifier).state = null;
         setState(() => _isSendingMessage = false);
@@ -595,6 +641,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     if (_isSendingMessage) return;
     final aiMessageId = failedMessage['id'].toString();
     _updateMessage(aiMessageId, {'content': '...', 'streamFailed': false});
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _scrollToLatestScene(rising: true),
+    );
     await _playTurn(
       aiMessageId,
       failedMessage['clientRequestId'].toString(),
@@ -708,8 +757,64 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     }
   }
 
+  /// Puts the start of the latest scene at the top of the list: a skeleton story is read from a
+  /// scene's start. With [rising], a scene still too short to reach the top keeps rising as it streams in.
+  void _scrollToLatestScene({bool rising = false}) {
+    _risingSceneId = null;
+    final messages = ref.read(messageProvider);
+    final index = latestSceneIndex(messages);
+    if (index == null) return;
+    _revealScene(messages[index]['id'].toString(), rising: rising, tries: 4);
+  }
+
+  void _revealScene(String id, {required bool rising, required int tries}) {
+    if (!mounted || !_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    final top = itemTopOffset(position, id);
+    if (top == null) {
+      if (tries == 0) return;
+      // The list builds items lazily: go to the end, then further up, until the scene is built.
+      final atEnd = position.pixels >= position.maxScrollExtent;
+      _scrollController.jumpTo(
+        atEnd
+            ? math.max(0, position.pixels - position.viewportDimension)
+            : position.maxScrollExtent,
+      );
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _revealScene(id, rising: rising, tries: tries - 1),
+      );
+      return;
+    }
+    final target = math.min(top, position.maxScrollExtent);
+    _scrollController.jumpTo(target);
+    if (rising && top > target) {
+      _risingSceneId = id;
+      _risingOffset = target;
+    }
+  }
+
+  /// Lifts the streaming scene toward the top as it grows, until it gets there or the reader scrolls.
+  void _keepSceneRising() {
+    final id = _risingSceneId;
+    if (id == null || !mounted || !_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    final top = itemTopOffset(position, id);
+    // Scrolled up by the reader, scrolled past the scene's start, or the scene is gone: stop.
+    if (top == null ||
+        position.pixels < _risingOffset - 1 ||
+        position.pixels >= top - 1) {
+      _risingSceneId = null;
+      return;
+    }
+    final target = math.min(top, position.maxScrollExtent);
+    if (target > position.pixels) _scrollController.jumpTo(target);
+    _risingOffset = target;
+    if (top <= target) _risingSceneId = null;
+  }
+
   Future<List<Map<String, dynamic>>> _refreshScenesFromServer({
     bool replaceMessages = false,
+    bool scroll = true,
   }) async {
     if (widget.initialStory == null) return [];
 
@@ -733,7 +838,11 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
       if (lastImage != null) {
         ref.read(currentBackdropProvider.notifier).state = lastImage;
       }
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+      if (scroll) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _isSkeleton ? _scrollToLatestScene() : _scrollToBottom(),
+        );
+      }
     }
 
     return refreshedScenes;
@@ -1041,6 +1150,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     final importantNames = ref.watch(importantCharacterNamesProvider);
     final persistence = ref.watch(characterPersistenceProvider);
     final viewMode = ref.watch(viewModeProvider);
+    final isSending =
+        _isSendingMessage || ref.watch(streamingMessageIdProvider) != null;
     final bool isMobile =
         MediaQuery.of(context).size.width < AppConstants.desktopBreakpoint;
 
@@ -1092,16 +1203,14 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                             isMobile ? 16 : 24,
                             20,
                             isMobile ? 16 : 24,
-                            // The choices panel's height depends on its content: keep the last paragraph above it.
                             _isSkeleton
-                                ? (_controlsHeight > 0
-                                      ? _controlsHeight + 24
-                                      : 440)
+                                ? 40 + MediaQuery.of(context).padding.bottom
                                 : (isMobile ? 180 : 250),
                           ),
                           itemCount:
                               messages.length +
-                              1, // +1 for the character section header
+                              1 + // +1 for the character section header
+                              (_isSkeleton ? 1 : 0), // choices panel at the end
                           // ignore: deprecated_member_use
                           cacheExtent: 300,
                           itemBuilder: (context, index) {
@@ -1116,6 +1225,21 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                                 );
                               }
                               return const SizedBox.shrink();
+                            }
+
+                            if (_isSkeleton && index == messages.length + 1) {
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: PlayChoicesPanel(
+                                  status: _play,
+                                  busy: isSending,
+                                  loadFailed: _playLoadFailed,
+                                  onChoose: _choose,
+                                  onWrite: _write,
+                                  onUndo: _undo,
+                                  onReload: _loadPlay,
+                                ),
+                              );
                             }
 
                             final msg = messages[index - 1];
@@ -1138,7 +1262,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
               ],
             ),
           ),
-          if (isUIReady && !widget.readOnly) _buildFloatingControls(context),
+          if (isUIReady && !widget.readOnly && !_isSkeleton)
+            _buildFloatingControls(context),
           if (!isUIReady) _buildFullScreenLoading(),
         ],
       ),
@@ -1741,137 +1866,94 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     final bgColor = viewMode == StoryViewMode.manuscript
         ? const Color(0xFF16161D)
         : const Color(0xFF000000);
-    // Over the story only: covering the side panel would also block its buttons.
-    final showsSidePanel =
-        MediaQuery.of(context).size.width >= AppConstants.desktopBreakpoint &&
-        viewMode == StoryViewMode.manuscript;
-
     return Positioned(
       bottom: 0,
-      left: showsSidePanel ? _sidePanelWidth : 0,
+      left: 0,
       right: 0,
-      child: MeasureSize(
-        onChange: _onControlsResized,
-        child: Container(
-          padding: EdgeInsets.fromLTRB(
-            isMobile ? 12 : 20,
-            isMobile ? 12 : 20,
-            isMobile ? 12 : 20,
-            isMobile ? 30 : 40,
+      child: Container(
+        padding: EdgeInsets.fromLTRB(
+          isMobile ? 12 : 20,
+          isMobile ? 12 : 20,
+          isMobile ? 12 : 20,
+          isMobile ? 30 : 40,
+        ),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.transparent,
+              bgColor.withValues(alpha: 0.8),
+              bgColor,
+            ],
           ),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.transparent,
-                bgColor.withValues(alpha: 0.8),
-                bgColor,
-              ],
-            ),
-          ),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 850),
-              child: _isSkeleton
-                  ? PlayChoicesPanel(
-                      status: _play,
-                      busy: isSending,
-                      loadFailed: _playLoadFailed,
-                      onChoose: _choose,
-                      onWrite: _write,
-                      onUndo: _undo,
-                      onReload: _loadPlay,
-                    )
-                  : Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 850),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(35),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      style: GoogleFonts.lato(
+                        color: Colors.white,
+                        fontSize: 15,
                       ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(35),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.12),
+                      decoration: InputDecoration(
+                        hintText: isSending ? "응답 생성 중..." : "어떻게 행동할까요?",
+                        hintStyle: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.3),
+                          fontSize: 14,
                         ),
+                        border: InputBorder.none,
                       ),
-                      child: Row(
-                        children: [
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextField(
-                              controller: _controller,
-                              style: GoogleFonts.lato(
-                                color: Colors.white,
-                                fontSize: 15,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: isSending
-                                    ? "응답 생성 중..."
-                                    : "어떻게 행동할까요?",
-                                hintStyle: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.3),
-                                  fontSize: 14,
-                                ),
-                                border: InputBorder.none,
-                              ),
-                              onSubmitted: (_) {
-                                if (!isSending) _sendMessage();
-                              },
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: isSending ? null : _sendMessage,
-                            child: Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: isSending
-                                    ? Colors.white24
-                                    : const Color(0xFF7C3AED),
-                                shape: BoxShape.circle,
-                              ),
-                              child: isSending
-                                  ? const Padding(
-                                      padding: EdgeInsets.all(12),
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Icon(
-                                      Icons.auto_fix_high_rounded,
-                                      color: Colors.white,
-                                      size: 20,
-                                    ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      onSubmitted: (_) {
+                        if (!isSending) _sendMessage();
+                      },
                     ),
+                  ),
+                  GestureDetector(
+                    onTap: isSending ? null : _sendMessage,
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: isSending
+                            ? Colors.white24
+                            : const Color(0xFF7C3AED),
+                        shape: BoxShape.circle,
+                      ),
+                      child: isSending
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.auto_fix_high_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
-  }
-
-  void _onControlsResized(Size size) {
-    if (!mounted || size.height == _controlsHeight) return;
-    final position = _scrollController.hasClients
-        ? _scrollController.position
-        : null;
-    final wasAtEnd =
-        position != null && position.pixels >= position.maxScrollExtent - 40;
-    setState(() => _controlsHeight = size.height);
-    if (wasAtEnd) {
-      // A taller panel (e.g. the reader opened the input) must not cover the last paragraph.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-        }
-      });
-    }
   }
 }
 
