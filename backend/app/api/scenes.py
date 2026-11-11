@@ -26,6 +26,12 @@ def _is_skeleton_story(client, story_id: UUID) -> bool:
     return bool(response.data) and response.data[0].get("mode") == "skeleton"
 
 
+def _reject_skeleton_story(client, story_id: UUID, message: str) -> None:
+    """Scenes of a skeleton story are written and removed only by its turns, which keep the state in step."""
+    if _is_skeleton_story(client, story_id):
+        raise HTTPException(status_code=409, detail=message)
+
+
 def _characters_from_state(client, story_id: UUID) -> Optional[dict]:
     """A skeleton-mode story knows who is present from its world state, without an LLM call. None otherwise."""
     if not _is_skeleton_story(client, story_id):
@@ -99,6 +105,7 @@ async def create_scene(
     try:
         client = get_supabase_client()
         ensure_story_access(client, story_id, authorization)
+        _reject_skeleton_story(client, story_id, "장면은 선택지로만 이어집니다.")
 
         scores = calculate_scene_scores(scene.content)
         should_generate_image = scene.generate_image or scores["should_generate_image"]
@@ -245,6 +252,7 @@ async def update_scene(
     try:
         client = get_supabase_client()
         ensure_story_access(client, story_id, authorization)
+        _reject_skeleton_story(client, story_id, "이 이야기의 장면은 고칠 수 없습니다.")
 
         # Recalculate scores if content updated
         if "content" in scene_update:
@@ -279,9 +287,7 @@ async def delete_scene(
     try:
         client = get_supabase_client()
         ensure_story_access(client, story_id, authorization)
-        if _is_skeleton_story(client, story_id):
-            # Scenes of a skeleton story carry the state; removing one would break it. Undo the turn instead.
-            raise HTTPException(status_code=409, detail="이 이야기의 장면은 되돌리기로만 지울 수 있습니다.")
+        _reject_skeleton_story(client, story_id, "이 이야기의 장면은 되돌리기로만 지울 수 있습니다.")
 
         response = client.table("scenes").delete().eq("id", str(scene_id)).execute()
 
