@@ -1576,6 +1576,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   "빠르고 가벼운 대화와 전개",
                   AppConstants.defaultLlmModel,
                   currentModel == AppConstants.defaultLlmModel,
+                  closesSheet: true,
                 ),
                 const SizedBox(height: 12),
                 _buildModelToggleOption(
@@ -1584,6 +1585,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   "치밀한 묘사와 깊이 있는 서사",
                   AppConstants.proLlmModel,
                   currentModel == AppConstants.proLlmModel,
+                  closesSheet: true,
                 ),
                 const SizedBox(height: 20),
               ],
@@ -1599,8 +1601,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     String title,
     String sub,
     String modelId,
-    bool isSelected,
-  ) {
+    bool isSelected, {
+    bool closesSheet = false,
+  }) {
     return GestureDetector(
       onTap: () async {
         if (isSelected) return;
@@ -1610,7 +1613,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           });
           ref.read(currentStoryModelProvider.notifier).state = modelId;
           if (mounted) {
-            Navigator.pop(context);
+            // Only the bottom sheet closes; the side panel's copy must not close the story.
+            if (closesSheet) Navigator.pop(context);
             CustomToast.show(context, "$title 엔진으로 전환되었습니다.");
           }
         } catch (e) {

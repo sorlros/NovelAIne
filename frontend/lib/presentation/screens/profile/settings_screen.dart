@@ -23,8 +23,10 @@ class SettingsScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-            onPressed: () {
-              ref.read(authProvider.notifier).logout();
+            onPressed: () async {
+              // The login screen opens home for a signed-in user: sign out first.
+              await ref.read(authProvider.notifier).logout();
+              if (!context.mounted) return;
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (context) => const AuthScreen()),
                 (route) => false,

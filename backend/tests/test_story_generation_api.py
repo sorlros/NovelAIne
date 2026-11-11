@@ -70,7 +70,8 @@ class SkeletonCreateApiTest(unittest.IsolatedAsyncioTestCase):
         self.client.plan(story_id).update({"world": {"secret": "ending"}, "lease_until": "2999-01-01T00:00:00+00:00"})
         tasks = BackgroundTasks()
         response = await stories_api.get_story_generation(story_id, tasks, authorization=AUTH)
-        self.assertEqual(response.data, {"status": "queued", "step": "none", "error": None, "attempts": 0})
+        self.assertEqual(response.data, {"status": "queued", "step": "none", "error": None, "attempts": 0,
+                                         "title": created.data["title"]})
         self.assertEqual(tasks.tasks, [])  # a live lease is left alone
 
     async def test_status_check_resumes_a_stalled_generation(self):

@@ -308,7 +308,9 @@ async def get_story_generation(
             raise HTTPException(status_code=404, detail="Story generation not found")
         if is_stalled(plan):
             background_tasks.add_task(run_generation, str(story_id))
-        return ApiResponse.ok(data=generation_status(plan))
+        # The title is set by the first step, so the progress screen can show it while the rest is made.
+        story = client.table("stories").select("title").eq("id", str(story_id)).limit(1).execute().data
+        return ApiResponse.ok(data={**generation_status(plan), "title": story[0]["title"] if story else None})
     except HTTPException:
         raise
     except Exception as error:

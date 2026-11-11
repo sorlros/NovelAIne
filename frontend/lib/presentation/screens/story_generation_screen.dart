@@ -182,7 +182,7 @@ class _StoryGenerationScreenState extends ConsumerState<StoryGenerationScreen> {
                     onRetry: _retry,
                   )
                 : _ProgressView(
-                    title: widget.story.title,
+                    title: status?.title ?? widget.story.title,
                     status: status,
                     connectionLost: _connectionLost,
                   ),

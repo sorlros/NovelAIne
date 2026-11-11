@@ -70,6 +70,13 @@ void main() {
       expect(at('world').label, contains('줄기'));
       expect(
         GenerationStatus.fromJson({
+          'status': 'running',
+          'title': '망각의 세금',
+        }).title,
+        '망각의 세금',
+      );
+      expect(
+        GenerationStatus.fromJson({
           'status': 'failed',
           'step': 'world',
         }).isFailed,
