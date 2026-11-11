@@ -192,6 +192,17 @@ class AuthAndAccessContractTest(unittest.TestCase):
     def test_auth_refresh_error_is_user_friendly(self):
         self.assertIn("세션", auth_api._friendly_auth_error(Exception("Invalid Refresh Token")))
 
+    def test_a_user_id_sent_without_a_token_is_not_trusted(self):
+        client = FakeClient(user_id="user-1")
+        with self.assertRaises(HTTPException) as context:
+            auth_context.resolve_request_user_id(client, None, "user-2", required=True)
+        self.assertEqual(context.exception.status_code, 401)
+        self.assertIsNone(auth_context.resolve_request_user_id(client, None, "user-2", required=False))
+        with self.assertRaises(HTTPException) as context:
+            auth_context.resolve_request_user_id(client, "Bearer good-token", "user-2", required=True)
+        self.assertEqual(context.exception.status_code, 403)
+        self.assertEqual(auth_context.resolve_request_user_id(client, "Bearer good-token", None), "user-1")
+
     def test_story_owner_access_and_public_read_contract(self):
         client = FakeClient(user_id="user-1")
         owner_id = auth_context.ensure_story_access(client, "11111111-1111-4111-8111-111111111111", "Bearer good-token")

@@ -178,14 +178,7 @@ async def create_story(
         chat_service = ChatService()
 
         skeleton = is_skeleton_mode_enabled()
-        user_id = resolve_request_user_id(
-            client,
-            authorization,
-            # A skeleton story runs several model calls in the background: only for the signed-in user,
-            # never for a user_id given in the body without a token.
-            None if skeleton else story.user_id,
-            required=True,
-        )
+        user_id = resolve_request_user_id(client, authorization, story.user_id, required=True)
         plan = user_plan(client, user_id)
         story.llm_model = engine_for(plan, normalize_llm_model(story.llm_model))
         if skeleton and story.request_id:
