@@ -499,6 +499,14 @@ def needs_next_segment(turn: Turn) -> bool:
     return bool(turn.spine_event) and not finishes_story(turn)
 
 
+MEDIA_MIN_INTENSITY = 4  # of 5: the turning points the story builds up to, a few per story
+
+
+def wants_media(turn: Turn) -> bool:
+    """A major event tense enough to get its own picture and music was just written."""
+    return bool(turn.spine_event) and (turn.spine_event.get("intensity") or 0) >= MEDIA_MIN_INTENSITY
+
+
 # ---------- planning the next segment in the background ----------
 
 

@@ -43,7 +43,7 @@ class PlayApiTest(unittest.IsolatedAsyncioTestCase):
     async def test_get_returns_where_the_reader_is(self):
         response = await play_api.get_play(self.story_id, BackgroundTasks(), authorization=AUTH)
         self.assertEqual(set(response.data), {"beat_seq", "question", "choices", "preparing", "finished",
-                                              "present_characters", "callbacks"})
+                                              "present_characters", "callbacks", "media_pending"})
         self.assertEqual(set(response.data["choices"][0]), {"id", "label", "lasting"})
 
     async def test_post_streams_the_scene_and_saves_the_turn(self):
@@ -57,10 +57,27 @@ class PlayApiTest(unittest.IsolatedAsyncioTestCase):
             await take_turn(self.client, self.story_id, self.model)
         response = await self.post(self.first_choice(), "turn-3")
         await read_stream(response)
-        self.assertEqual(response.background.func, plan_next_segment)
+        self.assertEqual(response.background.func, play_api.after_turn)
         tasks = BackgroundTasks()
         await play_api.get_play(self.story_id, tasks, authorization=AUTH)
         self.assertEqual([task.func for task in tasks.tasks], [plan_next_segment])  # still waiting: resume it
+
+    async def test_a_tense_major_event_has_its_media_pending_when_the_scene_arrives(self):
+        for turn_number in range(1, 30):
+            if not available_choices(load_context(self.client, self.story_id)):
+                await plan_next_segment(self.story_id, planner_for(self.model), self.client)  # the background task
+            response = await self.post(self.first_choice(), f"turn-{turn_number}")
+            await read_stream(response)
+            if self.client.rows("media_jobs"):
+                break
+        # e03 (intensity 4) is the first such event; e01 and e02 are calmer and got nothing
+        scene = self.client.rows("scenes", id=self.client.rows("media_jobs")[0]["scene_id"])[0]
+        self.assertEqual(scene["beat_id"], next(beat["id"] for beat in self.client.rows("story_beats")
+                                                if beat.get("spine_event_id") == "e03"))
+        self.assertEqual([job["media_type"] for job in self.client.rows("media_jobs")], ["image", "bgm"])
+        status = await play_api.get_play(self.story_id, BackgroundTasks(), authorization=AUTH)
+        self.assertTrue(status.data["media_pending"])  # before the response's background task has run
+        self.assertEqual(response.background.func, play_api.after_turn)
 
     async def test_a_question_echoed_by_the_model_is_neither_shown_nor_saved(self):
         question = "세라에게 무엇을 말할 것인가"  # the question of the next scene card
