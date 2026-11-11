@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 import time
 from typing import Optional
 from uuid import UUID
@@ -12,6 +11,16 @@ from starlette.background import BackgroundTask
 
 from app.api.media import media_pending, queue_scene_media, run_media_jobs
 from app.schemas.models import ApiResponse
+from app.services.plans import (
+    DIRECT_INPUT,
+    PREMIUM,
+    TURN,
+    engine_for,
+    give_back_daily,
+    limit_message,
+    use_daily,
+    user_plan,
+)
 from app.services.auth_context import ensure_story_access
 from app.services.external_errors import GENERIC_MESSAGE, ExternalServiceError
 from app.services.scene_service import find_chat_turn_by_client_request_id
@@ -33,7 +42,6 @@ from app.services.story_play import (
     release_turn_slot,
     stream_turn,
     undo_last_turn,
-    use_direct_input,
     wants_media,
 )
 from app.services.supabase_client import get_supabase_client
@@ -43,8 +51,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/stories/{story_id}/play", tags=["play"])
 
 MAX_INPUT_LENGTH = 300
-DEFAULT_DAILY_INPUT_LIMIT = 50  # written actions per user per day; DIRECT_INPUT_DAILY_LIMIT overrides
-INPUT_LIMIT_MESSAGE = "오늘 쓸 수 있는 직접 입력 {limit}회를 모두 썼습니다. 선택지로 이어 가거나 내일 다시 써 주세요."
 TURN_BUSY_MESSAGE = "이야기를 이어 쓰고 있습니다. 잠시 후 다시 시도해 주세요."
 
 
@@ -103,18 +109,15 @@ def _replay_existing(content: str):
     return StreamingResponse(replay(), media_type="text/plain")
 
 
-def daily_input_limit() -> int:
-    return int(os.getenv("DIRECT_INPUT_DAILY_LIMIT", str(DEFAULT_DAILY_INPUT_LIMIT)))
-
-
-async def _prepare(client, story_id: str, request: PlayRequest, user_id: str, planner):
-    """Everything before the scene, as HTTP errors. A written action is counted before its model call,
-    so a request refused later (rare: the app hides the input then) still uses one."""
+async def _prepare(client, story_id: str, request: PlayRequest, user_id: str, planner, plan: str, counted: list):
+    """Everything before the scene, as HTTP errors. A written action is counted against the plan's daily
+    limit before its model call; what was counted goes into `counted`, to be given back if the turn fails."""
     try:
         if request.text is not None:
-            limit = daily_input_limit()
-            if not use_direct_input(client, user_id, limit):
-                raise HTTPException(status_code=429, detail=INPUT_LIMIT_MESSAGE.format(limit=limit))
+            allowed, limit = use_daily(client, user_id, DIRECT_INPUT, plan)
+            if not allowed:
+                raise HTTPException(status_code=429, detail=limit_message(DIRECT_INPUT, limit))
+            counted.append(DIRECT_INPUT)
             return await prepare_input_turn(client, story_id, request.text, planner)
         return await prepare_turn(client, story_id, request.choice_id, planner)
     except PlayError as error:
@@ -128,9 +131,10 @@ def _elapsed_ms(since: float) -> int:
 
 
 async def _write_scene(client, story_id: str, turn, planner, request_id, owner: str, user_id, prepare_ms: int,
-                       saved: dict):
-    """Stream the scene and save the turn, then record it and free the story's turn slot. A turning point's
-    media is queued with the turn and its job ids go into `saved`. The slot is freed when the stream ends or is
+                       saved: dict, counted: list, with_media: bool):
+    """Stream the scene and save the turn, then record it and free the story's turn slot. With `with_media`
+    (the paid plan), a turning point's media is queued with the turn and its job ids go into `saved`. A turn
+    that is not saved gives back the daily uses in `counted`. The slot is freed when the stream ends or is
     closed; a response never read expires after TURN_SLOT_SECONDS."""
     started, first_chunk_ms, prose = time.monotonic(), None, ""
     outcome, error, scene_id = "failed", "stream closed", None
@@ -150,7 +154,7 @@ async def _write_scene(client, story_id: str, turn, planner, request_id, owner: 
             yield rest
         scene_id = finish_turn(client, turn, prose, request_id)["ai_scene"]["id"]
         outcome, error = "saved", None
-        if wants_media(turn):
+        if with_media and wants_media(turn):
             try:
                 saved["media_jobs"] = queue_scene_media(client, story_id, scene_id, user_id, media_prompts(turn))
             except Exception as failure:  # the turn is saved; only its picture and music are lost
@@ -167,6 +171,9 @@ async def _write_scene(client, story_id: str, turn, planner, request_id, owner: 
         timings = {"prepare_ms": prepare_ms, "first_chunk_ms": first_chunk_ms, "stream_ms": _elapsed_ms(started)}
         record_turn(client, turn, user_id, outcome, timings, prose, error, scene_id)
         release_turn_slot(client, story_id, owner)
+        if outcome != "saved":
+            for kind in counted:
+                give_back_daily(client, user_id, kind)
 
 
 @router.post("")
@@ -182,26 +189,41 @@ async def post_play(
 
     The turn is saved when the scene is complete. A failure while streaming ends
     the stream with [STREAM_ERROR:message] and saves nothing.
+
+    Each turn counts against the plan's daily turns (written actions also against their own limit), and a
+    turn that is not saved gives them back. The free plan writes with the standard engine and gets no
+    pictures or music.
     """
     client = get_supabase_client()
     user_id = ensure_story_access(client, story_id, authorization)
     existing = find_chat_turn_by_client_request_id(client, story_id, request.client_request_id)
     if existing:
         return _replay_existing(existing["ai_scene"].get("content", ""))
+    plan = user_plan(client, user_id)
     owner = claim_turn_slot(client, str(story_id))
     if not owner:
         raise HTTPException(status_code=409, detail=TURN_BUSY_MESSAGE)
+    counted = []
     planner = get_planner()
     started = time.monotonic()
     try:
-        turn = await _prepare(client, str(story_id), request, user_id, planner)
+        allowed, limit = use_daily(client, user_id, TURN, plan)
+        if not allowed:
+            raise HTTPException(status_code=429, detail=limit_message(TURN, limit))
+        counted.append(TURN)
+        turn = await _prepare(client, str(story_id), request, user_id, planner, plan, counted)
     except BaseException:
         release_turn_slot(client, str(story_id), owner)
+        for kind in counted:
+            give_back_daily(client, user_id, kind)
         raise
+    # A story set to the premium engine keeps going on the standard one after a paid plan ends.
+    turn.context.story["llm_model"] = engine_for(plan, turn.context.story.get("llm_model"))
+    with_media = plan == PREMIUM
     saved: dict = {}
     scene = _write_scene(client, str(story_id), turn, planner, request.client_request_id, owner, user_id,
-                         _elapsed_ms(started), saved)
-    needed = needs_next_segment(turn) or wants_media(turn)
+                         _elapsed_ms(started), saved, counted, with_media)
+    needed = needs_next_segment(turn) or (with_media and wants_media(turn))
     background = BackgroundTask(after_turn, str(story_id), turn, saved) if needed else None
     return StreamingResponse(scene, media_type="text/plain", background=background)
 

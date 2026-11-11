@@ -255,16 +255,31 @@ class FakeClient:
         if story and story.get("turn_lock_owner") == p_owner:
             story.update({"turn_lock_owner": None, "turn_lock_until": None})
 
-    def rpc_use_direct_input(self, p_user_id, p_limit):
-        usage = self.tables.setdefault("play_input_usage", [])
-        row = next((r for r in usage if r["user_id"] == p_user_id), None)  # one day is enough for the tests
+    # ---------- the functions of user_plans_20261111.sql; one day is enough for the tests ----------
+
+    def rpc_use_daily(self, p_user_id, p_kind, p_limit):
+        usage = self.tables.setdefault("daily_usage", [])
+        row = next((r for r in usage if r["user_id"] == p_user_id and r["kind"] == p_kind), None)
         if p_limit <= 0 or (row and row["count"] >= p_limit):
             return False
         if row:
             row["count"] += 1
         else:
-            usage.append({"user_id": p_user_id, "count": 1})
+            usage.append({"user_id": p_user_id, "kind": p_kind, "count": 1})
         return True
+
+    def rpc_give_back_daily(self, p_user_id, p_kind):
+        for row in self.tables.setdefault("daily_usage", []):
+            if row["user_id"] == p_user_id and row["kind"] == p_kind and row["count"] > 0:
+                row["count"] -= 1
+
+    def used(self, user_id, kind):
+        return next((r["count"] for r in self.tables.get("daily_usage", [])
+                     if r["user_id"] == user_id and r["kind"] == kind), 0)
+
+    def grant_premium(self, user_id, expires_at=None):
+        self.tables.setdefault("user_entitlements", []).append(
+            {"user_id": user_id, "plan": "premium", "expires_at": expires_at})
 
     def plan(self, story_id) -> Optional[Dict[str, Any]]:
         return next((row for row in self.tables.get("story_plans", []) if row["story_id"] == story_id), None)

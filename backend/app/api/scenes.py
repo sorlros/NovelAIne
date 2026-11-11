@@ -12,6 +12,7 @@ from app.schemas.models import (
     ChoiceCreate,
     ApiResponse,
 )
+from app.services.plans import PREMIUM, user_plan
 
 router = APIRouter(prefix="/stories/{story_id}/scenes", tags=["scenes"])
 logger = logging.getLogger(__name__)
@@ -104,12 +105,13 @@ async def create_scene(
     """Create a new scene in a story."""
     try:
         client = get_supabase_client()
-        ensure_story_access(client, story_id, authorization)
+        user_id = ensure_story_access(client, story_id, authorization)
         _reject_skeleton_story(client, story_id, "장면은 선택지로만 이어집니다.")
 
         scores = calculate_scene_scores(scene.content)
-        should_generate_image = scene.generate_image or scores["should_generate_image"]
-        should_generate_bgm = scene.generate_bgm or scores["should_generate_bgm"]
+        premium = user_plan(client, user_id) == PREMIUM  # pictures and music are for the paid plan
+        should_generate_image = premium and (scene.generate_image or scores["should_generate_image"])
+        should_generate_bgm = premium and (scene.generate_bgm or scores["should_generate_bgm"])
 
         created_scene = insert_scene_record(
             client,

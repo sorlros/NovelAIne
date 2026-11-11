@@ -9,6 +9,7 @@ from app.api.community import router as community_router
 from app.api.audio import router as audio_router
 from app.api.media import router as media_router
 from app.api.story_play import router as story_play_router
+from app.api.plans import router as plans_router
 
 load_dotenv()
 
@@ -89,3 +90,4 @@ app.include_router(community_router, prefix="/api")
 app.include_router(audio_router, prefix="/api")
 app.include_router(media_router, prefix="/api")
 app.include_router(story_play_router, prefix="/api")
+app.include_router(plans_router, prefix="/api")

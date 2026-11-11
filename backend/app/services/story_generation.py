@@ -544,7 +544,7 @@ def generation_status(plan: Dict[str, Any]) -> Dict[str, Any]:
     return {key: plan.get(key) for key in ("status", "step", "error", "attempts")}
 
 
-def _find_story_by_request_id(client: Any, request_id: str, user_id: str) -> Optional[Dict[str, Any]]:
+def find_story_by_request_id(client: Any, request_id: str, user_id: str) -> Optional[Dict[str, Any]]:
     plans = client.table("story_plans").select("story_id").eq("request_id", request_id).limit(1).execute()
     if not plans.data:
         return None
@@ -583,7 +583,7 @@ def create_skeleton_story(client: Any, story_create: Any, user_id: str) -> Tuple
     """
     request_id = story_create.request_id
     if request_id:
-        existing = _find_story_by_request_id(client, request_id, user_id)
+        existing = find_story_by_request_id(client, request_id, user_id)
         if existing:
             return existing, False
     generating = client.table("stories").select("id").eq("user_id", user_id).eq("status", "generating").execute()
@@ -598,7 +598,7 @@ def create_skeleton_story(client: Any, story_create: Any, user_id: str) -> Tuple
     except Exception:
         # Most likely a concurrent request with the same id won the unique index. Keep its story.
         client.table("stories").delete().eq("id", story["id"]).execute()
-        existing = _find_story_by_request_id(client, request_id, user_id) if request_id else None
+        existing = find_story_by_request_id(client, request_id, user_id) if request_id else None
         if existing:
             return existing, False
         raise

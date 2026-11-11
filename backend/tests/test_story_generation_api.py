@@ -5,6 +5,7 @@ from unittest.mock import patch
 from fastapi import BackgroundTasks, HTTPException
 
 from app.api import stories as stories_api
+from app.llm_models import PRIMARY_FAST_LLM_MODEL, PRIMARY_PRO_LLM_MODEL
 from app.services.story_generation import run_generation
 from story_fakes import FakeClient, story_request
 
@@ -38,11 +39,40 @@ class SkeletonCreateApiTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.client.tables["stories"]), 1)
 
     async def test_a_third_concurrent_generation_is_refused(self):
+        self.client.grant_premium("user-1")  # the free plan stops at one story a day before this limit
         await self.create(request_id="a")
         await self.create(request_id="b")
         with self.assertRaises(HTTPException) as caught:
             await self.create(request_id="c")
         self.assertEqual(caught.exception.status_code, 429)
+        self.assertEqual(self.client.used("user-1", "story"), 2)  # the refused one gave its use back
+
+    async def test_the_free_plan_makes_one_story_a_day(self):
+        await self.create(request_id="a")
+        with self.assertRaises(HTTPException) as caught:
+            await self.create(request_id="b")
+        self.assertEqual(caught.exception.status_code, 429)
+        self.assertIn("1편", caught.exception.detail)
+        self.assertEqual(len(self.client.tables["stories"]), 1)
+        retried, _ = await self.create(request_id="a")  # a retry at the limit still gets its story
+        self.assertEqual(retried.data["id"], self.client.tables["stories"][0]["id"])
+
+    async def test_the_premium_engine_is_for_the_paid_plan(self):
+        free, _ = await self.create(request_id="a", llm_model=PRIMARY_PRO_LLM_MODEL)
+        self.assertEqual(free.data["llm_model"], PRIMARY_FAST_LLM_MODEL)
+        self.client.grant_premium("user-1")
+        paid, _ = await self.create(request_id="b", llm_model=PRIMARY_PRO_LLM_MODEL)
+        self.assertEqual(paid.data["llm_model"], PRIMARY_PRO_LLM_MODEL)
+
+    async def test_only_the_paid_plan_can_switch_a_story_to_the_premium_engine(self):
+        created, _ = await self.create()
+        with self.assertRaises(HTTPException) as caught:
+            await stories_api.update_story(created.data["id"], {"llm_model": PRIMARY_PRO_LLM_MODEL}, authorization=AUTH)
+        self.assertEqual(caught.exception.status_code, 403)
+        self.client.grant_premium("user-1")
+        updated = await stories_api.update_story(created.data["id"], {"llm_model": PRIMARY_PRO_LLM_MODEL},
+                                                 authorization=AUTH)
+        self.assertEqual(updated.data["llm_model"], PRIMARY_PRO_LLM_MODEL)
 
     async def test_a_skeleton_story_needs_a_signed_in_user(self):
         tasks = BackgroundTasks()

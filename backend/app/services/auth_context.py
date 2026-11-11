@@ -57,8 +57,7 @@ def resolve_request_user_id(
         )
     if authenticated_user_id:
         return authenticated_user_id
-    if requested:
-        return requested
+    # A user id sent without a token proves nothing: trusting it let anyone read or write as anyone.
     if required:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

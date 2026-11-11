@@ -10,6 +10,8 @@ from app.api import scenes as scenes_api
 from app.api import story_play as play_api
 from app.schemas.models import SceneCreate
 from app.services.external_errors import ExternalServiceError
+from app.llm_models import PRIMARY_FAST_LLM_MODEL, PRIMARY_PRO_LLM_MODEL
+from app.services import plans
 from app.services.story_play import available_choices, load_context, plan_next_segment
 from story_fakes import FakeModel
 from test_story_play import planner_for, ready_story, take_turn
@@ -62,7 +64,41 @@ class PlayApiTest(unittest.IsolatedAsyncioTestCase):
         await play_api.get_play(self.story_id, tasks, authorization=AUTH)
         self.assertEqual([task.func for task in tasks.tasks], [plan_next_segment])  # still waiting: resume it
 
+    async def reach_e03(self):
+        """Take turns up to e03, the first major event of intensity 4. Returns its response."""
+        for turn_number in range(1, 30):
+            if not available_choices(load_context(self.client, self.story_id)):
+                await plan_next_segment(self.story_id, planner_for(self.model), self.client)
+            response = await self.post(self.first_choice(), f"turn-{turn_number}")
+            await read_stream(response)
+            if load_context(self.client, self.story_id).current.get("spine_event_id") == "e03":
+                return response
+        self.fail("e03 was never reached")
+
+    async def test_the_free_plan_gets_no_picture_or_music(self):
+        with patch.dict(plans.DAILY_LIMITS[plans.FREE], {plans.TURN: 100}):
+            await self.reach_e03()
+        self.assertEqual(self.client.rows("media_jobs"), [])
+
+    async def test_turns_stop_at_the_daily_limit_and_a_failed_turn_gives_its_use_back(self):
+        with patch.dict(plans.DAILY_LIMITS[plans.FREE], {plans.TURN: 1}):
+            outage = ExternalServiceError("OpenRouter", "잠시 후", "down", retryable=False)
+            with patch.object(play_api, "get_planner", return_value=planner_for(FakeModel(fail_on={"stream": outage}))):
+                await read_stream(await self.post(self.first_choice(), "turn-1"))
+            self.assertEqual(self.client.used("user-1", "turn"), 0)
+            await read_stream(await self.post(self.first_choice(), "turn-2"))
+            with self.assertRaises(HTTPException) as caught:
+                await self.post(self.first_choice(), "turn-3")
+        self.assertEqual(caught.exception.status_code, 429)
+        self.assertIsNone(self.client.story(self.story_id)["turn_lock_owner"])  # the refusal freed the story
+
+    async def test_a_story_on_the_premium_engine_writes_with_the_standard_one_on_the_free_plan(self):
+        self.client.story(self.story_id)["llm_model"] = PRIMARY_PRO_LLM_MODEL
+        await read_stream(await self.post(self.first_choice()))
+        self.assertEqual([model for kind, model, _ in self.model.calls if kind == "stream"][-1], PRIMARY_FAST_LLM_MODEL)
+
     async def test_a_tense_major_event_has_its_media_pending_when_the_scene_arrives(self):
+        self.client.grant_premium("user-1")
         for turn_number in range(1, 30):
             if not available_choices(load_context(self.client, self.story_id)):
                 await plan_next_segment(self.story_id, planner_for(self.model), self.client)  # the background task
@@ -153,7 +189,7 @@ class PlayApiTest(unittest.IsolatedAsyncioTestCase):
             request = play_api.PlayRequest(text="세라를 바라본다", client_request_id=request_id)
             return await read_stream(await play_api.post_play(self.story_id, request, authorization=AUTH))
 
-        with patch.dict(os.environ, {"DIRECT_INPUT_DAILY_LIMIT": "1"}):
+        with patch.dict(plans.DAILY_LIMITS[plans.FREE], {plans.DIRECT_INPUT: 1}):
             await write("free-1")
             await play_api.undo_play(self.story_id, authorization=AUTH)
             with self.assertRaises(HTTPException) as caught:

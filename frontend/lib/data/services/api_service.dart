@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../core/constants.dart';
 import '../models/community_models.dart';
+import '../models/plan_models.dart';
 import '../models/play_models.dart';
 import '../models/story_model.dart';
 import '../models/creation_config.dart';
@@ -179,6 +180,32 @@ class ApiService {
     }
   }
 
+  /// The user's plan and today's usage; any failure counts as free.
+  Future<PlanStatus> fetchPlan() async {
+    try {
+      await _ensureFreshAccessToken();
+      final response = await http
+          .get(Uri.parse('$_baseUrl/me/plan'), headers: _authHeaders)
+          .timeout(const Duration(seconds: 10));
+      return parsePlan(response.statusCode, utf8.decode(response.bodyBytes));
+    } catch (e) {
+      debugPrint('Plan fetch failed: $e');
+      return PlanStatus.free;
+    }
+  }
+
+  @visibleForTesting
+  static PlanStatus parsePlan(int statusCode, String body) {
+    if (statusCode != 200) return PlanStatus.free;
+    try {
+      final json = jsonDecode(body);
+      if (json['success'] != true) return PlanStatus.free;
+      return PlanStatus.fromJson(Map<String, dynamic>.from(json['data']));
+    } catch (_) {
+      return PlanStatus.free;
+    }
+  }
+
   // Chat API
   Future<Map<String, dynamic>> chat(
     String storyId,
@@ -205,7 +232,11 @@ class ApiService {
         'bgmUrl': data['bgmUrl'] as String?,
       };
     } else {
-      throw Exception('Failed to load chat response');
+      throw ApiException(
+        response.statusCode,
+        _errorDetail(utf8.decode(response.bodyBytes)) ??
+            'Failed to load chat response',
+      );
     }
   }
 
@@ -787,7 +818,11 @@ class ApiService {
         throw Exception(data['error']);
       }
     } else {
-      throw Exception('Failed to update story: ${response.statusCode}');
+      throw ApiException(
+        response.statusCode,
+        _errorDetail(utf8.decode(response.bodyBytes)) ??
+            'Failed to update story: ${response.statusCode}',
+      );
     }
   }
 

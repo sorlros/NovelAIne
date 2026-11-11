@@ -21,6 +21,7 @@ import 'character_sheet_widget.dart';
 import '../../data/models/play_models.dart';
 import '../../data/models/story_model.dart';
 import '../providers/content_provider.dart';
+import '../providers/plan_provider.dart';
 import '../widgets/character_card.dart';
 import '../widgets/custom_loading_indicator.dart';
 import '../widgets/custom_toast.dart';
@@ -736,8 +737,15 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         ref.read(streamingMessageIdProvider.notifier).state = null;
         setState(() => _isSendingMessage = false);
         await _loadPlay();
+        ref.invalidate(planProvider);
       }
     }
+  }
+
+  /// Scenes left today for a free user; null for premium users.
+  int? _freeTurnsLeft() {
+    final plan = ref.watch(currentPlanProvider);
+    return plan.premium ? null : plan.remaining('turn');
   }
 
   /// Whether a failed turn should give way to the story as the server has it: the request was refused
@@ -1167,7 +1175,11 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         }).toList();
       });
       if (mounted) {
-        CustomToast.show(context, "응답 생성에 실패했습니다.", type: ToastType.error);
+        CustomToast.show(
+          context,
+          e is ApiException ? e.message : "응답 생성에 실패했습니다.",
+          type: ToastType.error,
+        );
       }
     } finally {
       ref.read(streamingMessageIdProvider.notifier).state = null;
@@ -1376,6 +1388,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                                     status: _play,
                                     busy: isSending,
                                     loadFailed: _playLoadFailed,
+                                    remainingTurns: _freeTurnsLeft(),
                                     onChoose: _choose,
                                     onWrite: _write,
                                     onUndo: _undo,
@@ -1392,7 +1405,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                                 isBgmPlaying: _isBgmPlaying,
                                 loadingBgmSceneId: _loadingBgmSceneId,
                                 canGenerateBgm:
-                                    !widget.readOnly && !_isSkeleton,
+                                    !widget.readOnly &&
+                                    !_isSkeleton &&
+                                    ref.watch(currentPlanProvider).premium,
                                 onBgmPressed: _handleBgmAction,
                                 onRetryPressed: _recoverStreamMessage,
                               );
@@ -1897,9 +1912,18 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     bool isSelected, {
     bool closesSheet = false,
   }) {
+    final locked = ref.watch(currentPlanProvider).locks(modelId);
     return GestureDetector(
       onTap: () async {
         if (isSelected) return;
+        if (ref.read(currentPlanProvider).locks(modelId)) {
+          CustomToast.show(
+            context,
+            AppConstants.premiumOnlyMessage,
+            type: ToastType.error,
+          );
+          return;
+        }
         try {
           await _apiService.updateStory(widget.initialStory!.id, {
             'llm_model': modelId,
@@ -1912,7 +1936,11 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           }
         } catch (e) {
           if (mounted) {
-            CustomToast.show(context, "엔진 전환 실패: $e", type: ToastType.error);
+            CustomToast.show(
+              context,
+              e is ApiException ? e.message : "엔진 전환 실패: $e",
+              type: ToastType.error,
+            );
           }
         }
       },
@@ -1931,7 +1959,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         child: Row(
           children: [
             Icon(
-              Icons.auto_awesome,
+              locked ? Icons.lock : Icons.auto_awesome,
               color: isSelected ? const Color(0xFF7C3AED) : Colors.white24,
               size: 20,
             ),
@@ -1950,7 +1978,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    sub,
+                    locked ? "유료" : sub,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.4),
                       fontSize: 12,

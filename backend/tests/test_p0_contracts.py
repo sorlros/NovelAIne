@@ -167,10 +167,15 @@ class FakeClient:
             ],
             "scenes": [],
             "media_jobs": [],
+            "user_entitlements": [],
         }
 
     def table(self, table_name):
         return FakeQuery(self, table_name)
+
+    def rpc(self, name, params):
+        """Daily limits (use_daily, give_back_daily): never reached in these tests."""
+        return SimpleNamespace(execute=lambda: SimpleNamespace(data=True))
 
 
 class ExternalErrorContractTest(unittest.TestCase):
@@ -186,6 +191,17 @@ class ExternalErrorContractTest(unittest.TestCase):
 class AuthAndAccessContractTest(unittest.TestCase):
     def test_auth_refresh_error_is_user_friendly(self):
         self.assertIn("세션", auth_api._friendly_auth_error(Exception("Invalid Refresh Token")))
+
+    def test_a_user_id_sent_without_a_token_is_not_trusted(self):
+        client = FakeClient(user_id="user-1")
+        with self.assertRaises(HTTPException) as context:
+            auth_context.resolve_request_user_id(client, None, "user-2", required=True)
+        self.assertEqual(context.exception.status_code, 401)
+        self.assertIsNone(auth_context.resolve_request_user_id(client, None, "user-2", required=False))
+        with self.assertRaises(HTTPException) as context:
+            auth_context.resolve_request_user_id(client, "Bearer good-token", "user-2", required=True)
+        self.assertEqual(context.exception.status_code, 403)
+        self.assertEqual(auth_context.resolve_request_user_id(client, "Bearer good-token", None), "user-1")
 
     def test_story_owner_access_and_public_read_contract(self):
         client = FakeClient(user_id="user-1")
@@ -215,6 +231,7 @@ class StoriesAndMediaContractTest(unittest.IsolatedAsyncioTestCase):
         from fastapi import BackgroundTasks
 
         client = FakeClient()
+        client.tables["user_entitlements"] = [{"user_id": "user-1", "plan": "premium"}]
         client.tables["scenes"] = [
             {
                 "id": "33333333-3333-4333-8333-333333333333",

@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.schemas.models import ApiResponse
 from app.services.audio_service import AudioService
+from app.services.plans import ensure_premium
 from app.services.auth_context import ensure_story_access
 from app.services.external_errors import GENERIC_MESSAGE, TEMPORARY_MESSAGE
 from app.services.supabase_client import get_supabase_client
@@ -39,7 +40,7 @@ async def generate_scene_bgm(
     """Generate BGM for a scene and persist the public audio URL."""
     try:
         client = get_supabase_client()
-        ensure_story_access(client, request.story_id, authorization)
+        ensure_premium(client, ensure_story_access(client, request.story_id, authorization))
 
         scene_response = (
             client.table("scenes")

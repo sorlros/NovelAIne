@@ -16,6 +16,9 @@ class PlayChoicesPanel extends StatelessWidget {
 
   /// The last status request failed.
   final bool loadFailed;
+
+  /// Scenes a free user may still play today; null hides the counter.
+  final int? remainingTurns;
   final ValueChanged<PlayChoice> onChoose;
 
   /// The reader wrote their own action instead of picking a choice.
@@ -28,6 +31,7 @@ class PlayChoicesPanel extends StatelessWidget {
     required this.status,
     required this.busy,
     required this.loadFailed,
+    this.remainingTurns,
     required this.onChoose,
     required this.onWrite,
     required this.onUndo,
@@ -48,6 +52,14 @@ class PlayChoicesPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _body(),
+          if (remainingTurns != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                '오늘 남은 장면 $remainingTurns',
+                style: const TextStyle(color: Colors.white38, fontSize: 12),
+              ),
+            ),
           if (status != null && status!.canUndo && !busy)
             Align(
               alignment: Alignment.centerRight,

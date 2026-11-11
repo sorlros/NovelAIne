@@ -430,11 +430,6 @@ def release_turn_slot(client: Any, story_id: str, owner: str) -> None:
         logger.warning("Could not release the turn slot of %s: %s", story_id, error)
 
 
-def use_direct_input(client: Any, user_id: str, daily_limit: int) -> bool:
-    """Count one written action for today. False, counting nothing, once the day's limit is used up."""
-    return bool(client.rpc("use_direct_input", {"p_user_id": user_id, "p_limit": daily_limit}).execute().data)
-
-
 def previous_tail(client: Any, story_id: str) -> str:
     response = (client.table("scenes").select("content, sequence").eq("story_id", story_id).eq("role", "ai")
                 .order("sequence", desc=True).limit(1).execute())
