@@ -164,14 +164,17 @@ async def create_story(
         client = get_supabase_client()
         chat_service = ChatService()
 
+        skeleton = is_skeleton_mode_enabled()
         user_id = resolve_request_user_id(
             client,
             authorization,
-            story.user_id,
+            # A skeleton story runs several model calls in the background: only for the signed-in user,
+            # never for a user_id given in the body without a token.
+            None if skeleton else story.user_id,
             required=True,
         )
         story.llm_model = normalize_llm_model(story.llm_model)
-        if is_skeleton_mode_enabled():
+        if skeleton:
             return _start_skeleton_story(client, story, user_id, background_tasks)
 
         # Check if we need to generate story content
@@ -386,6 +389,10 @@ async def get_story(
         raise HTTPException(status_code=500, detail=f"Failed to fetch story: {str(e)}")
 
 
+# What a client may change. Status, progress and world state only change through the server's own paths.
+UPDATABLE_STORY_FIELDS = {"title", "description", "cover_image_url", "visibility", "llm_model"}
+
+
 @router.patch("/{story_id}", response_model=ApiResponse)
 async def update_story(
     story_id: UUID,
@@ -396,7 +403,9 @@ async def update_story(
     try:
         client = get_supabase_client()
         ensure_story_access(client, story_id, authorization)
-        story_update.pop("user_id", None)
+        rejected = sorted(set(story_update) - UPDATABLE_STORY_FIELDS)
+        if rejected:
+            raise HTTPException(status_code=400, detail=f"Fields cannot be updated: {', '.join(rejected)}")
         if story_update.get("visibility") == "public":
             story_update["published_at"] = datetime.now(timezone.utc).isoformat()
         elif story_update.get("visibility") == "private":

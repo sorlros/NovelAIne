@@ -14,7 +14,7 @@ from app.services.story_play import (
     stream_turn,
     undo_last_turn,
 )
-from story_fakes import FakeClient, FakeModel, story_request
+from story_fakes import SEGMENT2, FakeClient, FakeModel, story_request
 
 
 def planner_for(model):
@@ -121,11 +121,13 @@ class TurnTest(unittest.IsolatedAsyncioTestCase):
                 raise RuntimeError("database is down")
             return original(table_name, payload)
 
+        beats_before = [dict(beat) for beat in self.client.rows("story_beats", story_id=self.story_id)]
         self.client.insert_rows = failing_scenes
         with self.assertRaises(RuntimeError):
             finish_turn(self.client, turn, "본문", "c")
         story = self.client.story(self.story_id)
         self.assertEqual((story["current_beat_seq"], story["world_state"]), (before["current_beat_seq"], before["world_state"]))
+        self.assertEqual(self.client.rows("story_beats", story_id=self.story_id), beats_before)  # the beat is not written
 
 
 class MajorEventTest(unittest.IsolatedAsyncioTestCase):
@@ -166,6 +168,36 @@ class MajorEventTest(unittest.IsolatedAsyncioTestCase):
         await plan_next_segment(self.story_id, planner_for(self.model), self.client)
         self.assertEqual(len(self.model.calls), calls)
 
+    async def test_a_plan_that_fails_part_way_is_planned_again(self):
+        original = self.client.insert_rows
+
+        def failing_beats(table_name, payload):
+            if table_name == "story_beats":
+                raise RuntimeError("database is down")
+            return original(table_name, payload)
+
+        self.client.insert_rows = failing_beats
+        await plan_next_segment(self.story_id, planner_for(self.model), self.client)
+        self.client.insert_rows = original
+        context = load_context(self.client, self.story_id)
+        self.assertTrue(play_status(context)["preparing"])  # the choices were not kept without their segment
+        self.client.plan(self.story_id)["lease_until"] = None  # the back-off is over
+        self.assertTrue(planning_is_stalled(self.client, context))
+
+    async def test_a_plan_finished_after_an_undo_is_dropped(self):
+        planner, events = planner_for(self.model), []
+        original_rpc = self.client.rpc
+
+        def undo_first(name, params):
+            if name == "save_next_segment" and not events:
+                events.append(name)
+                undo_last_turn(self.client, self.story_id)  # the reader undid while the segment was being planned
+            return original_rpc(name, params)
+
+        self.client.rpc = undo_first
+        await plan_next_segment(self.story_id, planner, self.client)
+        self.assertEqual(sorted(b["seq"] for b in self.client.rows("story_beats", story_id=self.story_id)), [1, 2, 3])
+
     async def test_a_failed_plan_backs_off_instead_of_retrying_at_once(self):
         failing = FakeModel(fail_on={"segment": RuntimeError("model down")})
         await plan_next_segment(self.story_id, planner_for(failing), self.client)
@@ -184,18 +216,31 @@ class MajorEventTest(unittest.IsolatedAsyncioTestCase):
 
 
 class ReplanTest(unittest.IsolatedAsyncioTestCase):
-    async def test_a_choice_that_breaks_the_rest_of_the_segment_plans_it_again(self):
-        client, story_id, model = await ready_story()
-        first = next(beat for beat in client.rows("story_beats", story_id=story_id) if beat["seq"] == 1)
+    async def asyncSetUp(self):
+        self.client, self.story_id, self.model = await ready_story()
+        first = next(beat for beat in self.client.rows("story_beats", story_id=self.story_id) if beat["seq"] == 1)
         breaking = {"id": "e9", "label": "도윤을 왕성으로 부른다", "kind": "action",
                     "events": [{"type": "move", "who": "도윤", "to": "왕성"}]}
         first["card"]["choices"] = [first["card"]["choices"][0], breaking]
-        segment_calls = model.kinds().count("segment")
-        offered = {choice["id"]: choice for choice in available_choices(load_context(client, story_id))}
+
+    def planned_titles(self):
+        beats = sorted(self.client.rows("story_beats", story_id=self.story_id), key=lambda beat: beat["seq"])
+        return [(beat["seq"], beat["card"].get("title"), beat["status"]) for beat in beats]
+
+    async def test_a_choice_that_breaks_the_rest_of_the_segment_plans_it_again(self):
+        segment_calls = self.model.kinds().count("segment")
+        offered = {choice["id"]: choice for choice in available_choices(load_context(self.client, self.story_id))}
         self.assertTrue(offered["e9"]["replan"])
-        await take_turn(client, story_id, model, choice_id="e9")
-        self.assertEqual(model.kinds().count("segment"), segment_calls + 1)
-        self.assertEqual(client.story(story_id)["world_state"]["chars"]["도윤"]["at"], "왕성")
+        self.model.script["segment"] = [SEGMENT2]  # the replanned segment: one scene, "숲의 밤"
+        await take_turn(self.client, self.story_id, self.model, choice_id="e9")
+        self.assertEqual(self.model.kinds().count("segment"), segment_calls + 1)
+        self.assertEqual(self.client.story(self.story_id)["world_state"]["chars"]["도윤"]["at"], "왕성")
+        self.assertEqual(self.planned_titles()[1:], [(2, "숲의 밤", "written")])  # the old planned scenes are gone
+
+    async def test_a_turn_that_is_never_saved_keeps_the_planned_segment(self):
+        before = self.planned_titles()
+        await prepare_turn(self.client, self.story_id, "e9", planner_for(self.model))  # e.g. the stream broke
+        self.assertEqual(self.planned_titles(), before)
 
 
 class UndoTest(unittest.IsolatedAsyncioTestCase):

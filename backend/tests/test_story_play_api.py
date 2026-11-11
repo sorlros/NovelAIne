@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from app.api import chat as chat_api
 from app.api import scenes as scenes_api
 from app.api import story_play as play_api
+from app.schemas.models import SceneCreate
 from app.services.external_errors import ExternalServiceError
 from app.services.story_play import available_choices, load_context, plan_next_segment
 from story_fakes import FakeModel
@@ -131,6 +132,16 @@ class LegacyEndpointsTest(unittest.IsolatedAsyncioTestCase):
         scene_id = self.client.rows("scenes", story_id=self.story_id)[0]["id"]
         with self.assertRaises(HTTPException) as caught:
             await scenes_api.delete_scene(self.story_id, scene_id, authorization=AUTH)
+        self.assertEqual(caught.exception.status_code, 409)
+        self.assertEqual(len(self.client.rows("scenes", story_id=self.story_id)), 1)
+
+    async def test_adding_or_editing_a_scene_is_refused(self):
+        scene_id = self.client.rows("scenes", story_id=self.story_id)[0]["id"]
+        with self.assertRaises(HTTPException) as caught:
+            await scenes_api.create_scene(self.story_id, SceneCreate(content="끼워 넣은 장면"), authorization=AUTH)
+        self.assertEqual(caught.exception.status_code, 409)
+        with self.assertRaises(HTTPException) as caught:
+            await scenes_api.update_scene(self.story_id, scene_id, {"beat_id": None}, authorization=AUTH)
         self.assertEqual(caught.exception.status_code, 409)
         self.assertEqual(len(self.client.rows("scenes", story_id=self.story_id)), 1)
 

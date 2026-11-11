@@ -44,6 +44,26 @@ class SkeletonCreateApiTest(unittest.IsolatedAsyncioTestCase):
             await self.create(request_id="c")
         self.assertEqual(caught.exception.status_code, 429)
 
+    async def test_a_skeleton_story_needs_a_signed_in_user(self):
+        tasks = BackgroundTasks()
+        with patch.dict(os.environ, {"SKELETON_MODE_ENABLED": "1"}):
+            with self.assertRaises(HTTPException) as caught:
+                await stories_api.create_story(story_request(user_id="11111111-1111-1111-1111-111111111111"), tasks,
+                                               authorization=None)
+        self.assertEqual(caught.exception.status_code, 401)
+        self.assertEqual(self.client.tables.get("stories", []), [])
+
+    async def test_a_client_cannot_change_status_progress_or_state(self):
+        created, _ = await self.create()
+        story_id = created.data["id"]
+        for field, value in (("status", "active"), ("current_beat_seq", 9), ("world_state", {}), ("mode", "legacy")):
+            with self.assertRaises(HTTPException, msg=field) as caught:
+                await stories_api.update_story(story_id, {field: value}, authorization=AUTH)
+            self.assertEqual(caught.exception.status_code, 400)
+        self.assertEqual(self.client.story(story_id)["status"], "generating")  # the generation limit still holds
+        response = await stories_api.update_story(story_id, {"title": "새 제목"}, authorization=AUTH)
+        self.assertEqual(response.data["title"], "새 제목")
+
     async def test_generation_status_shows_progress_only(self):
         created, _ = await self.create()
         story_id = created.data["id"]

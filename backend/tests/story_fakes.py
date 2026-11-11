@@ -90,6 +90,25 @@ class FakeQuery:
         return FakeResponse([dict(row) for row in matched])
 
 
+class FakeRpc:
+    """A database function call. Runs like a transaction: a failure part way leaves the tables as they were."""
+
+    def __init__(self, client, name, params):
+        self.client, self.name, self.params = client, name, params
+
+    def execute(self):
+        self.client.calls.append(("rpc", self.name))
+        snapshot = copy.deepcopy(self.client.tables)
+        try:
+            return FakeResponse(getattr(self.client, f"rpc_{self.name}")(**copy.deepcopy(self.params)))
+        except Exception:
+            self.client.tables = snapshot
+            raise
+
+
+RUNTIME_CARD_KEYS = ("callbacks", "state_before", "previous_seq", "chosen")
+
+
 class FakeClient:
     """Supports the query shapes the generation code uses, plus a unique index on story_plans.request_id."""
 
@@ -119,6 +138,99 @@ class FakeClient:
             rows.append(row)
             inserted.append(dict(row))
         return inserted
+
+    def rpc(self, name, params):
+        return FakeRpc(self, name, params)
+
+    # ---------- the functions of story_play_atomic_20261111.sql, same semantics ----------
+
+    def _beats(self, story_id):
+        return [beat for beat in self.tables.setdefault("story_beats", []) if beat["story_id"] == story_id]
+
+    def _drop_beats(self, story_id, keep):
+        self.tables["story_beats"] = [b for b in self.tables.setdefault("story_beats", [])
+                                      if b["story_id"] != story_id or keep(b)]
+
+    def _stored(self, table_name, row_id):
+        return next(row for row in self.tables[table_name] if row["id"] == row_id)
+
+    def _last_sequence(self, story_id):
+        return max([scene["sequence"] for scene in self.rows("scenes", story_id=story_id)] or [0])
+
+    def rpc_save_story_turn(self, p_story_id, p_expected_seq, p_next_seq, p_world_state, p_finished, p_beat_id, p_beat,
+                            p_replanned, p_user_content, p_ai_content, p_events, p_client_request_id):
+        story = self.story(p_story_id)
+        if not story or story.get("current_beat_seq") != p_expected_seq:
+            return None
+        story.update({"current_beat_seq": p_next_seq, "world_state": p_world_state})
+        if p_finished:
+            story["status"] = "completed"
+        if p_replanned is not None:
+            self._drop_beats(p_story_id, lambda b: b["seq"] <= p_expected_seq or b["spine_event_id"] is not None)
+            self.insert_rows("story_beats", [{"story_id": p_story_id, "seq": row["seq"], "spine_event_id": None,
+                                              "card": row["card"], "status": "planned"} for row in p_replanned])
+        if p_beat_id:
+            beat = next((b for b in self._beats(p_story_id) if b["id"] == p_beat_id and b["seq"] == p_next_seq), None)
+            if beat is None:
+                raise RuntimeError(f"beat {p_beat_id} is not beat {p_next_seq}")
+            beat.update({"card": p_beat["card"], "status": "written"})
+        else:
+            inserted = self.insert_rows("story_beats", {"story_id": p_story_id, "seq": p_next_seq, "card": p_beat["card"],
+                                                        "spine_event_id": p_beat["spine_event_id"], "status": "written"})
+            beat = self._stored("story_beats", inserted[0]["id"])
+        sequence = self._last_sequence(p_story_id) + 1
+        user = self.insert_rows("scenes", {"story_id": p_story_id, "content": p_user_content, "sequence": sequence,
+                                           "scene_type": "dialogue", "role": "user", "client_request_id": p_client_request_id})[0]
+        ai = self.insert_rows("scenes", {"story_id": p_story_id, "content": p_ai_content, "sequence": sequence + 1,
+                                         "scene_type": "narrative", "role": "ai", "client_request_id": p_client_request_id,
+                                         "beat_id": beat["id"], "events": p_events})[0]
+        beat["scene_id"] = ai["id"]
+        story.update({"current_scene_id": ai["id"], "total_scenes": sequence + 1})
+        return {"user_scene": user, "ai_scene": ai, "beat_id": beat["id"]}
+
+    def rpc_undo_story_turn(self, p_story_id, p_expected_seq):
+        story = self.story(p_story_id)
+        if not story or story.get("current_beat_seq") != p_expected_seq:
+            return False
+        beat = next((b for b in self._beats(p_story_id) if b["seq"] == p_expected_seq), None)
+        if not beat or "state_before" not in beat["card"]:
+            return False
+        card = beat["card"]  # as it was before the reset below, like v_beat in the SQL
+        ai = next((scene for scene in self.rows("scenes", story_id=p_story_id) if scene["id"] == beat.get("scene_id")), None)
+        if ai:
+            self.tables["scenes"] = [scene for scene in self.tables["scenes"] if not (scene["story_id"] == p_story_id and (
+                scene["id"] == ai["id"] or (scene["sequence"] == ai["sequence"] - 1 and scene.get("role") == "user")))]
+        if beat["spine_event_id"]:
+            self._drop_beats(p_story_id, lambda b: b["seq"] < beat["seq"])
+        else:
+            beat.update({"card": {k: v for k, v in beat["card"].items() if k not in RUNTIME_CARD_KEYS},
+                         "status": "planned", "scene_id": None})
+        previous = next((b for b in self._beats(p_story_id) if b["seq"] == card["previous_seq"]), None)
+        story.update({"current_beat_seq": card["previous_seq"], "world_state": card["state_before"],
+                      "status": "active", "current_scene_id": previous.get("scene_id") if previous else None,
+                      "total_scenes": self._last_sequence(p_story_id)})
+        return True
+
+    def rpc_save_next_segment(self, p_story_id, p_beat_id, p_card, p_rows):
+        story = self.story(p_story_id)
+        beat = next((b for b in self._beats(p_story_id) if b["id"] == p_beat_id), None)
+        if not story or not beat or story.get("current_beat_seq") != beat["seq"]:
+            return False
+        self._drop_beats(p_story_id, lambda b: b["seq"] <= beat["seq"])
+        self.insert_rows("story_beats", [{"story_id": p_story_id, "seq": row["seq"], "spine_event_id": None,
+                                          "card": row["card"], "status": "planned"} for row in p_rows])
+        beat["card"] = p_card
+        return True
+
+    def rpc_replace_first_beats(self, p_story_id, p_owner, p_rows, p_lease_until):
+        plan = self.plan(p_story_id)
+        if not plan or plan.get("lease_owner") != p_owner:
+            return False
+        self._drop_beats(p_story_id, lambda b: False)
+        self.insert_rows("story_beats", [{"story_id": p_story_id, "seq": row["seq"], "card": row["card"],
+                                          "spine_event_id": row["spine_event_id"], "status": "planned"} for row in p_rows])
+        plan.update({"step": "segment", "lease_until": p_lease_until})
+        return True
 
     def plan(self, story_id) -> Optional[Dict[str, Any]]:
         return next((row for row in self.tables.get("story_plans", []) if row["story_id"] == story_id), None)
