@@ -36,7 +36,9 @@ class SettingsScreen extends ConsumerWidget {
               style: TextStyle(color: Colors.redAccent),
             ),
             onTap: () async {
-              ref.read(authProvider.notifier).logout();
+              // The login screen opens home for a signed-in user: sign out first.
+              await ref.read(authProvider.notifier).logout();
+              if (!context.mounted) return;
               Navigator.of(
                 context,
               ).pushNamedAndRemoveUntil('/', (route) => false);

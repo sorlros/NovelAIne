@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/l10n/app_localizations.dart';
+import '../../../data/models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../home_screen.dart';
 
@@ -19,10 +20,25 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
   final _passwordController = TextEditingController();
   final _usernameController = TextEditingController();
 
+  bool _leaving = false;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    // A session restored before this screen was built: go straight in.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (ref.read(authProvider).valueOrNull != null) _openHome();
+    });
+  }
+
+  /// Opens home once, for a login, a sign-up or a session restored at start-up.
+  void _openHome() {
+    if (_leaving || !mounted) return;
+    _leaving = true;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => const HomeScreen()),
+    );
   }
 
   @override
@@ -84,10 +100,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
 
     final authState = ref.read(authProvider);
     if (authState.hasValue && authState.value != null) {
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
+      _openHome();
     } else if (authState.hasError) {
       if (!mounted) return;
       _showError("${authState.error}");
@@ -106,6 +119,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<UserModel?>>(authProvider, (_, next) {
+      if (next.valueOrNull != null) _openHome();
+    });
     final authState = ref.watch(authProvider);
     final isLoading = authState.isLoading;
 

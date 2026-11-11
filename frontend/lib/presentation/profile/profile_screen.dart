@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/data/services/api_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/auth_provider.dart';
 import '../screens/auth/auth_screen.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 import 'widgets/user_header_widget.dart';
@@ -7,17 +8,16 @@ import 'widgets/my_library_tab.dart';
 import 'widgets/my_creations_tab.dart';
 import '../widgets/responsive_layout.dart';
 
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen>
+class _ProfileScreenState extends ConsumerState<ProfileScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
@@ -32,7 +32,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _logout() async {
-    await _apiService.logout();
+    // Clears the stored session too; revoking on the server alone left it to be restored.
+    await ref.read(authProvider.notifier).logout();
     if (!mounted) return;
 
     // Auth Flow: Navigate back to AuthScreen
