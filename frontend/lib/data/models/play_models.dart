@@ -75,10 +75,14 @@ class GenerationStatus {
   final String step;
   final String? error;
 
+  /// The story's title, set once the world is made (a placeholder before).
+  final String? title;
+
   const GenerationStatus({
     required this.status,
     required this.step,
     this.error,
+    this.title,
   });
 
   static const steps = ['none', 'world', 'spine', 'segment'];
@@ -108,6 +112,7 @@ class GenerationStatus {
       status: json['status']?.toString() ?? 'queued',
       step: json['step']?.toString() ?? 'none',
       error: json['error']?.toString(),
+      title: json['title']?.toString(),
     );
   }
 }
