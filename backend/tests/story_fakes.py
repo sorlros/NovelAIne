@@ -218,6 +218,11 @@ SEGMENT2 = {
 # The scenes never bring 카엘 to the forest, so the next major event cannot start.
 SEGMENT_STUCK = {**SEGMENT, "scenes": [{**SEGMENT["scenes"][0], "changes": [change("act", "카엘")]}]}
 
+def reading(summary, *changes, outside=False):
+    """The interpreter's answer for the reader's own text."""
+    return {"summary": summary, "outside": outside, "changes": list(changes)}
+
+
 OPENING_PROSE = "왕성의 회랑에 바람이 들었다.\n\n「내일이면 떠나는군요.」"
 
 
@@ -225,12 +230,15 @@ class FakeModel:
     """Answers each planning call from a script keyed by the prompt it receives."""
 
     def __init__(self, world=WORLD, spines=(SPINE,), repairs=(SPINE_REPAIR,), segments=(SEGMENT, SEGMENT2), fail_on=None):
-        self.script = {"world": [world], "spine": list(spines), "repair": list(repairs), "segment": list(segments)}
+        self.script = {"world": [world], "spine": list(spines), "repair": list(repairs), "segment": list(segments),
+                       "interpret": [reading("카엘이 세라를 바라본다")]}
         self.calls: List[tuple] = []
         self.fail_on = fail_on or {}
 
     @staticmethod
     def kind_of(system: str) -> str:
+        if "직접 쓴 글을" in system:
+            return "interpret"
         if "문제를 고치는 단계" in system:
             return "repair"
         if "주요 사건을 설계" in system:

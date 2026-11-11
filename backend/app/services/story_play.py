@@ -1,6 +1,7 @@
 """Turn processing for skeleton-mode stories.
 
-A turn: the reader picks one of the offered choices -> its events apply -> the
+A turn: the reader picks one of the offered choices (or writes their own, which
+is interpreted and then judged like a choice) -> its events apply -> the
 next beat card is found (the next planned scene, or the next major event) ->
 its brief is built from the state -> the scene is written and streamed ->
 the scene, the new state and the beat are saved together.
@@ -18,7 +19,7 @@ import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Any, AsyncIterator, Dict, List, Optional, Set
+from typing import Any, AsyncIterator, Dict, List, Optional, Set, Tuple
 
 from app.services.scene_service import persist_chat_turn
 from app.services.story_generation import (
@@ -34,7 +35,7 @@ from app.services.story_generation import (
     problem_lines,
     spine_event_card,
 )
-from app.services.story_planner import plan_segment, scene_prompt
+from app.services.story_planner import interpret_input, plan_segment, scene_prompt
 from app.services.story_skeleton import (
     brief_callbacks,
     build_brief,
@@ -43,11 +44,12 @@ from app.services.story_skeleton import (
     walk_cards,
     walk_spine,
 )
-from app.services.story_state import EventRejected, State, apply_event
+from app.services.story_state import MAX_FACT_LENGTH, EventRejected, State, apply_event, clean_name
 
 logger = logging.getLogger(__name__)
 
 WANTED_CHOICES = 3
+FREE_INPUT_ID = "free"  # the 'chosen' id of a turn the reader wrote themselves
 PREVIOUS_TAIL_CHARS = 400  # end of the previous scene, so the prose carries on in the same voice
 PLANNING_BACKOFF_SECONDS = 60  # after a failed segment plan, wait before trying again
 
@@ -233,12 +235,22 @@ async def replan_rest_of_segment(client: Any, context: PlayContext, state: State
     context.beats = sorted(beats, key=lambda beat: beat["seq"])
 
 
-async def prepare_turn(client: Any, story_id: str, choice_id: str, planner: Planner) -> Turn:
-    """Everything before the prose: check the choice, apply it, find the next beat and build its brief."""
+def playable_context(client: Any, story_id: str) -> PlayContext:
     context = load_context(client, story_id)
     if is_finished(context):
         raise PlayError(409, "이야기가 이미 끝났습니다.")
+    return context
+
+
+async def prepare_turn(client: Any, story_id: str, choice_id: str, planner: Planner) -> Turn:
+    """Everything before the prose: check the choice, apply it, find the next beat and build its brief."""
+    context = playable_context(client, story_id)
     choice = find_choice(context, choice_id)
+    return await build_turn(client, context, choice, planner, f"독자의 뜻: {choice['label']}")
+
+
+async def build_turn(client: Any, context: PlayContext, choice: Dict[str, Any], planner: Planner, intent: str) -> Turn:
+    """Apply an accepted choice, find the next beat and build its brief, ending with what the reader did."""
     state_before = copy.deepcopy(context.state)
     try:
         state = apply_choice(state_before, choice)
@@ -247,8 +259,58 @@ async def prepare_turn(client: Any, story_id: str, choice_id: str, planner: Plan
     if choice.get("replan"):
         await replan_rest_of_segment(client, context, state, planner)
     seq, card, beat_id, event = next_beat(context)
-    return Turn(context, choice, seq, card, beat_id, event, state_before, state,
-                build_brief(card, state, context.facts), brief_callbacks(card, state, context.facts))
+    brief = f"{build_brief(card, state, context.facts)}\n{intent}"
+    return Turn(context, choice, seq, card, beat_id, event, state_before, state, brief,
+                brief_callbacks(card, state, context.facts))
+
+
+# ---------- the reader's own input ----------
+
+
+def reveals_spine_fact(context: PlayContext, events: List[Dict[str, Any]]) -> bool:
+    """The major events establish the story's own facts. The reader may not establish one ahead of them."""
+    established = context.state.get("facts") or {}
+    marked = [clean_name(event.get("fact"), MAX_FACT_LENGTH) for event in events if event.get("type") == "mark"]
+    return any(name in context.facts and name not in established for name in marked)
+
+
+def in_person(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """The reader acts within the scene: telling or promising someone something (a mark with a partner) needs
+    them in the same place, which a mark alone does not check. An act with that partner checks it."""
+    meetings = [{"type": "act", "who": event["who"], "with": event["with"]}
+                for event in events if event.get("type") == "mark" and event.get("with")]
+    return meetings + events
+
+
+def judge_input(context: PlayContext, text: str, reading: Dict[str, Any]) -> Tuple[Dict[str, Any], bool]:
+    """(choice, holds). The input is checked like an offered choice: it must hold in the state and keep every
+    remaining major event possible. One that does not is still written, as an attempt that fails in the story."""
+    attempt = {"id": FREE_INPUT_ID, "label": text, "events": in_person(reading["events"])}
+    if not reading["outside"] and not reveals_spine_fact(context, reading["events"]):
+        beat = context.current
+        remaining_spine = context.world["spine"][last_spine_index(context, beat["seq"]) + 1:]
+        offered = offer_choices(context.state, {"choices": [attempt]}, planned_cards_after(context, beat["seq"]),
+                                remaining_spine, context.facts, 1)
+        if offered:
+            return offered[0], True
+    return {**attempt, "events": [], "replan": False, "lasting": False}, False
+
+
+async def prepare_input_turn(client: Any, story_id: str, text: str, planner: Planner) -> Turn:
+    """A turn from the reader's own text: interpret it (fast model), judge it in code, then as a choice."""
+    context = playable_context(client, story_id)
+    if not context.current["card"].get("choices"):
+        raise PlayError(409, "다음 이야기를 준비하고 있습니다. 잠시 후 다시 시도해 주세요.")
+    current_brief = build_brief(context.current["card"], context.state, context.facts)
+    reading = await interpret_input(context.world, context.plan["seed"], context.state, current_brief, text,
+                                    planner.fast_model, planner.complete_json)
+    choice, holds = judge_input(context, text, reading)
+    if not holds:
+        logger.info("Reader input of %s does not hold and is written as a failed attempt: %s",
+                    context.story["id"], reading)
+    intent = (f"독자의 뜻: {reading['summary']}" if holds
+              else f"독자가 시도한 것: {reading['summary']} (이 시도는 이루어지지 않는다)")
+    return await build_turn(client, context, choice, planner, intent)
 
 
 def previous_tail(client: Any, story_id: str) -> str:
