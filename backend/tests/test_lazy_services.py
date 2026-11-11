@@ -75,7 +75,7 @@ class LazyServiceInitialisationTest(unittest.TestCase):
 
         rag_service.assert_called_once()
 
-    def test_chat_service_model_candidates_use_gemini_primary_and_provider_fallbacks(self):
+    def test_chat_service_model_candidates_use_the_primary_engines_and_their_fallbacks(self):
         service = ChatService()
 
         self.assertEqual(
@@ -94,6 +94,48 @@ class LazyServiceInitialisationTest(unittest.TestCase):
             normalize_llm_model("google/gemini-pro-1.5"),
             PRIMARY_PRO_LLM_MODEL,
         )
+
+    def test_stories_saved_with_the_previous_engines_move_to_the_current_ones(self):
+        service = ChatService()
+        self.assertEqual(service._candidate_models("google/gemini-3.1-flash-lite"),
+                         ["deepseek/deepseek-v4.1-flash", "google/gemini-3.1-flash-lite"])
+        self.assertEqual(service._candidate_models("google/gemini-3.1-pro-preview"),
+                         ["anthropic/claude-sonnet-5.5", "google/gemini-3.1-pro-preview"])
+
+    def test_sonnet_gets_room_for_its_reasoning(self):
+        from app.llm_models import request_for
+
+        body = request_for({"max_tokens": 4000, "messages": []}, PRIMARY_PRO_LLM_MODEL)
+        self.assertEqual(body["max_tokens"], 24000)
+        self.assertNotIn("reasoning", body)  # it cannot be turned off, and lowering it hurt the plans
+        self.assertEqual(request_for({"max_tokens": 30000}, PRIMARY_PRO_LLM_MODEL)["max_tokens"], 30000)
+        self.assertEqual(request_for({"max_tokens": 4000}, PRIMARY_FAST_LLM_MODEL)["max_tokens"], 4000)
+
+    def test_deepseek_is_asked_not_to_reason_and_its_fallback_is_not(self):
+        import asyncio
+        from types import SimpleNamespace
+
+        sent = []
+
+        class Client:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_):
+                return False
+
+            async def post(self, url, headers=None, json=None, timeout=None):
+                sent.append(json)
+                status = 503 if len(sent) == 1 else 200  # the primary fails, the fallback answers
+                return SimpleNamespace(status_code=status, text="unavailable", json=lambda: {})
+
+        service = ChatService()
+        with patch("app.services.chat_service.httpx.AsyncClient", Client), \
+                patch("app.services.chat_service.with_timeout_retry", lambda _name, operation: operation()):
+            asyncio.run(service._post_openrouter({"model": PRIMARY_FAST_LLM_MODEL, "messages": []}, 5))
+        self.assertEqual([body["model"] for body in sent], [PRIMARY_FAST_LLM_MODEL, FAST_FALLBACK_LLM_MODEL])
+        self.assertEqual(sent[0]["reasoning"], {"enabled": False})
+        self.assertNotIn("reasoning", sent[1])
 
     def test_images_api_reuses_lazy_image_service(self):
         sentinel = object()

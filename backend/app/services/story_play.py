@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any, AsyncIterator, Dict, List, Optional, Set, Tuple
 
+from app.llm_models import PRIMARY_FAST_LLM_MODEL
 from app.services.story_generation import (
     MAX_SEGMENT_TRIES,
     Job,
@@ -394,7 +395,7 @@ def stream_turn(client: Any, turn: Turn, planner: Planner) -> AsyncIterator[str]
     cast, _ = scene_cast(turn.next_card, turn.state_after_choice)
     system, user = scene_prompt(context.world, context.plan["seed"], turn.brief, cast, turn.next_card.get("intensity"),
                                 previous_tail(client, context.story["id"]))
-    return planner.stream(system, user, context.story.get("llm_model") or planner.fast_model)
+    return planner.stream(system, user, context.story.get("llm_model") or PRIMARY_FAST_LLM_MODEL)
 
 
 def state_after_beat(turn: Turn) -> State:

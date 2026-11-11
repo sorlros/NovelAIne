@@ -12,6 +12,7 @@ from app.llm_models import (
     DEFAULT_LLM_MODEL,
     fallback_llm_model_for,
     normalize_llm_model,
+    request_for,
 )
 from app.services.rag_service import RagService
 from app.services.memory_service import MemoryService
@@ -78,7 +79,7 @@ class ChatService:
         last_error: ExternalServiceError | None = None
 
         for index, candidate_model in enumerate(candidate_models):
-            request_payload = {**payload, "model": candidate_model}
+            request_payload = request_for(payload, candidate_model)
 
             async def operation() -> httpx.Response:
                 async with httpx.AsyncClient() as client:
@@ -485,7 +486,7 @@ class ChatService:
         emitted_chunk = False
 
         for index, candidate_model in enumerate(candidate_models):
-            stream_payload = {**data, "model": candidate_model}
+            stream_payload = request_for(data, candidate_model)
             try:
                 async with httpx.AsyncClient() as client:
                     async with client.stream("POST", self.base_url, headers=self.headers, json=stream_payload, timeout=120.0) as response:

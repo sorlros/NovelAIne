@@ -26,7 +26,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
-from app.llm_models import PRIMARY_FAST_LLM_MODEL, PRIMARY_PRO_LLM_MODEL, normalize_llm_model
+from app.llm_models import (
+    PLANNING_FAST_LLM_MODEL,
+    PLANNING_PRO_LLM_MODEL,
+    PLANNING_REQUEST,
+    PRIMARY_FAST_LLM_MODEL,
+    normalize_llm_model,
+)
 from app.services.external_errors import ExternalServiceError
 from app.services.scene_service import insert_scene_record
 from app.services.story_planner import (
@@ -109,8 +115,10 @@ class Planner:
     complete_json: CompleteJson
     complete_text: CompleteText
     stream_text: Optional[CompleteStream] = None  # without it, a scene is sent in one piece when it is done
-    fast_model: str = PRIMARY_FAST_LLM_MODEL
-    pro_model: str = PRIMARY_PRO_LLM_MODEL
+    # Models for planning (world, segments, the reader's input; major events). The scenes are written
+    # by the story's own engine (stories.llm_model), the default one when it has none.
+    fast_model: str = PLANNING_FAST_LLM_MODEL
+    pro_model: str = PLANNING_PRO_LLM_MODEL
 
     async def stream(self, system: str, user: str, model: str):
         if self.stream_text is None:
@@ -145,8 +153,9 @@ def default_planner() -> Planner:
             "model": model,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
             "temperature": 0.7 if as_json else 0.85,
-            "max_tokens": 8000 if as_json else 4000,
-            **({"response_format": {"type": "json_object"}} if as_json else {}),
+            "max_tokens": 4000,
+            # Plans reason first (see PLANNING_REQUEST); scenes keep each model's default.
+            **({"response_format": {"type": "json_object"}, **PLANNING_REQUEST} if as_json else {}),
         }
         service_name = "OpenRouter story planning" if as_json else "OpenRouter story scene"
         response = await chat_service._post_openrouter(payload, LLM_TIMEOUT_SECONDS, service_name=service_name)
@@ -345,7 +354,7 @@ async def draft_opening(job: Job, plan: Dict[str, Any]) -> str:
     card, state = spine_event_card(world["spine"][0]), build_initial_state(world)
     job.renew()
     return await write_scene(world, plan["seed"], build_brief(card, state, world["facts"]), scene_cast(card, state)[0],
-                             card.get("intensity"), job.story.get("llm_model") or job.planner.fast_model,
+                             card.get("intensity"), job.story.get("llm_model") or PRIMARY_FAST_LLM_MODEL,
                              job.planner.complete_text, is_opening=True)
 
 
