@@ -74,7 +74,10 @@ class PlayApiTest(unittest.IsolatedAsyncioTestCase):
         scene = self.client.rows("scenes", id=self.client.rows("media_jobs")[0]["scene_id"])[0]
         self.assertEqual(scene["beat_id"], next(beat["id"] for beat in self.client.rows("story_beats")
                                                 if beat.get("spine_event_id") == "e03"))
-        self.assertEqual([job["media_type"] for job in self.client.rows("media_jobs")], ["image", "bgm"])
+        image, bgm = self.client.rows("media_jobs")
+        self.assertEqual((image["media_type"], bgm["media_type"]), ("image", "bgm"))
+        self.assertIn("장면: e03", image["prompt"])  # from the plan, not the prose
+        self.assertIn("Tension 4 of 5", bgm["prompt"])
         status = await play_api.get_play(self.story_id, BackgroundTasks(), authorization=AUTH)
         self.assertTrue(status.data["media_pending"])  # before the response's background task has run
         self.assertEqual(response.background.func, play_api.after_turn)

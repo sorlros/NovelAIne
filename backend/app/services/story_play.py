@@ -37,6 +37,7 @@ from app.services.story_generation import (
 )
 from app.services.story_planner import interpret_input, plan_segment, scene_prompt
 from app.services.story_skeleton import (
+    ROLE_LABELS,
     brief_callbacks,
     build_brief,
     offer_choices,
@@ -505,6 +506,22 @@ MEDIA_MIN_INTENSITY = 4  # of 5: the turning points the story builds up to, a fe
 def wants_media(turn: Turn) -> bool:
     """A major event tense enough to get its own picture and music was just written."""
     return bool(turn.spine_event) and (turn.spine_event.get("intensity") or 0) >= MEDIA_MIN_INTENSITY
+
+
+def media_prompts(turn: Turn) -> Dict[str, str]:
+    """What the picture and the music of a turning point show, from the plan rather than the prose."""
+    event, seed, state = turn.spine_event or {}, turn.context.plan["seed"], turn.state_after_choice
+    cast, _ = scene_cast(turn.next_card, state)
+    roles = {name: ROLE_LABELS.get(character.get("role"), "") for name, character in turn.context.world["characters"].items()}
+    people = ", ".join(f"{name}({roles[name]})" if roles.get(name) else name for name in cast)
+    place = next((state["chars"][name]["at"] for name in cast if state["chars"][name]["alive"]), "")
+    scene = f"{event.get('title', '')} — {event.get('meaning', '')}"
+    mood = seed.get("tone") or ""
+    return {
+        "image": f"장르: {seed.get('genre', '')}. 분위기: {mood}. 장소: {place}. 장면: {scene} 등장인물: {people}.",
+        "bgm": (f"Genre: {seed.get('genre', '')}. Mood: {mood}. Tension {event.get('intensity')} of 5. "
+                f"Scene: {scene}"),
+    }
 
 
 # ---------- planning the next segment in the background ----------
