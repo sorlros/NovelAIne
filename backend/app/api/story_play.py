@@ -22,6 +22,7 @@ from app.services.story_play import (
     claim_turn_slot,
     finish_turn,
     load_context,
+    media_prompts,
     needs_next_segment,
     plan_next_segment,
     planning_is_stalled,
@@ -148,9 +149,12 @@ async def _write_scene(client, story_id: str, turn, planner, request_id, owner: 
             first_chunk_ms = first_chunk_ms if first_chunk_ms is not None else _elapsed_ms(started)
             yield rest
         scene_id = finish_turn(client, turn, prose, request_id)["ai_scene"]["id"]
-        if wants_media(turn):
-            saved["media_jobs"] = queue_scene_media(client, story_id, scene_id, user_id)
         outcome, error = "saved", None
+        if wants_media(turn):
+            try:
+                saved["media_jobs"] = queue_scene_media(client, story_id, scene_id, user_id, media_prompts(turn))
+            except Exception as failure:  # the turn is saved; only its picture and music are lost
+                logger.error("Could not queue media for %s: %s", story_id, failure)
     except PlayError as play_error:
         outcome, error = ("conflict" if play_error.status_code == 409 else "failed"), play_error.message
         yield f"\n[STREAM_ERROR:{play_error.message}]"

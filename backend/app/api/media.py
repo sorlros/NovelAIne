@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
@@ -199,11 +199,13 @@ def media_pending(client: Any, story_id: UUID | str) -> bool:
     return bool(response.data)
 
 
-def queue_scene_media(client: Any, story_id: str, scene_id: str, user_id: str) -> List[str]:
+def queue_scene_media(
+    client: Any, story_id: str, scene_id: str, user_id: str, prompts: Dict[str, str]
+) -> List[str]:
     """Queue a picture and music for a scene the story marked as a turning point; returns the job ids.
     Queued while the turn is saved, so the app sees them pending as soon as the scene arrives."""
     try:
-        scene = _fetch_scene(client, story_id, scene_id)
+        _fetch_scene(client, story_id, scene_id)
         jobs = []
         for media_type in ("image", "bgm"):
             response = client.table("media_jobs").insert(
@@ -213,7 +215,7 @@ def queue_scene_media(client: Any, story_id: str, scene_id: str, user_id: str) -
                     "scene_id": scene_id,
                     "media_type": media_type,
                     "scene_type": "event",
-                    "prompt": _build_prompt(media_type, scene.get("content") or "", None),
+                    "prompt": prompts[media_type],
                     "status": "queued",
                 }
             ).execute()
