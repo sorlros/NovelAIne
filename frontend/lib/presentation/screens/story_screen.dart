@@ -23,7 +23,6 @@ import '../providers/content_provider.dart';
 import '../widgets/character_card.dart';
 import '../widgets/custom_loading_indicator.dart';
 import '../widgets/custom_toast.dart';
-import '../widgets/measure_size.dart';
 import '../widgets/play_choices_panel.dart';
 import '../widgets/writing_effect.dart';
 
@@ -166,7 +165,6 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   bool _playLoadFailed = false;
 
   /// Height of the controls pinned at the bottom (the choices panel grows with its content).
-  double _controlsHeight = 0;
   Timer? _preparingTimer;
 
   /// Streaming scene the list lifts toward the top, and the offset last set for it.
@@ -1204,16 +1202,14 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                             isMobile ? 16 : 24,
                             20,
                             isMobile ? 16 : 24,
-                            // The choices panel's height depends on its content: keep the last paragraph above it.
                             _isSkeleton
-                                ? (_controlsHeight > 0
-                                      ? _controlsHeight + 24
-                                      : 440)
+                                ? 40 + MediaQuery.of(context).padding.bottom
                                 : (isMobile ? 180 : 250),
                           ),
                           itemCount:
                               messages.length +
-                              1, // +1 for the character section header
+                              1 + // +1 for the character section header
+                              (_isSkeleton ? 1 : 0), // choices panel at the end
                           // ignore: deprecated_member_use
                           cacheExtent: 300,
                           itemBuilder: (context, index) {
@@ -1228,6 +1224,24 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                                 );
                               }
                               return const SizedBox.shrink();
+                            }
+
+                            if (_isSkeleton && index == messages.length + 1) {
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: PlayChoicesPanel(
+                                  status: _play,
+                                  busy:
+                                      _isSendingMessage ||
+                                      ref.watch(streamingMessageIdProvider) !=
+                                          null,
+                                  loadFailed: _playLoadFailed,
+                                  onChoose: _choose,
+                                  onWrite: _write,
+                                  onUndo: _undo,
+                                  onReload: _loadPlay,
+                                ),
+                              );
                             }
 
                             final msg = messages[index - 1];
@@ -1250,7 +1264,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
               ],
             ),
           ),
-          if (isUIReady && !widget.readOnly) _buildFloatingControls(context),
+          if (isUIReady && !widget.readOnly && !_isSkeleton)
+            _buildFloatingControls(context),
           if (!isUIReady) _buildFullScreenLoading(),
         ],
       ),
@@ -1853,137 +1868,94 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     final bgColor = viewMode == StoryViewMode.manuscript
         ? const Color(0xFF16161D)
         : const Color(0xFF000000);
-    // Over the story only: covering the side panel would also block its buttons.
-    final showsSidePanel =
-        MediaQuery.of(context).size.width >= AppConstants.desktopBreakpoint &&
-        viewMode == StoryViewMode.manuscript;
-
     return Positioned(
       bottom: 0,
-      left: showsSidePanel ? _sidePanelWidth : 0,
+      left: 0,
       right: 0,
-      child: MeasureSize(
-        onChange: _onControlsResized,
-        child: Container(
-          padding: EdgeInsets.fromLTRB(
-            isMobile ? 12 : 20,
-            isMobile ? 12 : 20,
-            isMobile ? 12 : 20,
-            isMobile ? 30 : 40,
+      child: Container(
+        padding: EdgeInsets.fromLTRB(
+          isMobile ? 12 : 20,
+          isMobile ? 12 : 20,
+          isMobile ? 12 : 20,
+          isMobile ? 30 : 40,
+        ),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.transparent,
+              bgColor.withValues(alpha: 0.8),
+              bgColor,
+            ],
           ),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.transparent,
-                bgColor.withValues(alpha: 0.8),
-                bgColor,
-              ],
-            ),
-          ),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 850),
-              child: _isSkeleton
-                  ? PlayChoicesPanel(
-                      status: _play,
-                      busy: isSending,
-                      loadFailed: _playLoadFailed,
-                      onChoose: _choose,
-                      onWrite: _write,
-                      onUndo: _undo,
-                      onReload: _loadPlay,
-                    )
-                  : Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 850),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(35),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      style: GoogleFonts.lato(
+                        color: Colors.white,
+                        fontSize: 15,
                       ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(35),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.12),
+                      decoration: InputDecoration(
+                        hintText: isSending ? "응답 생성 중..." : "어떻게 행동할까요?",
+                        hintStyle: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.3),
+                          fontSize: 14,
                         ),
+                        border: InputBorder.none,
                       ),
-                      child: Row(
-                        children: [
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextField(
-                              controller: _controller,
-                              style: GoogleFonts.lato(
-                                color: Colors.white,
-                                fontSize: 15,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: isSending
-                                    ? "응답 생성 중..."
-                                    : "어떻게 행동할까요?",
-                                hintStyle: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.3),
-                                  fontSize: 14,
-                                ),
-                                border: InputBorder.none,
-                              ),
-                              onSubmitted: (_) {
-                                if (!isSending) _sendMessage();
-                              },
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: isSending ? null : _sendMessage,
-                            child: Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: isSending
-                                    ? Colors.white24
-                                    : const Color(0xFF7C3AED),
-                                shape: BoxShape.circle,
-                              ),
-                              child: isSending
-                                  ? const Padding(
-                                      padding: EdgeInsets.all(12),
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Icon(
-                                      Icons.auto_fix_high_rounded,
-                                      color: Colors.white,
-                                      size: 20,
-                                    ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      onSubmitted: (_) {
+                        if (!isSending) _sendMessage();
+                      },
                     ),
+                  ),
+                  GestureDetector(
+                    onTap: isSending ? null : _sendMessage,
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: isSending
+                            ? Colors.white24
+                            : const Color(0xFF7C3AED),
+                        shape: BoxShape.circle,
+                      ),
+                      child: isSending
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.auto_fix_high_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
-  }
-
-  void _onControlsResized(Size size) {
-    if (!mounted || size.height == _controlsHeight) return;
-    final position = _scrollController.hasClients
-        ? _scrollController.position
-        : null;
-    final wasAtEnd =
-        position != null && position.pixels >= position.maxScrollExtent - 40;
-    setState(() => _controlsHeight = size.height);
-    if (wasAtEnd) {
-      // A taller panel (e.g. the reader opened the input) must not cover the last paragraph.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-        }
-      });
-    }
   }
 }
 
