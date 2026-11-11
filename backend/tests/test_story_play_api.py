@@ -62,6 +62,16 @@ class PlayApiTest(unittest.IsolatedAsyncioTestCase):
         await play_api.get_play(self.story_id, tasks, authorization=AUTH)
         self.assertEqual([task.func for task in tasks.tasks], [plan_next_segment])  # still waiting: resume it
 
+    async def test_a_question_echoed_by_the_model_is_neither_shown_nor_saved(self):
+        question = "세라에게 무엇을 말할 것인가"  # the question of the next scene card
+        echoing = FakeModel()
+        echoing.stream_pieces = ("숲길에 바람이 불었다.", "\n\n「가자.」", "\n\n***\n\n", question + "?")
+        with patch.object(play_api, "get_planner", return_value=planner_for(echoing)):
+            text = await read_stream(await self.post(self.first_choice()))
+        self.assertEqual(text, "숲길에 바람이 불었다.\n\n「가자.」")
+        ai_scene = next(s for s in self.client.rows("scenes", client_request_id="turn-1") if s["role"] == "ai")
+        self.assertEqual(ai_scene["content"], text)
+
     async def test_a_choice_that_is_not_offered_is_a_409_before_streaming(self):
         with self.assertRaises(HTTPException) as caught:
             await self.post("made-up")

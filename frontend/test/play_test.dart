@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/constants.dart';
 import 'package:frontend/data/models/play_models.dart';
 import 'package:frontend/data/models/story_model.dart';
 import 'package:frontend/presentation/widgets/play_choices_panel.dart';
@@ -81,6 +82,22 @@ void main() {
           'step': 'world',
         }).isFailed,
         isTrue,
+      );
+    });
+
+    test('stories saved with an earlier engine use the current one', () {
+      expect(
+        AppConstants.currentLlmModel('google/gemini-3.1-flash-lite'),
+        AppConstants.defaultLlmModel,
+      );
+      expect(
+        AppConstants.currentLlmModel('google/gemini-3.1-pro-preview'),
+        AppConstants.proLlmModel,
+      );
+      expect(AppConstants.currentLlmModel(null), AppConstants.defaultLlmModel);
+      expect(
+        AppConstants.currentLlmModel(AppConstants.proLlmModel),
+        AppConstants.proLlmModel,
       );
     });
 

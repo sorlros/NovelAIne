@@ -2,7 +2,7 @@ import asyncio
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from app.llm_models import PRIMARY_FAST_LLM_MODEL, PRIMARY_PRO_LLM_MODEL
+from app.llm_models import PLANNING_FAST_LLM_MODEL, PLANNING_PRO_LLM_MODEL, PRIMARY_FAST_LLM_MODEL
 from app.services import story_generation as generation
 from app.services.external_errors import ExternalServiceError
 from app.services.story_generation import (
@@ -58,9 +58,10 @@ class FullRunTest(unittest.IsolatedAsyncioTestCase):
     def test_every_step_runs_once_in_order_with_the_right_model(self):
         self.assertEqual(self.model.kinds(), ["world", "spine", "segment", "scene"])
         models = {kind: model for kind, model, _ in self.model.calls}
-        self.assertEqual(models["world"], PRIMARY_FAST_LLM_MODEL)
-        self.assertEqual(models["spine"], PRIMARY_PRO_LLM_MODEL)
-        self.assertEqual(models["segment"], PRIMARY_FAST_LLM_MODEL)
+        self.assertEqual(models["world"], PLANNING_FAST_LLM_MODEL)
+        self.assertEqual(models["spine"], PLANNING_PRO_LLM_MODEL)
+        self.assertEqual(models["segment"], PLANNING_FAST_LLM_MODEL)
+        self.assertEqual(models["scene"], PRIMARY_FAST_LLM_MODEL)  # prose is written by the story's own engine
 
     def test_plan_is_ready_and_releases_its_lease(self):
         plan = self.client.plan(self.story_id)

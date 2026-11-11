@@ -15,6 +15,7 @@ from app.services.external_errors import GENERIC_MESSAGE, ExternalServiceError
 from app.services.scene_service import find_chat_turn_by_client_request_id
 from app.services.story_generation import default_planner
 from app.services.story_play import (
+    EchoGuard,
     PlayError,
     claim_turn_slot,
     finish_turn,
@@ -127,14 +128,20 @@ async def _write_scene(client, story_id: str, turn, planner, request_id, owner: 
     The slot is freed when the stream ends or is closed; a response never read expires after TURN_SLOT_SECONDS."""
     started, first_chunk_ms, prose = time.monotonic(), None, ""
     outcome, error, scene_id = "failed", "stream closed", None
+    guard = EchoGuard(turn.next_card.get("question"))
     try:
         async for chunk in stream_turn(client, turn, planner):
-            if chunk:
+            ready = guard.feed(chunk) if chunk else ""
+            if ready:
                 first_chunk_ms = first_chunk_ms if first_chunk_ms is not None else _elapsed_ms(started)
-                prose += chunk
-                yield chunk
+                yield ready
+        prose = guard.prose
         if not prose.strip():
             raise PlayError(502, GENERIC_MESSAGE)
+        rest = guard.finish()
+        if rest:
+            first_chunk_ms = first_chunk_ms if first_chunk_ms is not None else _elapsed_ms(started)
+            yield rest
         scene_id = finish_turn(client, turn, prose, request_id)["ai_scene"]["id"]
         outcome, error = "saved", None
     except PlayError as play_error:
