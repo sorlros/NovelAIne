@@ -189,10 +189,12 @@ class Turn:
     callbacks: List[str] = field(default_factory=list)
     # The rest of the segment planned again for this choice. Saved only together with the turn.
     replanned: Optional[List[Dict[str, Any]]] = None
+    # What play_turn_log records about how the turn was taken (kind, choices offered, input judgement).
+    notes: Dict[str, Any] = field(default_factory=dict)
 
 
-def find_choice(context: PlayContext, choice_id: str) -> Dict[str, Any]:
-    for choice in available_choices(context):
+def find_choice(context: PlayContext, choice_id: str, offered: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+    for choice in available_choices(context) if offered is None else offered:
         if choice["id"] == choice_id:
             return choice
     raise PlayError(409, "지금 고를 수 없는 선택지입니다.")
@@ -252,8 +254,11 @@ def playable_context(client: Any, story_id: str) -> PlayContext:
 async def prepare_turn(client: Any, story_id: str, choice_id: str, planner: Planner) -> Turn:
     """Everything before the prose: check the choice, apply it, find the next beat and build its brief."""
     context = playable_context(client, story_id)
-    choice = find_choice(context, choice_id)
-    return await build_turn(client, context, choice, planner, f"독자의 뜻: {choice['label']}")
+    offered = available_choices(context)
+    choice = find_choice(context, choice_id, offered)
+    turn = await build_turn(client, context, choice, planner, f"독자의 뜻: {choice['label']}")
+    turn.notes.update(kind="choice", choices_offered=len(offered))
+    return turn
 
 
 async def build_turn(client: Any, context: PlayContext, choice: Dict[str, Any], planner: Planner, intent: str) -> Turn:
@@ -320,7 +325,10 @@ async def prepare_input_turn(client: Any, story_id: str, text: str, planner: Pla
     if not holds:
         logger.info("Reader input of %s does not hold and is written as a failed attempt: %s",
                     context.story["id"], reading)
-    return await build_turn(client, context, choice, planner, input_intent(reading, holds))
+    turn = await build_turn(client, context, choice, planner, input_intent(reading, holds))
+    judgement = "outside" if reading["outside"] else "holds" if holds else "fails"
+    turn.notes.update(kind="free", input_judgement=judgement, choices_offered=len(available_choices(context)))
+    return turn
 
 
 def input_intent(reading: Dict[str, Any], holds: bool) -> str:
@@ -329,6 +337,24 @@ def input_intent(reading: Dict[str, Any], holds: bool) -> str:
         return "독자의 입력은 이 이야기 안의 행동이 아니어서 반영하지 않는다. 지시서대로 쓴다."
     summary = clean_summary(reading["summary"])
     return f"독자의 뜻: {summary}" if holds else f"독자가 시도한 것: {summary} (이 시도는 이루어지지 않는다)"
+
+
+# ---------- measuring ----------
+
+
+def record_turn(client: Any, turn: Turn, user_id: Optional[str], outcome: str, timings: Dict[str, Optional[int]],
+                prose: str, error: Optional[str] = None, scene_id: Optional[str] = None) -> None:
+    """One row in play_turn_log for the switch's measurements. Never stops the turn: a failure is only logged."""
+    row = {"story_id": turn.context.story["id"], "user_id": user_id, "beat_seq": turn.next_seq,
+           "major_event": bool(turn.spine_event), "kind": turn.notes.get("kind", "choice"),
+           "input_judgement": turn.notes.get("input_judgement"), "replanned": turn.replanned is not None,
+           "choices_offered": turn.notes.get("choices_offered"), "brief": turn.brief, "prose_chars": len(prose),
+           "model": turn.context.story.get("llm_model"), "outcome": outcome, "error": (error or "")[:300] or None,
+           "scene_id": scene_id, **timings}
+    try:
+        client.table("play_turn_log").insert(row).execute()
+    except Exception as record_error:
+        logger.warning("Could not record a turn of %s: %s", turn.context.story["id"], record_error)
 
 
 # ---------- limits ----------

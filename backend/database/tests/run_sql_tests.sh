@@ -25,7 +25,7 @@ SQL
 for file in schema.sql service_hardening_20260601.sql update_genre_constraint.sql \
             update_llm_model_defaults_20260604.sql story_skeleton_20261110.sql \
             story_generation_20261110.sql story_play_atomic_20261111.sql \
-            story_play_limits_20261111.sql; do
+            story_play_limits_20261111.sql story_play_metrics_20261111.sql; do
     psql < "$database/$file"
 done
 
