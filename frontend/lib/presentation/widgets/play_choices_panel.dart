@@ -6,7 +6,8 @@ const _accent = Color(0xFF7C3AED);
 const _remembered = Color(0xFFFFD166);
 
 /// What a skeleton story offers under the latest scene: the scene's question,
-/// its choices, and undo. Replaces the free-text input of legacy stories.
+/// its choices, the reader's own action, and undo. Replaces the free-text
+/// input of legacy stories.
 class PlayChoicesPanel extends StatelessWidget {
   final PlayStatus? status;
 
@@ -16,6 +17,9 @@ class PlayChoicesPanel extends StatelessWidget {
   /// The last status request failed.
   final bool loadFailed;
   final ValueChanged<PlayChoice> onChoose;
+
+  /// The reader wrote their own action instead of picking a choice.
+  final ValueChanged<String> onWrite;
   final VoidCallback onUndo;
   final VoidCallback onReload;
 
@@ -25,6 +29,7 @@ class PlayChoicesPanel extends StatelessWidget {
     required this.busy,
     required this.loadFailed,
     required this.onChoose,
+    required this.onWrite,
     required this.onUndo,
     required this.onReload,
   });
@@ -95,6 +100,7 @@ class PlayChoicesPanel extends StatelessWidget {
           ),
         for (final choice in current.choices)
           _ChoiceButton(choice: choice, onTap: () => onChoose(choice)),
+        _OwnAction(onWrite: onWrite),
       ],
     );
   }
@@ -157,6 +163,97 @@ class _ChoiceButton extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// "직접 입력": collapsed to a button until the reader opens it.
+class _OwnAction extends StatefulWidget {
+  final ValueChanged<String> onWrite;
+  const _OwnAction({required this.onWrite});
+
+  @override
+  State<_OwnAction> createState() => _OwnActionState();
+}
+
+class _OwnActionState extends State<_OwnAction> {
+  /// The server accepts up to this many characters.
+  static const _maxLength = 300;
+
+  final TextEditingController _controller = TextEditingController();
+  bool _open = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    widget.onWrite(text);
+    _controller.clear();
+    setState(() => _open = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_open) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: () => setState(() => _open = true),
+          icon: const Icon(Icons.edit_rounded, size: 16),
+          label: const Text('직접 입력'),
+          style: TextButton.styleFrom(foregroundColor: Colors.white70),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            maxLength: _maxLength,
+            minLines: 1,
+            maxLines: 3,
+            textInputAction: TextInputAction.send,
+            onSubmitted: (_) => _submit(),
+            style: const TextStyle(color: Colors.white, fontSize: 15),
+            decoration: InputDecoration(
+              hintText: '어떻게 행동할까요?',
+              hintStyle: const TextStyle(color: Colors.white38),
+              helperText: '이루어질 수 없는 행동은 이야기 속에서 실패로 그려집니다.',
+              helperStyle: const TextStyle(color: Colors.white38),
+              counterStyle: const TextStyle(color: Colors.white38),
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.06),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              suffixIcon: IconButton(
+                tooltip: '보내기',
+                onPressed: _submit,
+                icon: const Icon(Icons.send_rounded, color: _accent),
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () => setState(() => _open = false),
+              style: TextButton.styleFrom(foregroundColor: Colors.white54),
+              child: const Text('선택지로 돌아가기'),
+            ),
+          ),
+        ],
       ),
     );
   }
