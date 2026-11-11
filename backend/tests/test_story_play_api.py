@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest.mock import patch
 
@@ -99,6 +100,37 @@ class PlayApiTest(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(HTTPException) as caught:
                 await play_api.post_play(self.story_id, play_api.PlayRequest(text="간다"), authorization=AUTH)
         self.assertEqual((caught.exception.status_code, caught.exception.detail), (503, "일시적인 서버 문제가 발생했습니다."))
+
+    async def test_a_second_turn_sent_while_one_is_being_written_is_refused_before_the_model(self):
+        first = await self.post(self.first_choice(), "turn-1")  # its stream is not read yet: the turn is in progress
+        with patch.object(play_api, "get_planner", side_effect=AssertionError("must not call the model")):
+            with self.assertRaises(HTTPException) as caught:
+                await self.post(self.first_choice(), "turn-2")
+        self.assertEqual(caught.exception.status_code, 409)
+        await read_stream(first)  # the first turn finishes and frees the story
+        self.assertIsNone(self.client.story(self.story_id)["turn_lock_owner"])
+
+    async def test_a_failed_turn_frees_the_story(self):
+        outage = ExternalServiceError("OpenRouter story scene", "일시적인 서버 문제가 발생했습니다.", "503")
+        with patch.object(play_api, "get_planner", return_value=planner_for(FakeModel(fail_on={"stream": outage}))):
+            await read_stream(await self.post(self.first_choice()))
+        with self.assertRaises(HTTPException):
+            await self.post("made-up", "turn-2")  # refused before the stream (409): must free the story too
+        self.assertIsNone(self.client.story(self.story_id)["turn_lock_owner"])
+
+    async def test_written_actions_stop_at_the_daily_limit_and_undo_does_not_give_them_back(self):
+        async def write(request_id):
+            request = play_api.PlayRequest(text="세라를 바라본다", client_request_id=request_id)
+            return await read_stream(await play_api.post_play(self.story_id, request, authorization=AUTH))
+
+        with patch.dict(os.environ, {"DIRECT_INPUT_DAILY_LIMIT": "1"}):
+            await write("free-1")
+            await play_api.undo_play(self.story_id, authorization=AUTH)
+            with self.assertRaises(HTTPException) as caught:
+                await write("free-2")
+            self.assertEqual(caught.exception.status_code, 429)
+            await read_stream(await self.post(self.first_choice(), "turn-3"))  # choices are never limited
+        self.assertEqual(self.client.story(self.story_id)["current_beat_seq"], 2)
 
     async def test_undo_endpoint(self):
         await read_stream(await self.post(self.first_choice()))

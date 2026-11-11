@@ -49,6 +49,10 @@ logger = logging.getLogger(__name__)
 
 WANTED_CHOICES = 3
 FREE_INPUT_ID = "free"  # the 'chosen' id of a turn the reader wrote themselves
+TURN_SLOT_SECONDS = 300  # longer than a turn takes (reading the input, replanning, the scene)
+SUMMARY_CHARS = 120  # the model's summary of the reader's input, as it goes into the scene brief
+# Characters that could make the summary look like a section or a quoted instruction in the brief.
+_SUMMARY_MARKS = str.maketrans({mark: " " for mark in "\n\r\t\"'`「」『』[]{}<>#*|:"})
 PREVIOUS_TAIL_CHARS = 400  # end of the previous scene, so the prose carries on in the same voice
 PLANNING_BACKOFF_SECONDS = 60  # after a failed segment plan, wait before trying again
 
@@ -284,6 +288,12 @@ def in_person(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return meetings + events
 
 
+def clean_summary(summary: str) -> str:
+    """The reader's input reaches the scene writer only as this: one short line without marks that could make it
+    read as part of the brief or as an instruction."""
+    return " ".join(summary.translate(_SUMMARY_MARKS).split())[:SUMMARY_CHARS]
+
+
 def judge_input(context: PlayContext, text: str, reading: Dict[str, Any]) -> Tuple[Dict[str, Any], bool]:
     """(choice, holds). The input is checked like an offered choice: it must hold in the state and keep every
     remaining major event possible. One that does not is still written, as an attempt that fails in the story."""
@@ -310,9 +320,39 @@ async def prepare_input_turn(client: Any, story_id: str, text: str, planner: Pla
     if not holds:
         logger.info("Reader input of %s does not hold and is written as a failed attempt: %s",
                     context.story["id"], reading)
-    intent = (f"독자의 뜻: {reading['summary']}" if holds
-              else f"독자가 시도한 것: {reading['summary']} (이 시도는 이루어지지 않는다)")
-    return await build_turn(client, context, choice, planner, intent)
+    return await build_turn(client, context, choice, planner, input_intent(reading, holds))
+
+
+def input_intent(reading: Dict[str, Any], holds: bool) -> str:
+    """The brief's line about the reader's input. Input that is not an action in the story is not passed on."""
+    if reading["outside"]:
+        return "독자의 입력은 이 이야기 안의 행동이 아니어서 반영하지 않는다. 지시서대로 쓴다."
+    summary = clean_summary(reading["summary"])
+    return f"독자의 뜻: {summary}" if holds else f"독자가 시도한 것: {summary} (이 시도는 이루어지지 않는다)"
+
+
+# ---------- limits ----------
+
+
+def claim_turn_slot(client: Any, story_id: str) -> Optional[str]:
+    """Take the story's turn slot before any model call. Returns the owner to release it with, or None while
+    another turn is being written (requests sent together would each pay for a scene only one can save)."""
+    owner = uuid.uuid4().hex
+    claimed = client.rpc("claim_story_turn", {"p_story_id": story_id, "p_owner": owner,
+                                              "p_seconds": TURN_SLOT_SECONDS}).execute()
+    return owner if claimed.data else None
+
+
+def release_turn_slot(client: Any, story_id: str, owner: str) -> None:
+    try:
+        client.rpc("release_story_turn", {"p_story_id": story_id, "p_owner": owner}).execute()
+    except Exception as error:  # the slot expires on its own
+        logger.warning("Could not release the turn slot of %s: %s", story_id, error)
+
+
+def use_direct_input(client: Any, user_id: str, daily_limit: int) -> bool:
+    """Count one written action for today. False, counting nothing, once the day's limit is used up."""
+    return bool(client.rpc("use_direct_input", {"p_user_id": user_id, "p_limit": daily_limit}).execute().data)
 
 
 def previous_tail(client: Any, story_id: str) -> str:
