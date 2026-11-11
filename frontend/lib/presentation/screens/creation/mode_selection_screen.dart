@@ -5,6 +5,8 @@ import '../../../core/constants.dart';
 import 'wizard_screen.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../providers/content_provider.dart';
+import '../../providers/plan_provider.dart';
+import '../../widgets/custom_toast.dart';
 
 class CreationModeSelectionScreen extends ConsumerWidget {
   const CreationModeSelectionScreen({super.key});
@@ -202,6 +204,9 @@ class CreationModeSelectionScreen extends ConsumerWidget {
     WidgetRef ref,
     String selectedModel,
   ) {
+    final proLocked = ref
+        .watch(currentPlanProvider)
+        .locks(AppConstants.proLlmModel);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -237,8 +242,19 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                 title: "Claude Sonnet 5.5",
                 subtitle: "치밀하고 풍부한 서사",
                 isSelected: selectedModel == AppConstants.proLlmModel,
-                onTap: () => ref.read(selectedModelProvider.notifier).state =
-                    AppConstants.proLlmModel,
+                locked: proLocked,
+                onTap: () {
+                  if (proLocked) {
+                    CustomToast.show(
+                      context,
+                      AppConstants.premiumOnlyMessage,
+                      type: ToastType.error,
+                    );
+                    return;
+                  }
+                  ref.read(selectedModelProvider.notifier).state =
+                      AppConstants.proLlmModel;
+                },
               ),
             ),
           ],
@@ -252,12 +268,14 @@ class _ModelOptionTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool isSelected;
+  final bool locked;
   final VoidCallback onTap;
 
   const _ModelOptionTile({
     required this.title,
     required this.subtitle,
     required this.isSelected,
+    this.locked = false,
     required this.onTap,
   });
 
@@ -282,17 +300,28 @@ class _ModelOptionTile extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: isSelected ? Colors.white : Colors.white70,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (locked) ...[
+                  const Icon(Icons.lock, color: Colors.white54, size: 14),
+                  const SizedBox(width: 4),
+                ],
+                Flexible(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Colors.white70,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(
-              subtitle,
+              locked ? '유료' : subtitle,
               style: TextStyle(
                 color: isSelected
                     ? const Color(0xFF6B4EFF).withValues(alpha: 0.8)

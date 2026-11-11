@@ -6,6 +6,7 @@ class AppConstants {
   // Same engines as backend/app/llm_models.py.
   static const String defaultLlmModel = 'deepseek/deepseek-v4.1-flash';
   static const String proLlmModel = 'anthropic/claude-sonnet-5.5';
+  static const String premiumOnlyMessage = '유료 플랜에서 쓸 수 있는 기능입니다.';
   static const String fastFallbackLlmModel = 'google/gemini-3.1-flash-lite';
   static const String proFallbackLlmModel = 'google/gemini-3.1-pro-preview';
 

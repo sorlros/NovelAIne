@@ -191,7 +191,9 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       Navigator.pop(context); // Close loading dialog
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("생성 실패: $e")));
+      ).showSnackBar(
+        SnackBar(content: Text(e is ApiException ? e.message : "생성 실패: $e")),
+      );
     }
   }
 
