@@ -2,7 +2,9 @@ import unittest
 
 from app.services.story_generation import Planner, create_skeleton_story, run_generation
 from app.services.story_play import (
+    EchoGuard,
     PlayError,
+    strip_echoed_question,
     available_choices,
     finish_turn,
     load_context,
@@ -279,6 +281,35 @@ class UndoTest(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(PlayError) as caught:
             undo_last_turn(self.client, self.story_id)
         self.assertEqual(caught.exception.status_code, 409)
+
+
+class EchoedQuestionTest(unittest.TestCase):
+    QUESTION = "이란의 뜻을 안 카엘은 조사를 어떻게 함께 이어갈까?"
+
+    def test_a_question_printed_at_the_end_is_dropped_with_its_separator(self):
+        scene = "카엘은 벽을 보았다.\n\n이란이 물었다.\n\n***\n\n" + self.QUESTION
+        self.assertEqual(strip_echoed_question(scene, self.QUESTION), "카엘은 벽을 보았다.\n\n이란이 물었다.")
+
+    def test_a_scene_that_only_talks_about_it_is_kept(self):
+        scene = "카엘은 벽을 보았다.\n\n그는 이란의 뜻을 안 카엘은 조사를 어떻게 함께 이어갈까 하는 물음을 오래 붙들고, 새벽이 올 때까지 성벽 아래를 걸었다."
+        self.assertEqual(strip_echoed_question(scene, self.QUESTION), scene)
+        self.assertEqual(strip_echoed_question(scene, None), scene)
+
+    def test_streaming_never_sends_the_echo_and_sends_everything_else(self):
+        scene = "첫 문단이다.\n\n둘째 문단이다.\n\n셋째 문단이다.\n\n***\n\n" + self.QUESTION
+        guard, sent = EchoGuard(self.QUESTION), ""
+        for start in range(0, len(scene), 7):  # arbitrary chunk boundaries
+            sent += guard.feed(scene[start:start + 7])
+        self.assertNotIn("***", sent)
+        sent += guard.finish()
+        self.assertEqual(sent, "첫 문단이다.\n\n둘째 문단이다.\n\n셋째 문단이다.")
+        self.assertEqual(guard.prose, sent)
+
+    def test_streaming_a_clean_scene_sends_it_unchanged(self):
+        scene = "숲길에 바람이 불었다.\n\n「가자.」\n\n둘은 걸었다."
+        guard = EchoGuard(self.QUESTION)
+        sent = "".join(guard.feed(piece) for piece in scene.split(" ")[:1] + [" " + p for p in scene.split(" ")[1:]])
+        self.assertEqual(sent + guard.finish(), scene)
 
 
 if __name__ == "__main__":

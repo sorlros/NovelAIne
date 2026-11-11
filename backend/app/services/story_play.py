@@ -340,6 +340,58 @@ def input_intent(reading: Dict[str, Any], holds: bool) -> str:
     return f"독자의 뜻: {summary}" if holds else f"독자가 시도한 것: {summary} (이 시도는 이루어지지 않는다)"
 
 
+# ---------- cleaning the prose ----------
+
+
+_SEPARATORS = {"***", "* * *", "---", "＊＊＊", "…"}
+ECHO_PARAGRAPHS = 2  # a separator line and the question
+
+
+def _is_echo(paragraph: str, question: str) -> bool:
+    text = paragraph.strip().strip("*#>「」\"' ")
+    if paragraph.strip() in _SEPARATORS or not text:
+        return True
+    key = " ".join(question.split())[:15]
+    return bool(key) and key in " ".join(text.split()) and len(text) <= len(question) + 20
+
+
+def strip_echoed_question(prose: str, question: Optional[str]) -> str:
+    """Some models end the scene by printing the brief's question to the reader (and a separator before it).
+    The app shows the question under the scene itself, so those last paragraphs are dropped."""
+    if not question:
+        return prose
+    paragraphs = prose.rstrip().split("\n\n")
+    for _ in range(ECHO_PARAGRAPHS):
+        if len(paragraphs) > 1 and _is_echo(paragraphs[-1], question):
+            paragraphs.pop()
+    return "\n\n".join(paragraphs)
+
+
+class EchoGuard:
+    """Streams a scene while holding back its last paragraphs, so an echoed question is never shown.
+    feed() returns what may be sent now; finish() returns the rest, cleaned; prose is the cleaned scene."""
+
+    def __init__(self, question: Optional[str]):
+        self.question, self.raw, self.sent = question, "", 0
+
+    def feed(self, chunk: str) -> str:
+        self.raw += chunk
+        cut = len(self.raw)
+        for _ in range(ECHO_PARAGRAPHS):  # keep everything after the last two paragraph breaks
+            cut = self.raw.rfind("\n\n", 0, cut)
+            if cut == -1:
+                return ""
+        ready, self.sent = self.raw[self.sent:cut], max(self.sent, cut)
+        return ready
+
+    @property
+    def prose(self) -> str:
+        return strip_echoed_question(self.raw, self.question)
+
+    def finish(self) -> str:
+        return self.prose[self.sent:]
+
+
 # ---------- measuring ----------
 
 
