@@ -11,6 +11,15 @@ from app.schemas.models import (
     StoryCharacterLink,
 )
 from app.llm_models import normalize_llm_model
+from app.services.plans import (
+    PREMIUM_ONLY_MESSAGE,
+    STORY,
+    engine_for,
+    give_back_daily,
+    limit_message,
+    use_daily,
+    user_plan,
+)
 from app.services.chat_service import ChatService # Added
 from app.services.rag_service import RagService
 from app.services.auth_context import ensure_story_access, ensure_story_read_access, resolve_request_user_id
@@ -20,6 +29,7 @@ from app.services.story_generation import (
     RequestIdConflict,
     create_skeleton_story,
     fetch_plan,
+    find_story_by_request_id,
     generation_status,
     is_skeleton_mode_enabled,
     is_stalled,
@@ -140,17 +150,18 @@ async def list_public_stories(
         return ApiResponse.fail(str(error))
 
 
-def _start_skeleton_story(client, story: StoryCreate, user_id: str, background_tasks: BackgroundTasks) -> ApiResponse:
-    """Insert the story and queue its generation. The response returns at once with status 'generating'."""
+def _start_skeleton_story(client, story: StoryCreate, user_id: str, background_tasks: BackgroundTasks):
+    """Insert the story and queue its generation. The response returns at once with status 'generating'.
+    Also returns whether the story is new (False for a repeated request)."""
     try:
-        created_story, _ = create_skeleton_story(client, story, user_id)
+        created_story, created = create_skeleton_story(client, story, user_id)
     except GenerationLimitReached:
         raise HTTPException(status_code=429, detail="이미 만들고 있는 이야기가 있습니다. 완성된 뒤에 다시 시작해 주세요.")
     except RequestIdConflict:
         raise HTTPException(status_code=409, detail="Request id is already in use")
     # Also for a repeated request: a run that is still alive makes this a no-op.
     background_tasks.add_task(run_generation, str(created_story["id"]))
-    return ApiResponse.ok(data=created_story)
+    return ApiResponse.ok(data=created_story), created
 
 
 @router.post("", response_model=ApiResponse)
@@ -159,7 +170,9 @@ async def create_story(
     background_tasks: BackgroundTasks,
     authorization: Optional[str] = Header(default=None),
 ):
-    """Create a new story. If title is missing, generates content via AI."""
+    """Create a new story. If title is missing, generates content via AI.
+    Counts against the plan's daily stories; a request that creates nothing gives the use back."""
+    client, user_id, counted = None, None, False
     try:
         client = get_supabase_client()
         chat_service = ChatService()
@@ -173,9 +186,21 @@ async def create_story(
             None if skeleton else story.user_id,
             required=True,
         )
-        story.llm_model = normalize_llm_model(story.llm_model)
+        plan = user_plan(client, user_id)
+        story.llm_model = engine_for(plan, normalize_llm_model(story.llm_model))
+        if skeleton and story.request_id:
+            existing = find_story_by_request_id(client, story.request_id, user_id)
+            if existing:  # a retried request: the same story, not another use
+                return _start_skeleton_story(client, story, user_id, background_tasks)[0]
+        allowed, limit = use_daily(client, user_id, STORY, plan)
+        if not allowed:
+            raise HTTPException(status_code=429, detail=limit_message(STORY, limit))
+        counted = True
         if skeleton:
-            return _start_skeleton_story(client, story, user_id, background_tasks)
+            response, created = _start_skeleton_story(client, story, user_id, background_tasks)
+            if not created:
+                give_back_daily(client, user_id, STORY)
+            return response
 
         # Check if we need to generate story content
         generated_data = None
@@ -286,8 +311,12 @@ async def create_story(
 
         return ApiResponse.ok(data=created_story)
     except HTTPException:
+        if counted:
+            give_back_daily(client, user_id, STORY)
         raise
     except Exception as e:
+        if counted:
+            give_back_daily(client, user_id, STORY)
         error_msg = f"Failed to create story: {str(e)}"
         logger.exception(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
@@ -404,7 +433,7 @@ async def update_story(
     """Update a story (partial update)."""
     try:
         client = get_supabase_client()
-        ensure_story_access(client, story_id, authorization)
+        user_id = ensure_story_access(client, story_id, authorization)
         rejected = sorted(set(story_update) - UPDATABLE_STORY_FIELDS)
         if rejected:
             raise HTTPException(status_code=400, detail=f"Fields cannot be updated: {', '.join(rejected)}")
@@ -413,7 +442,10 @@ async def update_story(
         elif story_update.get("visibility") == "private":
             story_update["published_at"] = None
         if "llm_model" in story_update:
-            story_update["llm_model"] = normalize_llm_model(story_update.get("llm_model"))
+            model = normalize_llm_model(story_update.get("llm_model"))
+            if engine_for(user_plan(client, user_id), model) != model:
+                raise HTTPException(status_code=403, detail=PREMIUM_ONLY_MESSAGE)
+            story_update["llm_model"] = model
 
         response = (
             client.table("stories")

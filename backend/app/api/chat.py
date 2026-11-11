@@ -12,6 +12,7 @@ from app.services.scene_service import (
     find_chat_turn_by_client_request_id,
     persist_chat_turn,
 )
+from app.services.plans import TURN, engine_for, give_back_daily, limit_message, use_daily, user_plan
 from app.services.supabase_client import get_supabase_client
 
 # Logger setup
@@ -50,6 +51,16 @@ def _get_story_metadata(client, story_id: UUID) -> Dict:
         logger.warning(f"Failed to fetch metadata for story {story_id}: {e}")
         return {}
 
+def _count_turn(client, user_id: str, model: Optional[str]) -> Optional[str]:
+    """Count the turn against the plan's daily turns (429 once used up) and return the engine the plan
+    may write it with."""
+    plan = user_plan(client, user_id)
+    allowed, limit = use_daily(client, user_id, TURN, plan)
+    if not allowed:
+        raise HTTPException(status_code=429, detail=limit_message(TURN, limit))
+    return engine_for(plan, model)
+
+
 @router.post("")
 async def chat(
     request: ChatRequest,
@@ -75,15 +86,20 @@ async def chat(
                 "deduplicated": True,
             }
 
+        model = _count_turn(client, authenticated_user_id, model)
         chat_service = ChatService()
-        response = await chat_service.generate_response(
-            request.message, 
-            request.history, 
-            model=model,
-            narrative_type=narrative_type,
-            story_id=request.story_id,
-            user_id=authenticated_user_id or metadata.get("user_id"),
-        )
+        try:
+            response = await chat_service.generate_response(
+                request.message,
+                request.history,
+                model=model,
+                narrative_type=narrative_type,
+                story_id=request.story_id,
+                user_id=authenticated_user_id or metadata.get("user_id"),
+            )
+        except Exception:
+            give_back_daily(client, authenticated_user_id, TURN)
+            raise
         persisted = persist_chat_turn(
             client,
             request.story_id,
@@ -117,6 +133,8 @@ async def chat_stream(
         request.client_request_id,
     )
 
+    if not existing_turn:
+        model = _count_turn(client, authenticated_user_id, model)
     chat_service = None if existing_turn else ChatService()
     
     async def event_generator():
@@ -144,6 +162,7 @@ async def chat_stream(
                     yield chunk
         except Exception as error:
             logger.error("Stream generation failed before persistence: %s", error)
+            give_back_daily(client, authenticated_user_id, TURN)
             message = error.user_message if isinstance(error, ExternalServiceError) else GENERIC_MESSAGE
             yield f"\n[STREAM_ERROR:{message}]"
             return

@@ -11,6 +11,7 @@ from app.services.external_errors import GENERIC_MESSAGE, TEMPORARY_MESSAGE, Ext
 from app.services.audio_service import AudioService
 from app.services.auth_context import ensure_story_access
 from app.services.image_service import ImageService
+from app.services.plans import ensure_premium
 from app.services.supabase_client import get_supabase_client
 
 logger = logging.getLogger(__name__)
@@ -240,6 +241,7 @@ async def create_media_job(
     try:
         client = get_supabase_client()
         user_id = ensure_story_access(client, request.story_id, authorization)
+        ensure_premium(client, user_id)
         scene = _fetch_scene(client, request.story_id, request.scene_id)
         existing_url = scene.get("bgm_url" if request.media_type == "bgm" else "image_url")
 

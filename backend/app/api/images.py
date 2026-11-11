@@ -3,7 +3,8 @@ from pydantic import BaseModel
 from typing import Optional
 from uuid import UUID
 from app.services.image_service import ImageService
-from app.services.auth_context import ensure_story_access
+from app.services.auth_context import ensure_story_access, resolve_request_user_id
+from app.services.plans import ensure_premium
 from app.services.external_errors import TEMPORARY_MESSAGE, GENERIC_MESSAGE
 from app.services.supabase_client import get_supabase_client
 
@@ -31,9 +32,12 @@ async def generate_image(
 ):
     try:
         character_appearance = None
+        client = get_supabase_client()
+        # Images cost money: only for a signed-in user on the paid plan, with or without a story.
+        user_id = (ensure_story_access(client, request.story_id, authorization) if request.story_id
+                   else resolve_request_user_id(client, authorization, None, required=True))
+        ensure_premium(client, user_id)
         if request.story_id:
-            client = get_supabase_client()
-            ensure_story_access(client, request.story_id, authorization)
             # Fetch protagonist character linked to this story
             link_res = client.table("story_characters").select("character_id").eq("story_id", str(request.story_id)).eq("role_in_story", "protagonist").execute()
             if link_res.data:

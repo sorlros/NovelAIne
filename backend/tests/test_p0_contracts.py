@@ -167,10 +167,15 @@ class FakeClient:
             ],
             "scenes": [],
             "media_jobs": [],
+            "user_entitlements": [],
         }
 
     def table(self, table_name):
         return FakeQuery(self, table_name)
+
+    def rpc(self, name, params):
+        """Daily limits (use_daily, give_back_daily): never reached in these tests."""
+        return SimpleNamespace(execute=lambda: SimpleNamespace(data=True))
 
 
 class ExternalErrorContractTest(unittest.TestCase):
@@ -215,6 +220,7 @@ class StoriesAndMediaContractTest(unittest.IsolatedAsyncioTestCase):
         from fastapi import BackgroundTasks
 
         client = FakeClient()
+        client.tables["user_entitlements"] = [{"user_id": "user-1", "plan": "premium"}]
         client.tables["scenes"] = [
             {
                 "id": "33333333-3333-4333-8333-333333333333",
