@@ -174,7 +174,12 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   PlayStatus? _play;
   bool _playLoadFailed = false;
 
+  /// One timer drives both the preparing and the media-pending re-fetch.
   Timer? _preparingTimer;
+  bool _wasMediaPending = false;
+  DateTime? _mediaPollStart;
+  static const _mediaPollInterval = Duration(seconds: 10);
+  static const _mediaPollLimit = Duration(minutes: 10);
 
   /// Streaming scene the list lifts toward the top, and the offset last set for it.
   String? _risingSceneId;
@@ -512,8 +517,33 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     if (play.preparing) {
       // The server is planning what comes after a major event; ask again shortly.
       _preparingTimer = Timer(const Duration(seconds: 3), _loadPlay);
+    } else if (play.mediaPending) {
+      final start = _mediaPollStart ??= DateTime.now();
+      if (DateTime.now().difference(start) < _mediaPollLimit) {
+        _preparingTimer = Timer(_mediaPollInterval, _loadPlay);
+      }
     }
+    if (!play.mediaPending) _mediaPollStart = null;
+    if (_wasMediaPending && !play.mediaPending) _showGeneratedMedia();
+    _wasMediaPending = play.mediaPending;
     _maybeShowGuide();
+  }
+
+  Future<void> _showGeneratedMedia() async {
+    try {
+      final before = ref.read(messageProvider);
+      final after = await _refreshScenesFromServer(
+        replaceMessages: true,
+        scroll: false,
+      );
+      final bgmUrl = newLatestSceneBgm(before, after);
+      if (bgmUrl == null || !mounted) return;
+      // Autoplay may be blocked by the browser; the button still works then.
+      await _bgmPlayer.stop();
+      await _toggleBgmPlayback(bgmUrl);
+    } catch (error) {
+      debugPrint("Generated media refresh failed: $error");
+    }
   }
 
   Future<void> _maybeShowGuide() async {
@@ -540,7 +570,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
       GuideStep(
         target: _guideSceneKey,
         reveal: toTop,
-        text: "이야기는 장면 단위로 이어져요. 장면 아래 'BGM 생성'을 누르면 장면에 어울리는 배경음악을 들을 수 있어요.",
+        text: "이야기는 장면 단위로 이어져요. 이야기가 고조되는 장면에서는 배경 그림과 음악이 자동으로 만들어져요.",
       ),
       if (showsCharacters)
         GuideStep(
@@ -1361,7 +1391,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                                 activeBgmUrl: _activeBgmUrl,
                                 isBgmPlaying: _isBgmPlaying,
                                 loadingBgmSceneId: _loadingBgmSceneId,
-                                canGenerateBgm: !widget.readOnly,
+                                canGenerateBgm:
+                                    !widget.readOnly && !_isSkeleton,
                                 onBgmPressed: _handleBgmAction,
                                 onRetryPressed: _recoverStreamMessage,
                               );
