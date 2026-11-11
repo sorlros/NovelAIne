@@ -296,13 +296,16 @@ def spine_event_card(event: Dict[str, Any], choices: Sequence[Dict[str, Any]] = 
 
 
 def save_first_beats(job: Job, first_event: Dict[str, Any], after_event: Dict[str, Any], cards: Sequence[Dict[str, Any]]) -> None:
-    """Replace the story's beat cards: the first major event, then the first segment."""
-    job.client.table("story_beats").delete().eq("story_id", job.story_id).execute()
+    """Replace the story's beat cards (the first major event, then the first segment) and record the step, in one
+    transaction that first checks this run still holds the lease: a run that lost it must not replace another's."""
     card = spine_event_card(first_event, after_event["choices"], after_event.get("question") or "")
-    rows = [{"story_id": job.story_id, "seq": 1, "spine_event_id": first_event["id"], "card": card, "status": "planned"}]
-    rows += [{"story_id": job.story_id, "seq": seq, "spine_event_id": None, "card": card, "status": "planned"}
-             for seq, card in enumerate(cards, 2)]
-    job.client.table("story_beats").insert(rows).execute()
+    rows = [{"seq": 1, "spine_event_id": first_event["id"], "card": card}]
+    rows += [{"seq": seq, "spine_event_id": None, "card": card} for seq, card in enumerate(cards, 2)]
+    lease_until = (now_utc() + timedelta(seconds=LEASE_SECONDS)).isoformat()
+    saved = job.client.rpc("replace_first_beats", {"p_story_id": job.story_id, "p_owner": job.owner,
+                                                   "p_rows": rows, "p_lease_until": lease_until}).execute()
+    if not saved.data:
+        raise LeaseLost(job.story_id)
 
 
 async def step_segment(job: Job, plan: Dict[str, Any]) -> Dict[str, Any]:
@@ -321,7 +324,6 @@ async def step_segment(job: Job, plan: Dict[str, Any]) -> Dict[str, Any]:
     if problems:
         raise StepFailed(f"segment: {feedback}")
     save_first_beats(job, world["spine"][0], after_event, cards)
-    job.save({"step": "segment"})
     return {**plan, "step": "segment"}
 
 

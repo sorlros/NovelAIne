@@ -21,7 +21,6 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any, AsyncIterator, Dict, List, Optional, Set, Tuple
 
-from app.services.scene_service import persist_chat_turn
 from app.services.story_generation import (
     MAX_SEGMENT_TRIES,
     Job,
@@ -184,6 +183,8 @@ class Turn:
     state_after_choice: State
     brief: str
     callbacks: List[str] = field(default_factory=list)
+    # The rest of the segment planned again for this choice. Saved only together with the turn.
+    replanned: Optional[List[Dict[str, Any]]] = None
 
 
 def find_choice(context: PlayContext, choice_id: str) -> Dict[str, Any]:
@@ -199,10 +200,16 @@ def apply_choice(state: State, choice: Dict[str, Any]) -> State:
     return state
 
 
-def next_beat(context: PlayContext) -> tuple:
-    """(seq, card, beat id or None, the major event or None) of the beat after the current one."""
+def next_beat(context: PlayContext, replanned: Optional[List[Dict[str, Any]]] = None) -> tuple:
+    """(seq, card, beat id or None, the major event or None) of the beat after the current one.
+
+    With a replanned segment, its first card comes next (a new beat), or the next major event when it is empty.
+    """
     current = context.current
-    following = [beat for beat in context.beats if beat["seq"] == current["seq"] + 1]
+    if replanned:
+        return current["seq"] + 1, replanned[0], None, None
+    # An empty replanned segment drops the planned beats: the next major event follows.
+    following = [] if replanned is not None else [beat for beat in context.beats if beat["seq"] == current["seq"] + 1]
     if following:
         beat = following[0]
         event = context.world["spine"][spine_index(context, beat["spine_event_id"])] if beat["spine_event_id"] else None
@@ -214,25 +221,21 @@ def next_beat(context: PlayContext) -> tuple:
     return current["seq"] + 1, spine_event_card(event), None, event
 
 
-async def replan_rest_of_segment(client: Any, context: PlayContext, state: State, planner: Planner) -> None:
-    """A choice broke the rest of this segment: plan it again from the state after the choice."""
+async def replan_rest_of_segment(context: PlayContext, state: State, planner: Planner) -> List[Dict[str, Any]]:
+    """A choice broke the rest of this segment: plan it again from the state after the choice.
+
+    Nothing is written here. The cards replace the planned ones when the turn is saved, so a turn
+    that fails or is never finished leaves the story's plan as it was.
+    """
     current = context.current
     target = last_spine_index(context, current["seq"]) + 1
     if target >= len(context.world["spine"]):
-        return
+        return []
     cards, _, problems = await plan_segment(context.world, context.plan["seed"], state, target,
                                             planner.fast_model, planner.complete_json)
     if problems:
         logger.warning("Replanned segment of %s still has problems: %s", context.story["id"], problem_lines(problems))
-    for beat in context.beats:
-        if beat["seq"] > current["seq"] and not beat["spine_event_id"]:
-            client.table("story_beats").delete().eq("id", beat["id"]).execute()
-    rows = [{"story_id": context.story["id"], "seq": current["seq"] + offset, "spine_event_id": None,
-             "card": card, "status": "planned"} for offset, card in enumerate(cards, 1)]
-    if rows:
-        client.table("story_beats").insert(rows).execute()
-    beats = client.table("story_beats").select("*").eq("story_id", context.story["id"]).execute().data or []
-    context.beats = sorted(beats, key=lambda beat: beat["seq"])
+    return cards
 
 
 def playable_context(client: Any, story_id: str) -> PlayContext:
@@ -256,12 +259,11 @@ async def build_turn(client: Any, context: PlayContext, choice: Dict[str, Any], 
         state = apply_choice(state_before, choice)
     except EventRejected as rejection:
         raise PlayError(409, f"선택을 적용할 수 없습니다: {rejection}")
-    if choice.get("replan"):
-        await replan_rest_of_segment(client, context, state, planner)
-    seq, card, beat_id, event = next_beat(context)
+    replanned = await replan_rest_of_segment(context, state, planner) if choice.get("replan") else None
+    seq, card, beat_id, event = next_beat(context, replanned)
     brief = f"{build_brief(card, state, context.facts)}\n{intent}"
     return Turn(context, choice, seq, card, beat_id, event, state_before, state, brief,
-                brief_callbacks(card, state, context.facts))
+                brief_callbacks(card, state, context.facts), replanned)
 
 
 # ---------- the reader's own input ----------
@@ -348,51 +350,34 @@ def turn_events(turn: Turn) -> List[Dict[str, Any]]:
             [{**event, "origin": beat_origin} for event in turn.next_card.get("fixed") or []])
 
 
-def save_beat(client: Any, turn: Turn) -> str:
-    """Mark the beat written with what undo needs. Creates it when a major event is reached for the first time."""
-    card = {**turn.next_card, "callbacks": turn.callbacks, "state_before": turn.state_before,
-            "previous_seq": turn.context.current["seq"], "chosen": turn.choice["id"]}
-    if turn.next_beat_id:
-        client.table("story_beats").update({"card": card, "status": "written"}).eq("id", turn.next_beat_id).execute()
-        return turn.next_beat_id
-    created = client.table("story_beats").insert({
-        "story_id": turn.context.story["id"], "seq": turn.next_seq, "spine_event_id": turn.spine_event["id"],
-        "card": card, "status": "written"}).execute()
-    return created.data[0]["id"]
-
-
-def claim_turn(client: Any, turn: Turn, state: State) -> bool:
-    """Compare-and-set on current_beat_seq, so two turns sent at once cannot both be saved."""
-    is_ending = bool(turn.spine_event) and turn.spine_event["id"] == turn.context.world["spine"][-1]["id"]
-    result = (client.table("stories")
-              .update({"current_beat_seq": turn.next_seq, "world_state": state,
-                       **({"status": "completed"} if is_ending else {})})
-              .eq("id", turn.context.story["id"]).eq("current_beat_seq", turn.context.current["seq"]).execute())
-    return bool(result.data)
+def finishes_story(turn: Turn) -> bool:
+    return bool(turn.spine_event) and turn.spine_event["id"] == turn.context.world["spine"][-1]["id"]
 
 
 def finish_turn(client: Any, turn: Turn, prose: str, client_request_id: Optional[str]) -> Dict[str, Any]:
-    """Save the turn: claim it, then the beat and both scenes. Returns the saved scenes."""
-    story_id = turn.context.story["id"]
-    if not claim_turn(client, turn, state_after_beat(turn)):
+    """Save the turn in one transaction (save_story_turn): the story moves on only if it is still where the turn
+    started, and the beat, a replanned segment and both scenes are saved with it or not at all. Returns the scenes."""
+    current_seq = turn.context.current["seq"]
+    card = {**turn.next_card, "callbacks": turn.callbacks, "state_before": turn.state_before,
+            "previous_seq": current_seq, "chosen": turn.choice["id"]}
+    replanned = None
+    if turn.replanned is not None:
+        replanned = [{"seq": turn.next_seq + offset, "card": planned} for offset, planned in enumerate(turn.replanned[1:], 1)]
+    result = client.rpc("save_story_turn", {
+        "p_story_id": turn.context.story["id"], "p_expected_seq": current_seq, "p_next_seq": turn.next_seq,
+        "p_world_state": state_after_beat(turn), "p_finished": finishes_story(turn), "p_beat_id": turn.next_beat_id,
+        "p_beat": {"spine_event_id": turn.spine_event["id"] if turn.spine_event else None, "card": card},
+        "p_replanned": replanned, "p_user_content": turn.choice["label"], "p_ai_content": prose,
+        "p_events": turn_events(turn), "p_client_request_id": client_request_id,
+    }).execute()
+    if not result.data:
         raise PlayError(409, "다른 기기에서 이미 이야기를 진행했습니다.")
-    try:
-        beat_id = save_beat(client, turn)
-        scenes = persist_chat_turn(client, story_id, user_message=turn.choice["label"], ai_message=prose,
-                                   client_request_id=client_request_id, ai_beat_id=beat_id, ai_events=turn_events(turn))
-    except Exception:
-        client.table("stories").update({"current_beat_seq": turn.context.current["seq"], "world_state": turn.state_before,
-                                        "status": turn.context.story["status"]}).eq("id", story_id).execute()
-        raise
-    client.table("story_beats").update({"scene_id": scenes["ai_scene"]["id"]}).eq("id", beat_id).execute()
-    client.table("stories").update({"current_scene_id": scenes["ai_scene"]["id"],
-                                    "total_scenes": scenes["ai_scene"].get("sequence")}).eq("id", story_id).execute()
-    return scenes
+    return result.data
 
 
 def needs_next_segment(turn: Turn) -> bool:
     """A major event other than the ending was just written: its choices and the next segment are planned next."""
-    return bool(turn.spine_event) and turn.spine_event["id"] != turn.context.world["spine"][-1]["id"]
+    return bool(turn.spine_event) and not finishes_story(turn)
 
 
 # ---------- planning the next segment in the background ----------
@@ -433,10 +418,12 @@ async def plan_after_major_event(job: Job, context: PlayContext) -> None:
     if problems:
         raise RuntimeError(f"segment {target}: {feedback}")
     card = {**current["card"], "choices": after_event["choices"], "question": after_event.get("question") or ""}
-    job.client.table("story_beats").update({"card": card}).eq("id", current["id"]).execute()
-    rows = [{"story_id": job.story_id, "seq": current["seq"] + offset, "spine_event_id": None, "card": planned,
-             "status": "planned"} for offset, planned in enumerate(cards, 1)]
-    job.client.table("story_beats").insert(rows).execute()
+    rows = [{"seq": current["seq"] + offset, "card": planned} for offset, planned in enumerate(cards, 1)]
+    # The choices and the segment are saved together, so a failure part way leaves the event still waiting.
+    saved = job.client.rpc("save_next_segment", {"p_story_id": job.story_id, "p_beat_id": current["id"],
+                                                 "p_card": card, "p_rows": rows}).execute()
+    if not saved.data:
+        logger.info("Segment after %s of %s not saved: the reader is no longer there", current["seq"], job.story_id)
 
 
 async def plan_next_segment(story_id: str, planner: Optional[Planner] = None, client: Any = None) -> None:
@@ -492,43 +479,13 @@ def planning_is_stalled(client: Any, context: PlayContext) -> bool:
 
 
 def undo_last_turn(client: Any, story_id: str) -> PlayContext:
-    """Undo the latest turn: restore the state before it and remove its scenes."""
+    """Undo the latest turn in one transaction (undo_story_turn): restore the state before it, remove its scenes,
+    and put its beat back. Refused when the story moved on meanwhile."""
     context = load_context(client, story_id)
     beat = context.current
     if beat["seq"] <= 1 or "state_before" not in beat["card"]:
         raise PlayError(409, "되돌릴 장면이 없습니다.")
-    previous_seq = beat["card"]["previous_seq"]
-    previous_scene = next((b.get("scene_id") for b in context.beats if b["seq"] == previous_seq), None)
-    result = (client.table("stories")
-              .update({"current_beat_seq": previous_seq, "world_state": beat["card"]["state_before"], "status": "active",
-                       "current_scene_id": previous_scene})
-              .eq("id", story_id).eq("current_beat_seq", beat["seq"]).execute())
-    if not result.data:
+    undone = client.rpc("undo_story_turn", {"p_story_id": story_id, "p_expected_seq": beat["seq"]}).execute()
+    if not undone.data:
         raise PlayError(409, "다른 기기에서 이미 이야기를 진행했습니다.")
-    _delete_turn_scenes(client, story_id, beat.get("scene_id"))
-    _reset_beat(client, context, beat)
     return load_context(client, story_id)
-
-
-def _delete_turn_scenes(client: Any, story_id: str, ai_scene_id: Optional[str]) -> None:
-    scenes = client.table("scenes").select("id, sequence, role").eq("story_id", story_id).execute().data or []
-    ai_scene = next((scene for scene in scenes if scene["id"] == ai_scene_id), None)
-    if not ai_scene:
-        return
-    for scene in scenes:
-        if scene["sequence"] in (ai_scene["sequence"], ai_scene["sequence"] - 1) and (
-                scene["id"] == ai_scene_id or scene.get("role") == "user"):
-            client.table("scenes").delete().eq("id", scene["id"]).execute()
-
-
-def _reset_beat(client: Any, context: PlayContext, beat: Dict[str, Any]) -> None:
-    """A planned scene goes back to planned. A major event reached in that turn is removed with what was planned after it."""
-    if beat["spine_event_id"]:
-        for later in context.beats:
-            if later["seq"] >= beat["seq"]:
-                client.table("story_beats").delete().eq("id", later["id"]).execute()
-        return
-    runtime_keys = ("callbacks", "state_before", "previous_seq", "chosen")
-    card = {key: value for key, value in beat["card"].items() if key not in runtime_keys}
-    client.table("story_beats").update({"card": card, "status": "planned", "scene_id": None}).eq("id", beat["id"]).execute()
-

@@ -233,6 +233,16 @@ class LeaseTest(unittest.TestCase):
         with self.assertRaises(LeaseLost):
             job.save({"step": "world"})
 
+    def test_a_run_that_lost_its_lease_cannot_replace_the_beats(self):
+        claim_generation(self.client, self.story_id, "run-a")
+        self.client.insert_rows("story_beats", {"story_id": self.story_id, "seq": 1, "spine_event_id": "e01",
+                                                "card": {"by": "run-b"}, "status": "planned"})
+        self.client.plan(self.story_id)["lease_owner"] = "run-b"  # run-a stalled and run-b took over
+        job = Job(self.client, self.story_id, "run-a", planner_for(FakeModel()))
+        with self.assertRaises(LeaseLost):
+            generation.save_first_beats(job, SPINE["events"][-1] | {"events": []}, {"choices": []}, [])
+        self.assertEqual([beat["card"] for beat in self.client.rows("story_beats")], [{"by": "run-b"}])
+
     def test_finished_and_failed_jobs_are_never_claimed(self):
         for status in ("ready", "failed"):
             self.client.plan(self.story_id).update({"status": status, "lease_until": None})

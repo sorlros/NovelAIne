@@ -181,13 +181,8 @@ def persist_chat_turn(
     user_message: str,
     ai_message: str,
     client_request_id: Optional[str] = None,
-    ai_beat_id: Optional[str] = None,
-    ai_events: Optional[list] = None,
 ) -> Dict[str, Any]:
-    """Persist a user turn and the generated AI continuation as ordered scenes.
-
-    ai_beat_id and ai_events are set on the AI scene of a skeleton-mode story.
-    """
+    """Persist a user turn and the generated AI continuation as ordered scenes."""
     existing_turn = find_chat_turn_by_client_request_id(
         client,
         story_id,
@@ -219,8 +214,6 @@ def persist_chat_turn(
             has_generated_image=False,
             has_generated_bgm=False,
             client_request_id=client_request_id,
-            beat_id=ai_beat_id,
-            events=ai_events,
         )
     except Exception:
         existing_turn = find_chat_turn_by_client_request_id(
