@@ -8,7 +8,12 @@ class AppConstants {
   static const String fastFallbackLlmModel = 'qwen/qwen3.7-plus';
   static const String proFallbackLlmModel = 'minimax/minimax-m3';
 
+  /// Set with --dart-define=API_BASE_URL=http://127.0.0.1:8000/api to use a
+  /// local or staging backend. Empty means the defaults below.
+  static const String _baseUrlOverride = String.fromEnvironment('API_BASE_URL');
+
   static String get baseUrl {
+    if (_baseUrlOverride.isNotEmpty) return _baseUrlOverride;
     if (kIsWeb) {
       // return 'http://127.0.0.1:8000/api';
       return 'https://novelaine-backend.onrender.com/api';
