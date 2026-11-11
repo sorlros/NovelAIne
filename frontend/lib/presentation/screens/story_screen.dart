@@ -21,6 +21,7 @@ import '../providers/content_provider.dart';
 import '../widgets/character_card.dart';
 import '../widgets/custom_loading_indicator.dart';
 import '../widgets/custom_toast.dart';
+import '../widgets/measure_size.dart';
 import '../widgets/play_choices_panel.dart';
 import '../widgets/writing_effect.dart';
 
@@ -98,6 +99,9 @@ final List<String> availableFonts = [
   'Gowun Dodum',
 ];
 
+/// Width of the character panel shown left of the story on wide screens.
+const double _sidePanelWidth = 300;
+
 const List<String> _fontFallbacks = [
   'Apple SD Gothic Neo',
   'Malgun Gothic',
@@ -130,6 +134,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   late bool _isSkeleton = widget.initialStory?.isSkeleton ?? false;
   PlayStatus? _play;
   bool _playLoadFailed = false;
+
+  /// Height of the controls pinned at the bottom (the choices panel grows with its content).
+  double _controlsHeight = 0;
   Timer? _preparingTimer;
 
   @override
@@ -523,6 +530,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     String? choiceId,
     String? text,
   }) async {
+    final startedAt = _play?.beatSeq;
     setState(() => _isSendingMessage = true);
     ref.read(streamingMessageIdProvider.notifier).state = aiMessageId;
     try {
@@ -539,8 +547,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     } catch (error) {
       debugPrint("Play turn failed: $error");
       if (!mounted) return;
-      if (error is ApiException && error.statusCode == 409) {
-        // The move is no longer possible (e.g. played on another device): show the server's story.
+      if (await _storyMovedOn(error, startedAt)) {
+        // Another device played this turn first: show the story as the server has it.
         await _refreshScenesFromServer(replaceMessages: true);
       } else {
         _updateMessage(aiMessageId, {
@@ -561,6 +569,18 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         setState(() => _isSendingMessage = false);
         await _loadPlay();
       }
+    }
+  }
+
+  /// Whether a failed turn lost to another one: refused before streaming (409),
+  /// or refused when saving, which arrives as a stream error once the story has moved on.
+  Future<bool> _storyMovedOn(Object error, int? startedAt) async {
+    if (error is ApiException && error.statusCode == 409) return true;
+    try {
+      final latest = await _apiService.fetchPlay(widget.initialStory!.id);
+      return latest.beatSeq != startedAt;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -1068,8 +1088,12 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                             isMobile ? 16 : 24,
                             20,
                             isMobile ? 16 : 24,
-                            // The choices panel is taller than the text input.
-                            _isSkeleton ? 440 : (isMobile ? 180 : 250),
+                            // The choices panel's height depends on its content: keep the last paragraph above it.
+                            _isSkeleton
+                                ? (_controlsHeight > 0
+                                      ? _controlsHeight + 24
+                                      : 440)
+                                : (isMobile ? 180 : 250),
                           ),
                           itemCount:
                               messages.length +
@@ -1123,7 +1147,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     List<String> importantNames,
   ) {
     return Container(
-      width: 300,
+      width: _sidePanelWidth,
       decoration: BoxDecoration(
         color: const Color(0xFF0D0D12).withValues(alpha: 0.6),
         border: const Border(
@@ -1709,110 +1733,137 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     final bgColor = viewMode == StoryViewMode.manuscript
         ? const Color(0xFF16161D)
         : const Color(0xFF000000);
+    // Over the story only: covering the side panel would also block its buttons.
+    final showsSidePanel =
+        MediaQuery.of(context).size.width >= AppConstants.desktopBreakpoint &&
+        viewMode == StoryViewMode.manuscript;
 
     return Positioned(
       bottom: 0,
-      left: 0,
+      left: showsSidePanel ? _sidePanelWidth : 0,
       right: 0,
-      child: Container(
-        padding: EdgeInsets.fromLTRB(
-          isMobile ? 12 : 20,
-          isMobile ? 12 : 20,
-          isMobile ? 12 : 20,
-          isMobile ? 30 : 40,
-        ),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.transparent,
-              bgColor.withValues(alpha: 0.8),
-              bgColor,
-            ],
+      child: MeasureSize(
+        onChange: _onControlsResized,
+        child: Container(
+          padding: EdgeInsets.fromLTRB(
+            isMobile ? 12 : 20,
+            isMobile ? 12 : 20,
+            isMobile ? 12 : 20,
+            isMobile ? 30 : 40,
           ),
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 850),
-            child: _isSkeleton
-                ? PlayChoicesPanel(
-                    status: _play,
-                    busy: isSending,
-                    loadFailed: _playLoadFailed,
-                    onChoose: _choose,
-                    onWrite: _write,
-                    onUndo: _undo,
-                    onReload: _loadPlay,
-                  )
-                : Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(35),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.transparent,
+                bgColor.withValues(alpha: 0.8),
+                bgColor,
+              ],
+            ),
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 850),
+              child: _isSkeleton
+                  ? PlayChoicesPanel(
+                      status: _play,
+                      busy: isSending,
+                      loadFailed: _playLoadFailed,
+                      onChoose: _choose,
+                      onWrite: _write,
+                      onUndo: _undo,
+                      onReload: _loadPlay,
+                    )
+                  : Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(35),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.12),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextField(
+                              controller: _controller,
+                              style: GoogleFonts.lato(
+                                color: Colors.white,
+                                fontSize: 15,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: isSending
+                                    ? "응답 생성 중..."
+                                    : "어떻게 행동할까요?",
+                                hintStyle: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.3),
+                                  fontSize: 14,
+                                ),
+                                border: InputBorder.none,
+                              ),
+                              onSubmitted: (_) {
+                                if (!isSending) _sendMessage();
+                              },
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: isSending ? null : _sendMessage,
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: isSending
+                                    ? Colors.white24
+                                    : const Color(0xFF7C3AED),
+                                shape: BoxShape.circle,
+                              ),
+                              child: isSending
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(12),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.auto_fix_high_rounded,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: TextField(
-                            controller: _controller,
-                            style: GoogleFonts.lato(
-                              color: Colors.white,
-                              fontSize: 15,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: isSending ? "응답 생성 중..." : "어떻게 행동할까요?",
-                              hintStyle: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.3),
-                                fontSize: 14,
-                              ),
-                              border: InputBorder.none,
-                            ),
-                            onSubmitted: (_) {
-                              if (!isSending) _sendMessage();
-                            },
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: isSending ? null : _sendMessage,
-                          child: Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: isSending
-                                  ? Colors.white24
-                                  : const Color(0xFF7C3AED),
-                              shape: BoxShape.circle,
-                            ),
-                            child: isSending
-                                ? const Padding(
-                                    padding: EdgeInsets.all(12),
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.auto_fix_high_rounded,
-                                    color: Colors.white,
-                                    size: 20,
-                                  ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+            ),
           ),
         ),
       ),
     );
+  }
+
+  void _onControlsResized(Size size) {
+    if (!mounted || size.height == _controlsHeight) return;
+    final position = _scrollController.hasClients
+        ? _scrollController.position
+        : null;
+    final wasAtEnd =
+        position != null && position.pixels >= position.maxScrollExtent - 40;
+    setState(() => _controlsHeight = size.height);
+    if (wasAtEnd) {
+      // A taller panel (e.g. the reader opened the input) must not cover the last paragraph.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        }
+      });
+    }
   }
 }
 
