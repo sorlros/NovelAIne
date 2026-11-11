@@ -5,7 +5,7 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, EmailStr, Field
 
 from app.schemas.models import ApiResponse
-from app.services.supabase_client import get_supabase_client
+from app.services.supabase_client import create_auth_client, get_supabase_client
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -57,7 +57,7 @@ async def signup(request: AuthRequest):
     """Register a new user using Supabase Auth and sync to public.users."""
     try:
         client = get_supabase_client()
-        response = client.auth.sign_up(
+        response = create_auth_client().auth.sign_up(
             {
                 "email": request.email,
                 "password": request.password,
@@ -88,7 +88,7 @@ async def login(request: AuthRequest):
     """Login existing user and ensure public profile exists."""
     try:
         client = get_supabase_client()
-        response = client.auth.sign_in_with_password(
+        response = create_auth_client().auth.sign_in_with_password(
             {
                 "email": request.email,
                 "password": request.password,
@@ -118,7 +118,7 @@ async def refresh_session(request: RefreshRequest):
     """Refresh an expired or nearly expired Supabase auth session."""
     try:
         client = get_supabase_client()
-        response = client.auth.refresh_session(request.refresh_token)
+        response = create_auth_client().auth.refresh_session(request.refresh_token)
         if not response.user or not response.session:
             raise HTTPException(status_code=401, detail="Session refresh failed")
 

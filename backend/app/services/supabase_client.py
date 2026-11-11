@@ -1,6 +1,6 @@
 """Supabase client configuration and utilities."""
 
-from supabase import create_client, Client
+from supabase import ClientOptions, create_client, Client
 import asyncio
 import logging
 import os
@@ -15,22 +15,36 @@ logger = logging.getLogger(__name__)
 supabase: Optional[Client] = None
 
 
+def _settings() -> tuple[str, str]:
+    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_KEY")
+
+    if not supabase_url or not supabase_key:
+        raise ValueError(
+            "SUPABASE_URL and SUPABASE_KEY environment variables must be set"
+        )
+    return supabase_url, supabase_key
+
+
 def get_supabase_client() -> Client:
-    """Get or create Supabase client instance."""
+    """Get or create Supabase client instance.
+
+    Never sign a user in, up or refresh a session on this client: supabase-py then sends that
+    user's token with every later query, so the server would act as whoever signed in last.
+    Use create_auth_client() for those.
+    """
     global supabase
 
     if supabase is None:
-        supabase_url = os.getenv("SUPABASE_URL")
-        supabase_key = os.getenv("SUPABASE_KEY")
-
-        if not supabase_url or not supabase_key:
-            raise ValueError(
-                "SUPABASE_URL and SUPABASE_KEY environment variables must be set"
-            )
-
-        supabase = create_client(supabase_url, supabase_key)
+        supabase = create_client(*_settings())
 
     return supabase
+
+
+def create_auth_client() -> Client:
+    """A throwaway client for one sign-up, sign-in or session refresh. It keeps no session and
+    starts no refresh timer, and the shared client's credentials are left untouched."""
+    return create_client(*_settings(), options=ClientOptions(auto_refresh_token=False, persist_session=False))
 
 
 async def check_connection() -> bool:
