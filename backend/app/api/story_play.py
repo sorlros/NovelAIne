@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from typing import Optional
 from uuid import UUID
 
@@ -24,6 +25,7 @@ from app.services.story_play import (
     play_status,
     prepare_input_turn,
     prepare_turn,
+    record_turn,
     release_turn_slot,
     stream_turn,
     undo_last_turn,
@@ -116,6 +118,39 @@ async def _prepare(client, story_id: str, request: PlayRequest, user_id: str, pl
         raise HTTPException(status_code=503, detail=error.user_message)
 
 
+def _elapsed_ms(since: float) -> int:
+    return int((time.monotonic() - since) * 1000)
+
+
+async def _write_scene(client, story_id: str, turn, planner, request_id, owner: str, user_id, prepare_ms: int):
+    """Stream the scene and save the turn, then record it and free the story's turn slot.
+    The slot is freed when the stream ends or is closed; a response never read expires after TURN_SLOT_SECONDS."""
+    started, first_chunk_ms, prose = time.monotonic(), None, ""
+    outcome, error, scene_id = "failed", "stream closed", None
+    try:
+        async for chunk in stream_turn(client, turn, planner):
+            if chunk:
+                first_chunk_ms = first_chunk_ms if first_chunk_ms is not None else _elapsed_ms(started)
+                prose += chunk
+                yield chunk
+        if not prose.strip():
+            raise PlayError(502, GENERIC_MESSAGE)
+        scene_id = finish_turn(client, turn, prose, request_id)["ai_scene"]["id"]
+        outcome, error = "saved", None
+    except PlayError as play_error:
+        outcome, error = ("conflict" if play_error.status_code == 409 else "failed"), play_error.message
+        yield f"\n[STREAM_ERROR:{play_error.message}]"
+    except Exception as failure:
+        logger.error("Turn of %s failed before it was saved: %s", story_id, failure)
+        error = f"{type(failure).__name__}: {failure}"
+        message = failure.user_message if isinstance(failure, ExternalServiceError) else GENERIC_MESSAGE
+        yield f"\n[STREAM_ERROR:{message}]"
+    finally:
+        timings = {"prepare_ms": prepare_ms, "first_chunk_ms": first_chunk_ms, "stream_ms": _elapsed_ms(started)}
+        record_turn(client, turn, user_id, outcome, timings, prose, error, scene_id)
+        release_turn_slot(client, story_id, owner)
+
+
 @router.post("")
 async def post_play(
     story_id: UUID,
@@ -139,36 +174,19 @@ async def post_play(
     if not owner:
         raise HTTPException(status_code=409, detail=TURN_BUSY_MESSAGE)
     planner = get_planner()
+    started = time.monotonic()
     try:
         turn = await _prepare(client, str(story_id), request, user_id, planner)
     except BaseException:
         release_turn_slot(client, str(story_id), owner)
         raise
-
-    async def scene_stream():
-        # Released when the stream ends or is closed. A response never read expires after TURN_SLOT_SECONDS.
-        prose = ""
-        try:
-            async for chunk in stream_turn(client, turn, planner):
-                if chunk:
-                    prose += chunk
-                    yield chunk
-            if not prose.strip():
-                raise PlayError(502, GENERIC_MESSAGE)
-            finish_turn(client, turn, prose, request.client_request_id)
-        except PlayError as error:
-            yield f"\n[STREAM_ERROR:{error.message}]"
-        except Exception as error:
-            logger.error("Turn of %s failed before it was saved: %s", story_id, error)
-            message = error.user_message if isinstance(error, ExternalServiceError) else GENERIC_MESSAGE
-            yield f"\n[STREAM_ERROR:{message}]"
-        finally:
-            release_turn_slot(client, str(story_id), owner)
+    scene = _write_scene(client, str(story_id), turn, planner, request.client_request_id, owner, user_id,
+                         _elapsed_ms(started))
 
     # After a major event's scene, plan its choices and the next segment while the reader reads.
     # If the turn was not saved, the task finds nothing to plan.
     background = BackgroundTask(plan_next_segment, str(story_id)) if needs_next_segment(turn) else None
-    return StreamingResponse(scene_stream(), media_type="text/plain", background=background)
+    return StreamingResponse(scene, media_type="text/plain", background=background)
 
 
 @router.post("/undo", response_model=ApiResponse)

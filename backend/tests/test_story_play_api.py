@@ -132,6 +132,40 @@ class PlayApiTest(unittest.IsolatedAsyncioTestCase):
             await read_stream(await self.post(self.first_choice(), "turn-3"))  # choices are never limited
         self.assertEqual(self.client.story(self.story_id)["current_beat_seq"], 2)
 
+    async def test_each_turn_is_recorded_for_the_measurements(self):
+        await read_stream(await self.post(self.first_choice(), "turn-1"))
+        request = play_api.PlayRequest(text="세라를 바라본다", client_request_id="free-1")
+        await read_stream(await play_api.post_play(self.story_id, request, authorization=AUTH))
+        choice_row, free_row = self.client.rows("play_turn_log", story_id=self.story_id)
+        ai_scene = next(s for s in self.client.rows("scenes", client_request_id="turn-1") if s["role"] == "ai")
+        self.assertEqual((choice_row["kind"], choice_row["outcome"], choice_row["scene_id"], choice_row["beat_seq"]),
+                         ("choice", "saved", ai_scene["id"], 2))
+        self.assertEqual(choice_row["choices_offered"], 3)
+        self.assertIn("독자의 뜻:", choice_row["brief"])
+        self.assertTrue(all(isinstance(choice_row[key], int) for key in ("prepare_ms", "first_chunk_ms", "stream_ms")))
+        self.assertEqual((free_row["kind"], free_row["input_judgement"]), ("free", "holds"))
+
+    async def test_a_failed_turn_is_recorded_with_its_error(self):
+        outage = ExternalServiceError("OpenRouter story scene", "일시적인 서버 문제가 발생했습니다.", "503")
+        with patch.object(play_api, "get_planner", return_value=planner_for(FakeModel(fail_on={"stream": outage}))):
+            await read_stream(await self.post(self.first_choice()))
+        (row,) = self.client.rows("play_turn_log", story_id=self.story_id)
+        self.assertEqual((row["outcome"], row["scene_id"]), ("failed", None))
+        self.assertIn("ExternalServiceError", row["error"])
+
+    async def test_a_turn_is_saved_even_if_it_cannot_be_recorded(self):
+        original = self.client.insert_rows
+
+        def no_log(table_name, payload):
+            if table_name == "play_turn_log":
+                raise RuntimeError("table missing")
+            return original(table_name, payload)
+
+        self.client.insert_rows = no_log
+        await read_stream(await self.post(self.first_choice()))
+        self.assertEqual(self.client.story(self.story_id)["current_beat_seq"], 2)
+        self.assertIsNone(self.client.story(self.story_id)["turn_lock_owner"])
+
     async def test_undo_endpoint(self):
         await read_stream(await self.post(self.first_choice()))
         response = await play_api.undo_play(self.story_id, authorization=AUTH)
