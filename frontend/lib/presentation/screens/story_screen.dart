@@ -164,7 +164,6 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   PlayStatus? _play;
   bool _playLoadFailed = false;
 
-  /// Height of the controls pinned at the bottom (the choices panel grows with its content).
   Timer? _preparingTimer;
 
   /// Streaming scene the list lifts toward the top, and the offset last set for it.
@@ -1151,6 +1150,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     final importantNames = ref.watch(importantCharacterNamesProvider);
     final persistence = ref.watch(characterPersistenceProvider);
     final viewMode = ref.watch(viewModeProvider);
+    final isSending =
+        _isSendingMessage || ref.watch(streamingMessageIdProvider) != null;
     final bool isMobile =
         MediaQuery.of(context).size.width < AppConstants.desktopBreakpoint;
 
@@ -1231,10 +1232,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                                 padding: const EdgeInsets.only(top: 8),
                                 child: PlayChoicesPanel(
                                   status: _play,
-                                  busy:
-                                      _isSendingMessage ||
-                                      ref.watch(streamingMessageIdProvider) !=
-                                          null,
+                                  busy: isSending,
                                   loadFailed: _playLoadFailed,
                                   onChoose: _choose,
                                   onWrite: _write,
