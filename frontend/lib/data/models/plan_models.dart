@@ -4,7 +4,7 @@ library;
 import '../../core/constants.dart';
 
 class PlanStatus {
-  static const _freeLimits = {'story': 1, 'turn': 30, 'direct_input': 10};
+  static const _freeLimits = {'story': 2, 'turn': 10, 'direct_input': 3};
 
   final bool premium;
   final Map<String, int> limits;
@@ -37,7 +37,8 @@ class PlanStatus {
     };
   }
 
-  /// How many more of [kind] (story, turn, direct_input) are allowed today.
+  /// How many more of [kind] (story, turn, direct_input) are allowed today
+  /// (free stories: this week).
   int remaining(String kind) {
     final left = (limits[kind] ?? 0) - (used[kind] ?? 0);
     return left < 0 ? 0 : left;

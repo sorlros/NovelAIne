@@ -24,9 +24,9 @@ void main() {
     test('missing fields mean free with the free limits', () {
       final plan = PlanStatus.fromJson({});
       expect(plan.premium, isFalse);
-      expect(plan.remaining('story'), 1);
-      expect(plan.remaining('turn'), 30);
-      expect(plan.remaining('direct_input'), 10);
+      expect(plan.remaining('story'), 2);
+      expect(plan.remaining('turn'), 10);
+      expect(plan.remaining('direct_input'), 3);
     });
 
     test('remaining never goes below zero', () {
