@@ -58,7 +58,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.47.9' # 3.50 deprecates material.dart and fails analyze; upgrade on purpose
+          flutter-version: '3.50.0' # pinned: upgrade on purpose
           channel: 'stable'
 
       - name: Install frontend dependencies

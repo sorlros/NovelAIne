@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import '../screens/home_screen.dart';
 import '../screens/explore_screen.dart';
 import '../screens/vault/vault_screen.dart';

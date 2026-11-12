@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:frontend/l10n/app_localizations.dart';
@@ -50,8 +50,15 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'NovelAIne',
       theme: AppTheme.darkTheme,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      // AppLocalizations.localizationsDelegates still lists flutter_localizations' delegates.
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        ...GlobalMaterialLocalizations.delegates,
+      ],
       supportedLocales: AppLocalizations.supportedLocales,
+      // flutter_markdown and animated_text_kit still read the Theme of package:flutter/material.dart.
+      // ignore: deprecated_member_use
+      builder: (context, child) => MaterialUiCompatibilityBridge(child: child!),
       home: const AuthScreen(),
       debugShowCheckedModeBanner: false,
     );
