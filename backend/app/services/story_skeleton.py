@@ -735,6 +735,30 @@ def offer_choices(
     return pick_diverse_choices(offered, wanted, others)
 
 
+def why_choices_drop(
+    state: State,
+    card: Card,
+    remaining_spine: Sequence[SpineEvent],
+    core_facts: Optional[Collection[str]] = None,
+) -> List[str]:
+    """Why the card's choices are left out or leave no trace in this state, one line each, so the planner's
+    next try can fix them. Mirrors offer_choices."""
+    reasons = []
+    for choice in card.get("choices") or []:
+        label, after_choice = f"「{choice.get('label')}」", state
+        try:
+            for event in choice.get("events") or []:
+                after_choice = apply_event(after_choice, event, "choice")
+        except EventRejected as rejection:
+            reasons.append(f"{label} 은(는) 성립하지 않는다: {rejection}")
+            continue
+        if any(result.errors for result in walk_spine(after_choice, remaining_spine, core_facts)[0]):
+            reasons.append(f"{label} 은(는) 뒤의 주요 사건을 불가능하게 만든다")
+        elif choice_changes_state(choice) and not diff_states(state, after_choice):
+            reasons.append(f"{label} 은(는) 아무것도 바꾸지 않는다(이미 그렇다)")
+    return reasons
+
+
 def brief_callbacks(card: Card, state: State, core_facts: Collection[str] = ()) -> List[str]:
     """The reader's earlier choices that a scene's brief carries, to show the reader that they still count."""
     characters, _ = scene_cast(card, state)
