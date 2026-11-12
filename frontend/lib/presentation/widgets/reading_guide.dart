@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// One stop of the guide: the widget under [target] is lit and [text] explains it.
 class GuideStep {
