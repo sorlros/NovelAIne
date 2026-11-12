@@ -146,6 +146,18 @@ class SegmentTest(unittest.IsolatedAsyncioTestCase):
                                             FakeModel(segments=({**SEGMENT, "after_event_choices": already},)).complete_json)
         self.assertIn(("e01", NO_TRACE), problems)
 
+    async def test_the_problems_say_why_each_choice_was_left_out_or_left_no_trace(self):
+        # After e01 카엘 is in 왕성 and 도윤 in 숲.
+        unusable = [tone("a"), tone("b"),
+                    {"label": "도윤에게 털어놓는다", "changes": [change("act", "카엘", "도윤")]},
+                    {"label": "왕성에 머문다", "changes": [change("move", "카엘", "왕성")]}]
+        _, _, problems = await self.plan({**SEGMENT, "after_event_choices": unusable})
+        self.assertIn(("e01", NO_TRACE), problems)
+        self.assertIn(("e01", "「도윤에게 털어놓는다」 은(는) 성립하지 않는다: "
+                              "카엘(왕성)와(과) 도윤(숲)은(는) 같은 장소에 없다"), problems)
+        self.assertIn(("e01", "「왕성에 머문다」 은(는) 아무것도 바꾸지 않는다(이미 그렇다)"), problems)
+        self.assertNotIn("「a」", " ".join(reason for _, reason in problems))
+
     async def test_a_segment_that_does_not_arrive_reports_the_missing_condition(self):
         stuck = {**SEGMENT, "scenes": [{**SEGMENT["scenes"][0], "changes": [change("act", "카엘")]}]}
         _, _, problems = await self.plan(stuck)

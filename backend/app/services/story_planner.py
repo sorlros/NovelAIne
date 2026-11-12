@@ -32,6 +32,7 @@ from app.services.story_skeleton import (
     offer_choices,
     segment_task,
     walk_cards,
+    why_choices_drop,
 )
 from app.services.story_state import EVENT_TYPES, RELATION_KINDS, RELATION_LABELS, State, clean_name
 
@@ -145,9 +146,13 @@ SEGMENT_SYSTEM = """당신은 긴 연재소설의 기획자다. 두 주요 사�
    - changes 가 빈 선택지는 태도나 말투를 고르는 것이다. 뒤에 흔적을 남기는 선택지는 changes 를 가진다:
      약속하기, 밝히기, 숨기기, 알아내기, 거절하기는 mark 이고 fact 는 뒤 장면에 전달될 짧은 구절이다.
      이동, 건네기, 관계 바꾸기는 move, give, relate 다. changes 가 act 뿐인 선택지는 아무것도 남기지 않는다.
-     이미 성립한 사실을 다시 성립시키는 선택지도 아무것도 남기지 않는다.
+   - 흔적은 그 장면이 끝난 상태를 바꿔야 한다. 앞 장면이나 바로 앞 주요 사건까지 포함해 이미 성립한 사실을 다시 성립시키는 것,
+     지금 있는 장소로 move 하는 것, 지금과 같은 관계로 relate 하는 것은 아무것도 남기지 않는다. 선택지마다 새 fact 를 짓는다.
    - 두 종류를 각각 2개 이상 넣는다. 다음 주요 사건을 불가능하게 만드는 선택지는 넣지 않는다.
 6. {change_rules}
+   상대가 있는 act 와 give 는 그 순간 같은 장소에 있는 인물과만 할 수 있다. 장면의 changes 는 앞 장면이 끝난 상태에서,
+   선택지는 그 장면이 끝난 상태에서(after_event_choices 는 '지금 상태'에서) 누가 어디에 있는지 보고 쓴다.
+   다른 곳에 있는 인물과 만나려면 move 를 먼저 넣고, 만나지 않고 끌어들이려면 mark 로 쓴다(전갈을 보낸다, 소문을 듣는다).
    장면 자체의 changes 에서 mark 는 기억할 만한 일(드러난 비밀, 인물 사이의 약속)에만, 장면당 하나까지 쓴다.
 7. 목록에 있는 인물, 장소, 물건만 쓴다. 모든 글은 {language}로 쓴다.
 
@@ -482,19 +487,27 @@ def _choice_problems(card_id: str, offered: Sequence[Dict[str, Any]]) -> List[Tu
     return problems
 
 
+def _card_problems(
+    state: State, card: Card, remaining_cards: Sequence[Card], remaining_spine: Sequence[Dict[str, Any]], facts: Any
+) -> List[Tuple[str, str]]:
+    offered = offer_choices(state, card, remaining_cards, remaining_spine, facts, wanted=99)
+    problems = _choice_problems(card["id"], offered)
+    # Without the reasons the next try tends to repeat the same choices.
+    return problems + [(card["id"], reason) for reason in why_choices_drop(state, card, remaining_spine, facts)] if problems else []
+
+
 def check_planned_segment(
     world: Dict[str, Any], state: State, index: int, cards: List[Card], after_event: Dict[str, Any]
 ) -> List[Tuple[str, str]]:
     """Problems with a planned segment: cards that do not hold, an unmet next event, too few usable choices."""
-    facts, target = world.get("facts"), world["spine"][index]
+    facts, target, remaining_spine = world.get("facts"), world["spine"][index], world["spine"][index:]
     errors, unmet = check_segment(state, cards, target, facts)
     problems = list(errors) + [(target["id"], f"구간이 끝나도 갖춰지지 않는다: {describe_need(gap)}") for gap in unmet]
     event_card = {"id": world["spine"][index - 1]["id"], "choices": after_event["choices"]}
-    problems += _choice_problems(event_card["id"], offer_choices(state, event_card, cards, world["spine"][index:], facts, wanted=99))
+    problems += _card_problems(state, event_card, cards, remaining_spine, facts)
     for position, card in enumerate(cards):
         _, after_card = walk_cards(state, cards[: position + 1], facts or ())
-        offered = offer_choices(after_card, card, cards[position + 1:], world["spine"][index:], facts, wanted=99)
-        problems += _choice_problems(card["id"], offered)
+        problems += _card_problems(after_card, card, cards[position + 1:], remaining_spine, facts)
     return problems
 
 
