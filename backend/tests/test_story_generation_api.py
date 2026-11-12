@@ -129,7 +129,7 @@ class SkeletonCreateApiTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([task.args for task in tasks.tasks], [(created.data["id"],)])
 
     async def test_the_legacy_path_is_used_when_the_flag_is_off(self):
-        with patch.dict(os.environ, {"SKELETON_MODE_ENABLED": ""}), \
+        with patch.dict(os.environ, {"SKELETON_MODE_ENABLED": "0"}), \
                 patch.object(stories_api, "ChatService") as chat_service:
             chat_service.return_value.start_new_story.side_effect = RuntimeError("legacy path")
             with self.assertRaises(HTTPException) as caught:
