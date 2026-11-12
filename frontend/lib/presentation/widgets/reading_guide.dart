@@ -22,12 +22,16 @@ class ReadingGuide extends StatefulWidget {
   State<ReadingGuide> createState() => _ReadingGuideState();
 }
 
-class _ReadingGuideState extends State<ReadingGuide> {
+class _ReadingGuideState extends State<ReadingGuide>
+    with SingleTickerProviderStateMixin {
   static const _accent = Color(0xFF7C3AED);
   static const _padding = 8.0;
+  static const _settleFrames = 10;
+  static const _followFor = Duration(seconds: 3);
 
   int _index = -1;
   Rect? _hole;
+  late final _follower = createTicker(_follow);
 
   @override
   void initState() {
@@ -35,20 +39,44 @@ class _ReadingGuideState extends State<ReadingGuide> {
     _goTo(0);
   }
 
+  @override
+  void dispose() {
+    _follower.dispose();
+    super.dispose();
+  }
+
+  /// The target can still move after its step is shown (the list settling, fonts loading): follow it for a while.
+  void _follow(Duration elapsed) {
+    if (elapsed > _followFor) {
+      _follower.stop();
+      return;
+    }
+    final hole = _rectOf(widget.steps[_index].target);
+    if (hole != null && hole != _hole) setState(() => _hole = hole);
+  }
+
   Future<void> _goTo(int index) async {
     for (var i = index; i < widget.steps.length; i++) {
       final step = widget.steps[i];
       if (step.reveal != null) await step.reveal!();
       if (!mounted) return;
-      // Wait a frame so a scroll the reveal started has laid the target out.
-      await WidgetsBinding.instance.endOfFrame;
-      if (!mounted) return;
-      final hole = _rectOf(step.target);
+      // A lazily built list keeps moving the target for a few frames after a scroll: wait until it stays put.
+      Rect? hole;
+      for (var frame = 0; frame < _settleFrames; frame++) {
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted) return;
+        final next = _rectOf(step.target);
+        if (next != null && next == hole) break;
+        hole = next;
+      }
       if (hole != null) {
         setState(() {
           _index = i;
           _hole = hole;
         });
+        _follower
+          ..stop()
+          ..start();
         return;
       }
     }
@@ -80,8 +108,10 @@ class _ReadingGuideState extends State<ReadingGuide> {
         const cardWidth = 320.0;
         const cardRoom = 150.0;
         final roomBelow = size.height - hole.bottom;
-        // A target taller than the screen (a long scene) leaves no room: the card sits over its bottom.
-        final over = roomBelow < cardRoom && hole.top < cardRoom;
+        // A target taller than the screen (a long scene) leaves no room, and one off screen has no place:
+        // the card sits at the bottom, where it can always be pressed.
+        final over =
+            hole.isEmpty || (roomBelow < cardRoom && hole.top < cardRoom);
         final below = !over && roomBelow >= hole.top;
         final left = (hole.center.dx - cardWidth / 2).clamp(
           16.0,
