@@ -7,7 +7,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
@@ -18,6 +17,7 @@ import '../../data/services/api_service.dart';
 import '../../data/services/reading_guide_store.dart';
 import '../../data/repositories/story_repository.dart';
 import 'character_sheet_widget.dart';
+import '../widgets/story_markdown.dart';
 import '../../data/models/play_models.dart';
 import '../../data/models/story_model.dart';
 import '../providers/content_provider.dart';
@@ -2325,25 +2325,22 @@ class _RefinedNarrativeCard extends ConsumerWidget {
             else if (!isInitialLoadDone)
               WritingEffect(text: msg['content'], style: getBaseStyle())
             else
-              MarkdownBody(
+              StoryMarkdown(
                 data: msg['content'],
-                selectable: true,
-                styleSheet: MarkdownStyleSheet(
-                  p: getBaseStyle(),
-                  strong: getBaseStyle().copyWith(
-                    color: const Color(0xFF7C3AED),
-                    fontWeight: FontWeight.bold,
-                  ),
-                  blockquoteDecoration: BoxDecoration(
-                    border: const Border(
-                      left: BorderSide(color: Color(0xFF7C3AED), width: 4),
-                    ),
-                    color: Colors.white.withValues(alpha: 0.03),
-                  ),
-                  blockquote: getBaseStyle(
-                    fontStyle: FontStyle.italic,
-                  ).copyWith(color: Colors.white.withValues(alpha: 0.7)),
+                style: getBaseStyle(),
+                strongStyle: getBaseStyle().copyWith(
+                  color: const Color(0xFF7C3AED),
+                  fontWeight: FontWeight.bold,
                 ),
+                quoteDecoration: BoxDecoration(
+                  border: const Border(
+                    left: BorderSide(color: Color(0xFF7C3AED), width: 4),
+                  ),
+                  color: Colors.white.withValues(alpha: 0.03),
+                ),
+                quoteStyle: getBaseStyle(
+                  fontStyle: FontStyle.italic,
+                ).copyWith(color: Colors.white.withValues(alpha: 0.7)),
               ),
             if (hasStreamFailed)
               Padding(

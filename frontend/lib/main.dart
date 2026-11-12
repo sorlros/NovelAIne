@@ -56,9 +56,6 @@ class MyApp extends StatelessWidget {
         ...GlobalMaterialLocalizations.delegates,
       ],
       supportedLocales: AppLocalizations.supportedLocales,
-      // flutter_markdown and animated_text_kit still read the Theme of package:flutter/material.dart.
-      // ignore: deprecated_member_use
-      builder: (context, child) => MaterialUiCompatibilityBridge(child: child!),
       home: const AuthScreen(),
       debugShowCheckedModeBanner: false,
     );

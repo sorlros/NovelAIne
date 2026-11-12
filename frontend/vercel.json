@@ -1,6 +1,8 @@
 {
   "version": 2,
-  "public": true,
+  "git": {
+    "deploymentEnabled": false
+  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
