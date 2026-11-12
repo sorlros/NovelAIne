@@ -1,6 +1,8 @@
 import unittest
+from unittest.mock import patch
 
 from app.services.story_generation import Planner, create_skeleton_story, run_generation
+from app.services import story_play
 from app.services.story_play import (
     EchoGuard,
     PlayError,
@@ -215,6 +217,51 @@ class MajorEventTest(unittest.IsolatedAsyncioTestCase):
         status = play_status(load_context(self.client, self.story_id))
         self.assertEqual((status["finished"], status["choices"]), (True, []))
         self.assertEqual(self.client.story(self.story_id)["status"], "completed")
+
+
+class PlanAheadTest(unittest.IsolatedAsyncioTestCase):
+    """At the last scene before a major event, the segment after it is planned while the reader reads."""
+
+    async def asyncSetUp(self):
+        self.client, self.story_id, self.model = await ready_story()
+        self.addCleanup(story_play._drafts.clear)
+        for _ in range(2):  # the two planned scenes of the first segment: e02 comes next
+            await take_turn(self.client, self.story_id, self.model)
+
+    def segment_calls(self):
+        return self.model.kinds().count("segment")
+
+    async def reach_e02_quietly(self):
+        quiet = next(c for c in available_choices(load_context(self.client, self.story_id)) if not c["lasting"])
+        await take_turn(self.client, self.story_id, self.model, choice_id=quiet["id"])
+
+    async def test_the_segment_planned_ahead_is_used_without_planning_again(self):
+        context = load_context(self.client, self.story_id)
+        self.assertEqual(story_play.next_major_event(context)[1]["id"], "e02")
+        await story_play.plan_ahead(self.story_id, planner_for(self.model), self.client)
+        self.assertEqual(story_play._drafts[self.story_id]["event_id"], "e02")
+        await self.reach_e02_quietly()
+        calls = self.segment_calls()
+        await plan_next_segment(self.story_id, planner_for(self.model), self.client)
+        self.assertEqual(self.segment_calls(), calls)  # no model call: the draft held
+        status = play_status(load_context(self.client, self.story_id))
+        self.assertEqual((status["preparing"], status["question"], len(status["choices"])),
+                         (False, "단검을 받아 들 것인가", 3))
+
+    async def test_a_draft_that_no_longer_holds_is_planned_again(self):
+        await story_play.plan_ahead(self.story_id, planner_for(self.model), self.client)
+        await self.reach_e02_quietly()
+        calls = self.segment_calls()
+        with patch.object(story_play, "check_planned_segment", return_value=[("s1", "카엘이 숲에 없다")]):
+            await plan_next_segment(self.story_id, planner_for(self.model), self.client)
+        self.assertEqual(self.segment_calls(), calls + 1)
+        self.assertFalse(play_status(load_context(self.client, self.story_id))["preparing"])
+
+    async def test_nothing_is_planned_ahead_in_the_middle_of_a_segment(self):
+        undo_last_turn(self.client, self.story_id)  # back to the first scene: another planned scene follows
+        calls = len(self.model.calls)
+        await story_play.plan_ahead(self.story_id, planner_for(self.model), self.client)
+        self.assertEqual((len(self.model.calls), story_play._drafts), (calls, {}))
 
 
 class ReplanTest(unittest.IsolatedAsyncioTestCase):

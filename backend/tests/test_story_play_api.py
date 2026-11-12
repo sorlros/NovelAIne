@@ -10,7 +10,7 @@ from app.api import scenes as scenes_api
 from app.api import story_play as play_api
 from app.schemas.models import SceneCreate
 from app.services.external_errors import ExternalServiceError
-from app.llm_models import PRIMARY_FAST_LLM_MODEL, PRIMARY_PRO_LLM_MODEL
+from app.llm_models import PRIMARY_FAST_LLM_MODEL, PRIMARY_PRO_LLM_MODEL, fallback_llm_model_for
 from app.services import plans
 from app.services.story_play import available_choices, load_context, plan_next_segment
 from story_fakes import FakeModel
@@ -51,7 +51,7 @@ class PlayApiTest(unittest.IsolatedAsyncioTestCase):
     async def test_post_streams_the_scene_and_saves_the_turn(self):
         response = await self.post(self.first_choice())
         self.assertEqual(await read_stream(response), "숲길에 바람이 불었다.\n\n「가자.」")
-        self.assertIsNone(response.background)  # not a major event
+        self.assertEqual(response.background.func, play_api.after_turn)  # plans ahead before a major event
         self.assertEqual(self.client.story(self.story_id)["current_beat_seq"], 2)
 
     async def test_reaching_a_major_event_plans_the_next_segment_after_the_response(self):
@@ -127,6 +127,22 @@ class PlayApiTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(text, "숲길에 바람이 불었다.\n\n「가자.」")
         ai_scene = next(s for s in self.client.rows("scenes", client_request_id="turn-1") if s["role"] == "ai")
         self.assertEqual(ai_scene["content"], text)
+
+    async def test_an_empty_scene_is_written_again_with_the_fallback_engine(self):
+        class SilentOnce(FakeModel):
+            async def stream_text(self, system, user, model):
+                self.calls.append(("stream", model, user))
+                if sum(1 for kind, _, _ in self.calls if kind == "stream") > 1:
+                    for piece in self.stream_pieces:
+                        yield piece
+
+        silent = SilentOnce()
+        with patch.object(play_api, "get_planner", return_value=planner_for(silent)):
+            text = await read_stream(await self.post(self.first_choice()))
+        self.assertEqual(text, "숲길에 바람이 불었다.\n\n「가자.」")
+        self.assertEqual([model for kind, model, _ in silent.calls if kind == "stream"],
+                         [PRIMARY_FAST_LLM_MODEL, fallback_llm_model_for(PRIMARY_FAST_LLM_MODEL)])
+        self.assertEqual(self.client.story(self.story_id)["current_beat_seq"], 2)
 
     async def test_a_choice_that_is_not_offered_is_a_409_before_streaming(self):
         with self.assertRaises(HTTPException) as caught:

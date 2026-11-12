@@ -14,6 +14,7 @@ The state before each turn is kept on the beat it produced (card.state_before),
 so undoing a turn restores it exactly.
 """
 
+import asyncio
 import copy
 import logging
 import uuid
@@ -21,7 +22,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any, AsyncIterator, Dict, List, Optional, Set, Tuple
 
-from app.llm_models import PRIMARY_FAST_LLM_MODEL
+from app.llm_models import PRIMARY_FAST_LLM_MODEL, fallback_llm_model_for
 from app.services.story_generation import (
     MAX_SEGMENT_TRIES,
     Job,
@@ -35,7 +36,7 @@ from app.services.story_generation import (
     problem_lines,
     spine_event_card,
 )
-from app.services.story_planner import interpret_input, plan_segment, scene_prompt
+from app.services.story_planner import check_planned_segment, interpret_input, plan_segment, scene_prompt
 from app.services.story_skeleton import (
     ROLE_LABELS,
     brief_callbacks,
@@ -59,6 +60,11 @@ PREVIOUS_TAIL_CHARS = 400  # end of the previous scene, so the prose carries on 
 PLANNING_BACKOFF_SECONDS = 60  # after a failed segment plan, wait before trying again
 
 _planning_story_ids: Set[str] = set()
+
+# Segments planned ahead (plan_ahead), by story: kept in this process only, so a restart just plans as before.
+_drafts: Dict[str, Dict[str, Any]] = {}
+_drafting: Dict[str, Tuple[str, asyncio.Event]] = {}  # story id -> (major event id, set when the draft is done)
+DRAFT_WAIT_SECONDS = 240  # how long the plan after a major event waits for a draft still being made
 
 
 class PlayError(Exception):
@@ -437,13 +443,14 @@ def previous_tail(client: Any, story_id: str) -> str:
     return content[-PREVIOUS_TAIL_CHARS:]
 
 
-def stream_turn(client: Any, turn: Turn, planner: Planner) -> AsyncIterator[str]:
-    """Write the next scene, piece by piece."""
+def stream_turn(client: Any, turn: Turn, planner: Planner, fallback: bool = False) -> AsyncIterator[str]:
+    """Write the next scene, piece by piece. With `fallback`, with the story engine's fallback engine."""
     context = turn.context
     cast, _ = scene_cast(turn.next_card, turn.state_after_choice)
     system, user = scene_prompt(context.world, context.plan["seed"], turn.brief, cast, turn.next_card.get("intensity"),
                                 previous_tail(client, context.story["id"]))
-    return planner.stream(system, user, context.story.get("llm_model") or PRIMARY_FAST_LLM_MODEL)
+    model = context.story.get("llm_model") or PRIMARY_FAST_LLM_MODEL
+    return planner.stream(system, user, (fallback_llm_model_for(model) or model) if fallback else model)
 
 
 def state_after_beat(turn: Turn) -> State:
@@ -541,12 +548,82 @@ def awaiting_segment(context: PlayContext) -> bool:
     return bool(current["spine_event_id"]) and not current["card"].get("choices") and not is_finished(context)
 
 
+def next_major_event(context: PlayContext) -> Optional[Tuple[int, Dict[str, Any]]]:
+    """(index, event) of the major event that comes right after the current beat: the reader is at the last
+    scene of a segment. None anywhere else."""
+    current = context.current
+    if current["spine_event_id"] or is_finished(context) or any(b["seq"] == current["seq"] + 1 for b in context.beats):
+        return None
+    index = last_spine_index(context, current["seq"]) + 1
+    return (index, context.world["spine"][index]) if index < len(context.world["spine"]) else None
+
+
+async def plan_ahead(story_id: str, planner: Optional[Planner] = None, client: Any = None) -> None:
+    """Background task after a turn. At the last scene before a major event, plan the segment after that event
+    while the reader reads, as if this scene's choice left the state as it is. plan_after_major_event uses the
+    draft only if it still holds from the real state, so a choice that changed something costs a second plan."""
+    story_id = str(story_id)
+    if story_id in _drafting:
+        return
+    if client is None:
+        from app.services.supabase_client import get_supabase_client
+
+        client = get_supabase_client()
+    context = load_context(client, story_id)
+    upcoming = next_major_event(context)
+    if not upcoming or upcoming[0] + 1 >= len(context.world["spine"]):  # nothing to plan after the ending
+        return
+    index, event = upcoming
+    done = asyncio.Event()
+    _drafting[story_id] = (event["id"], done)
+    try:
+        planner = planner or default_planner()
+        _, state = walk_spine(context.state, [event], context.world.get("facts"))
+        feedback = None
+        for _ in range(MAX_SEGMENT_TRIES):
+            cards, after_event, problems = await plan_segment(context.world, context.plan["seed"], state, index + 1,
+                                                              planner.fast_model, planner.complete_json, feedback)
+            if not problems:
+                _drafts[story_id] = {"event_id": event["id"], "cards": cards, "after_event": after_event}
+                return
+            feedback = "; ".join(problem_lines(problems))
+        logger.info("No segment planned ahead for %s: %s", story_id, feedback)
+    except Exception:
+        logger.exception("Planning ahead for %s failed", story_id)
+    finally:
+        _drafting.pop(story_id, None)
+        done.set()
+
+
+async def drafted_segment(context: PlayContext, target: int) -> Optional[Tuple[List[Dict[str, Any]], Dict[str, Any]]]:
+    """The segment planned ahead for the current major event, if it holds from the real state. Waits for a draft
+    still being made."""
+    story_id, event_id = context.story["id"], context.current["spine_event_id"]
+    running = _drafting.get(story_id)
+    if running and running[0] == event_id:
+        try:
+            await asyncio.wait_for(running[1].wait(), DRAFT_WAIT_SECONDS)
+        except asyncio.TimeoutError:
+            pass
+    draft = _drafts.pop(story_id, None)
+    if not draft or draft["event_id"] != event_id:
+        return None
+    problems = check_planned_segment(context.world, context.state, target, draft["cards"], draft["after_event"])
+    if problems:
+        logger.info("Segment planned ahead for %s no longer holds: %s", story_id, problem_lines(problems)[:3])
+        return None
+    return draft["cards"], draft["after_event"]
+
+
 async def plan_after_major_event(job: Job, context: PlayContext) -> None:
     """Plan the segment after the current major event, and the choices shown right after its scene."""
     current = context.current
     target = spine_index(context, current["spine_event_id"]) + 1
+    drafted = await drafted_segment(context, target)
     feedback, problems = None, []
-    for _ in range(MAX_SEGMENT_TRIES):
+    if drafted:
+        cards, after_event = drafted
+    for _ in range(0 if drafted else MAX_SEGMENT_TRIES):
         job.renew()
         cards, after_event, problems = await plan_segment(context.world, context.plan["seed"], context.state, target,
                                                           job.planner.fast_model, job.planner.complete_json, feedback)
