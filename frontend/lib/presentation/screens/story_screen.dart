@@ -571,10 +571,10 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
       GuideStep(
         target: _guideSceneKey,
         reveal: toTop,
-        // Pictures and music are made for the paid plan only.
+        // Pictures and music are made for the paid plan only; the free plan is told how to get them.
         text: premium
             ? "이야기는 장면 단위로 이어져요. 이야기가 고조되는 장면에서는 배경 그림과 음악이 자동으로 만들어져요."
-            : "이야기는 장면 단위로 이어져요.",
+            : "이야기는 장면 단위로 이어져요. 이야기가 고조되는 장면에서 배경 그림과 음악이 자동으로 만들어지는 기능은 유료 결제 후 열려요.",
       ),
       if (showsCharacters)
         GuideStep(
