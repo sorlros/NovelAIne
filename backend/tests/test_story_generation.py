@@ -303,14 +303,18 @@ class ParsingTest(unittest.TestCase):
         with self.assertRaises(PlanFormatError):
             parse_json_object("{broken")
 
-    def test_the_feature_flag_is_off_by_default(self):
+    def test_the_feature_flag_is_on_unless_turned_off(self):
         import os
         from unittest.mock import patch
 
         with patch.dict(os.environ, {}, clear=True):
-            self.assertFalse(generation.is_skeleton_mode_enabled())
-        with patch.dict(os.environ, {"SKELETON_MODE_ENABLED": "1"}):
             self.assertTrue(generation.is_skeleton_mode_enabled())
+        for value in ("", "1", "true"):
+            with patch.dict(os.environ, {"SKELETON_MODE_ENABLED": value}):
+                self.assertTrue(generation.is_skeleton_mode_enabled())
+        for value in ("0", "false", " OFF "):
+            with patch.dict(os.environ, {"SKELETON_MODE_ENABLED": value}):
+                self.assertFalse(generation.is_skeleton_mode_enabled())
 
 
 

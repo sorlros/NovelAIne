@@ -69,7 +69,8 @@ _running_story_ids: Set[str] = set()
 
 
 def is_skeleton_mode_enabled() -> bool:
-    return os.getenv("SKELETON_MODE_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+    # On unless turned off: SKELETON_MODE_ENABLED=0 is the way back to the legacy path.
+    return os.getenv("SKELETON_MODE_ENABLED", "").strip().lower() not in {"0", "false", "no", "off"}
 
 
 class LeaseLost(Exception):
