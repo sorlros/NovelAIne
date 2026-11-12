@@ -18,7 +18,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.x' # 최신 스테이블 버전 사용
+          flutter-version: '3.47.9' # 3.50 은 material.dart 를 폐기 예정으로 바꿔 analyze 가 실패한다. 올릴 때는 따로 옮긴다
           channel: 'stable'
 
       - name: Install dependencies
