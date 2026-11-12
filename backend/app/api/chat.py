@@ -57,7 +57,7 @@ def _count_turn(client, user_id: str, model: Optional[str]) -> Optional[str]:
     plan = user_plan(client, user_id)
     allowed, limit = use_daily(client, user_id, TURN, plan)
     if not allowed:
-        raise HTTPException(status_code=429, detail=limit_message(TURN, limit))
+        raise HTTPException(status_code=429, detail=limit_message(TURN, limit, plan))
     return engine_for(plan, model)
 
 

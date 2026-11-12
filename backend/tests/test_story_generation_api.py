@@ -47,13 +47,14 @@ class SkeletonCreateApiTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(caught.exception.status_code, 429)
         self.assertEqual(self.client.used("user-1", "story"), 2)  # the refused one gave its use back
 
-    async def test_the_free_plan_makes_one_story_a_day(self):
+    async def test_the_free_plan_makes_two_stories_a_week(self):
         await self.create(request_id="a")
+        await self.create(request_id="b")
         with self.assertRaises(HTTPException) as caught:
-            await self.create(request_id="b")
+            await self.create(request_id="c")
         self.assertEqual(caught.exception.status_code, 429)
-        self.assertIn("1편", caught.exception.detail)
-        self.assertEqual(len(self.client.tables["stories"]), 1)
+        self.assertIn("이번 주에 만들 수 있는 이야기 2편", caught.exception.detail)
+        self.assertEqual(len(self.client.tables["stories"]), 2)
         retried, _ = await self.create(request_id="a")  # a retry at the limit still gets its story
         self.assertEqual(retried.data["id"], self.client.tables["stories"][0]["id"])
 
