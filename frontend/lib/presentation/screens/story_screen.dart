@@ -562,7 +562,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     setState(() => _guideActive = true);
   }
 
-  List<GuideStep> _guideSteps(bool showsCharacters) {
+  List<GuideStep> _guideSteps(bool showsCharacters, bool premium) {
     Future<void> toTop() async {
       if (_scrollController.hasClients) _scrollController.jumpTo(0);
     }
@@ -571,7 +571,10 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
       GuideStep(
         target: _guideSceneKey,
         reveal: toTop,
-        text: "이야기는 장면 단위로 이어져요. 이야기가 고조되는 장면에서는 배경 그림과 음악이 자동으로 만들어져요.",
+        // Pictures and music are made for the paid plan only.
+        text: premium
+            ? "이야기는 장면 단위로 이어져요. 이야기가 고조되는 장면에서는 배경 그림과 음악이 자동으로 만들어져요."
+            : "이야기는 장면 단위로 이어져요.",
       ),
       if (showsCharacters)
         GuideStep(
@@ -590,12 +593,14 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
       GuideStep(target: _guideFontKey, text: "본문 서체를 바꿔요."),
       GuideStep(
         target: _guideChoicesKey,
-        // The panel is the last item of a lazily built list: going to the end builds it.
+        // The panel is the last item of a lazily built list: going to the end builds it, and building the
+        // items on the way can make the list longer, so go again until the end stays put.
         reveal: () async {
-          if (_scrollController.hasClients) {
-            _scrollController.jumpTo(
-              _scrollController.position.maxScrollExtent,
-            );
+          for (var i = 0; i < 5 && _scrollController.hasClients; i++) {
+            final position = _scrollController.position;
+            if (i > 0 && position.pixels >= position.maxScrollExtent) break;
+            _scrollController.jumpTo(position.maxScrollExtent);
+            await WidgetsBinding.instance.endOfFrame;
           }
         },
         text: "장면을 다 읽으면 여기서 다음 행동을 골라요. 원하는 선택지가 없으면 '직접 입력'으로 행동을 써도 돼요.",
@@ -1437,6 +1442,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                 steps: _guideSteps(
                   viewMode == StoryViewMode.manuscript &&
                       visibleCharacters.isNotEmpty,
+                  ref.watch(currentPlanProvider).premium,
                 ),
                 onDone: _endGuide,
               ),
