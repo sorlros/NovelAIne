@@ -117,7 +117,7 @@ async def _prepare(client, story_id: str, request: PlayRequest, user_id: str, pl
         if request.text is not None:
             allowed, limit = use_daily(client, user_id, DIRECT_INPUT, plan)
             if not allowed:
-                raise HTTPException(status_code=429, detail=limit_message(DIRECT_INPUT, limit))
+                raise HTTPException(status_code=429, detail=limit_message(DIRECT_INPUT, limit, plan))
             counted.append(DIRECT_INPUT)
             return await prepare_input_turn(client, story_id, request.text, planner)
         return await prepare_turn(client, story_id, request.choice_id, planner)
@@ -215,7 +215,7 @@ async def post_play(
     try:
         allowed, limit = use_daily(client, user_id, TURN, plan)
         if not allowed:
-            raise HTTPException(status_code=429, detail=limit_message(TURN, limit))
+            raise HTTPException(status_code=429, detail=limit_message(TURN, limit, plan))
         counted.append(TURN)
         turn = await _prepare(client, str(story_id), request, user_id, planner, plan, counted)
     except BaseException:

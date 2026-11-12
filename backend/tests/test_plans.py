@@ -40,20 +40,43 @@ class PlanTest(unittest.TestCase):
         self.assertIsNone(plans.engine_for(plans.FREE, None))
 
     def test_daily_uses_stop_at_the_plan_limit_and_can_be_given_back(self):
-        self.assertEqual(plans.use_daily(self.client, "user-1", plans.STORY, plans.FREE), (True, 1))
-        self.assertEqual(plans.use_daily(self.client, "user-1", plans.STORY, plans.FREE), (False, 1))
-        plans.give_back_daily(self.client, "user-1", plans.STORY)
-        self.assertTrue(plans.use_daily(self.client, "user-1", plans.STORY, plans.FREE)[0])
-        self.assertTrue(plans.use_daily(self.client, "user-1", plans.STORY, plans.PREMIUM)[0])  # paid: 10
+        for _ in range(3):
+            self.assertEqual(plans.use_daily(self.client, "user-1", plans.DIRECT_INPUT, plans.FREE), (True, 3))
+        self.assertEqual(plans.use_daily(self.client, "user-1", plans.DIRECT_INPUT, plans.FREE), (False, 3))
+        plans.give_back_daily(self.client, "user-1", plans.DIRECT_INPUT)
+        self.assertTrue(plans.use_daily(self.client, "user-1", plans.DIRECT_INPUT, plans.FREE)[0])
+        self.assertTrue(plans.use_daily(self.client, "user-1", plans.DIRECT_INPUT, plans.PREMIUM)[0])  # paid: 50
 
-    def test_the_summary_shows_the_limits_and_todays_uses(self):
-        today = datetime.now(timezone.utc).astimezone(plans.KST).date().isoformat()
-        self.client.tables["daily_usage"] = [{"user_id": "user-1", "day": today, "kind": "turn", "count": 7},
-                                             {"user_id": "user-1", "day": "2000-01-01", "kind": "story", "count": 1}]
+    def test_free_stories_are_counted_per_week_and_paid_ones_per_day(self):
+        self.assertEqual(plans.use_daily(self.client, "user-1", plans.STORY, plans.FREE), (True, 2))
+        self.assertEqual(plans.use_daily(self.client, "user-1", plans.STORY, plans.FREE), (True, 2))
+        self.assertEqual(plans.use_daily(self.client, "user-1", plans.STORY, plans.FREE), (False, 2))
+        self.assertEqual(self.client.weekly_calls, 3)
+        self.assertTrue(plans.use_daily(self.client, "user-1", plans.STORY, plans.PREMIUM)[0])  # paid: 10 a day
+        self.assertEqual(self.client.weekly_calls, 3)
+        self.assertIn("이번 주", plans.limit_message(plans.STORY, 2, plans.FREE))
+        self.assertIn("오늘", plans.limit_message(plans.STORY, 10, plans.PREMIUM))
+        self.assertIn("오늘", plans.limit_message(plans.TURN, 10, plans.FREE))
+
+    def test_the_summary_shows_the_limits_with_todays_and_this_weeks_uses(self):
+        today = datetime.now(timezone.utc).astimezone(plans.KST).date()
+        monday = today - timedelta(days=today.weekday())
+        last_week = (monday - timedelta(days=1)).isoformat()
+        self.client.tables["daily_usage"] = [
+            {"user_id": "user-1", "day": today.isoformat(), "kind": "turn", "count": 7},
+            {"user_id": "user-1", "day": monday.isoformat(), "kind": "story", "count": 1},
+            {"user_id": "user-1", "day": last_week, "kind": "story", "count": 2},
+            {"user_id": "user-1", "day": last_week, "kind": "turn", "count": 9},
+        ]
+        if monday != today:  # a turn earlier this week is not today's
+            self.client.tables["daily_usage"].append(
+                {"user_id": "user-1", "day": monday.isoformat(), "kind": "direct_input", "count": 2})
         summary = plans.plan_summary(self.client, "user-1")
         self.assertEqual(summary, {"plan": "free", "premium": False,
-                                   "limits": {"story": 1, "turn": 30, "direct_input": 10},
-                                   "used": {"story": 0, "turn": 7, "direct_input": 0}})
+                                   "limits": {"story": 2, "turn": 10, "direct_input": 3},
+                                   "used": {"story": 1, "turn": 7, "direct_input": 0}})
+        self.client.grant_premium("user-1")  # paid stories count per day: Monday's is not today's unless it is Monday
+        self.assertEqual(plans.plan_summary(self.client, "user-1")["used"]["story"], 1 if monday == today else 0)
 
 
 class PaidMediaTest(unittest.IsolatedAsyncioTestCase):
@@ -99,7 +122,7 @@ class PaidMediaTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_the_app_reads_the_plan(self):
         response = await plans_api.get_my_plan(authorization=AUTH)
-        self.assertEqual((response.data["plan"], response.data["limits"]["turn"]), ("free", 30))
+        self.assertEqual((response.data["plan"], response.data["limits"]["turn"]), ("free", 10))
         with self.assertRaises(HTTPException) as caught:
             await plans_api.get_my_plan(authorization=None)
         self.assertEqual(caught.exception.status_code, 401)

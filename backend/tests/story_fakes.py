@@ -1,7 +1,7 @@
 """Test doubles for skeleton story generation: an in-memory Supabase client and a scripted model."""
 
 import copy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 
@@ -255,7 +255,8 @@ class FakeClient:
         if story and story.get("turn_lock_owner") == p_owner:
             story.update({"turn_lock_owner": None, "turn_lock_until": None})
 
-    # ---------- the functions of user_plans_20261111.sql; one day is enough for the tests ----------
+    # ---------- the functions of user_plans_20261111.sql and free_allowance_20261112.sql; one day is enough
+    # for the tests, so a week holds today only ----------
 
     def rpc_use_daily(self, p_user_id, p_kind, p_limit):
         usage = self.tables.setdefault("daily_usage", [])
@@ -265,8 +266,13 @@ class FakeClient:
         if row:
             row["count"] += 1
         else:
-            usage.append({"user_id": p_user_id, "kind": p_kind, "count": 1})
+            today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=9))).date().isoformat()
+            usage.append({"user_id": p_user_id, "day": today, "kind": p_kind, "count": 1})
         return True
+
+    def rpc_use_weekly(self, p_user_id, p_kind, p_limit):
+        self.weekly_calls = getattr(self, "weekly_calls", 0) + 1
+        return self.rpc_use_daily(p_user_id, p_kind, p_limit)
 
     def rpc_give_back_daily(self, p_user_id, p_kind):
         for row in self.tables.setdefault("daily_usage", []):

@@ -19,16 +19,22 @@ STORY, TURN, DIRECT_INPUT = "story", "turn", "direct_input"
 
 KST = timezone(timedelta(hours=9))  # the counts reset on the Korean day, as in use_daily
 
+# Uses per Korean day, except the (plan, kind) pairs in WEEKLY, which count per Korean week from Monday.
+# A written action is also a scene, so it counts against both DIRECT_INPUT and TURN.
 DAILY_LIMITS: Dict[str, Dict[str, int]] = {
-    FREE: {STORY: 1, TURN: 30, DIRECT_INPUT: 10},
+    FREE: {STORY: 2, TURN: 10, DIRECT_INPUT: 3},
     PREMIUM: {STORY: 10, TURN: 300, DIRECT_INPUT: 50},
 }
+WEEKLY = {(FREE, STORY)}
 
 PREMIUM_ONLY_MESSAGE = "유료 플랜에서 쓸 수 있는 기능입니다."
 LIMIT_MESSAGES = {
     STORY: "오늘 만들 수 있는 이야기 {limit}편을 모두 만들었습니다. 내일 다시 만들거나 유료 플랜을 이용해 주세요.",
     TURN: "오늘 이어 쓸 수 있는 {limit}장면을 모두 읽었습니다. 내일 이어 가거나 유료 플랜을 이용해 주세요.",
     DIRECT_INPUT: "오늘 쓸 수 있는 직접 입력 {limit}회를 모두 썼습니다. 선택지로 이어 가거나 내일 다시 써 주세요.",
+}
+WEEKLY_LIMIT_MESSAGES = {
+    STORY: "이번 주에 만들 수 있는 이야기 {limit}편을 모두 만들었습니다. 다음 주 월요일에 다시 만들거나 유료 플랜을 이용해 주세요.",
 }
 
 
@@ -66,9 +72,11 @@ def daily_limit(plan: str, kind: str) -> int:
 
 
 def use_daily(client: Any, user_id: str, kind: str, plan: str) -> Tuple[bool, int]:
-    """Count one use of `kind` for today. Returns whether it was allowed, and the plan's limit."""
+    """Count one use of `kind` for today, against the plan's limit for the day (or the week, see WEEKLY).
+    Returns whether it was allowed, and the plan's limit."""
     limit = daily_limit(plan, kind)
-    allowed = client.rpc("use_daily", {"p_user_id": str(user_id), "p_kind": kind, "p_limit": limit}).execute().data
+    function = "use_weekly" if (plan, kind) in WEEKLY else "use_daily"
+    allowed = client.rpc(function, {"p_user_id": str(user_id), "p_kind": kind, "p_limit": limit}).execute().data
     return bool(allowed), limit
 
 
@@ -80,17 +88,23 @@ def give_back_daily(client: Any, user_id: str, kind: str) -> None:
         logger.error("Could not give back a %s use of %s: %s", kind, user_id, error)
 
 
-def limit_message(kind: str, limit: int) -> str:
-    return LIMIT_MESSAGES[kind].format(limit=limit)
+def limit_message(kind: str, limit: int, plan: str) -> str:
+    messages = WEEKLY_LIMIT_MESSAGES if (plan, kind) in WEEKLY else LIMIT_MESSAGES
+    return messages[kind].format(limit=limit)
 
 
 def plan_summary(client: Any, user_id: str) -> Dict[str, Any]:
-    """What the app shows: the plan, its daily limits and today's uses."""
+    """What the app shows: the plan, its limits and the uses counted against them
+    (today's, or this week's for the kinds in WEEKLY)."""
     plan = user_plan(client, user_id)
-    today = datetime.now(timezone.utc).astimezone(KST).date().isoformat()
+    today = datetime.now(timezone.utc).astimezone(KST).date()
+    monday = today - timedelta(days=today.weekday())
     rows = (
-        client.table("daily_usage").select("kind, count").eq("user_id", str(user_id)).eq("day", today).execute()
+        client.table("daily_usage").select("kind, day, count").eq("user_id", str(user_id))
+        .gte("day", monday.isoformat()).execute()
     ).data or []
     used = {kind: 0 for kind in DAILY_LIMITS[plan]}
-    used.update({row["kind"]: row["count"] for row in rows if row["kind"] in used})
+    for row in rows:
+        if row["kind"] in used and ((plan, row["kind"]) in WEEKLY or row["day"] == today.isoformat()):
+            used[row["kind"]] += row["count"]
     return {"plan": plan, "premium": plan == PREMIUM, "limits": dict(DAILY_LIMITS[plan]), "used": used}

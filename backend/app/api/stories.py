@@ -187,7 +187,7 @@ async def create_story(
                 return _start_skeleton_story(client, story, user_id, background_tasks)[0]
         allowed, limit = use_daily(client, user_id, STORY, plan)
         if not allowed:
-            raise HTTPException(status_code=429, detail=limit_message(STORY, limit))
+            raise HTTPException(status_code=429, detail=limit_message(STORY, limit, plan))
         counted = True
         if skeleton:
             response, created = _start_skeleton_story(client, story, user_id, background_tasks)
