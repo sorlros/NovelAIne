@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/theme/app_style.dart';
 import '../../../../data/models/creation_config.dart';
 import '../../../../data/constants/creation_prompts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -86,6 +87,7 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -98,10 +100,12 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
                 const SizedBox(height: 8),
                 Text(
                   AppLocalizations.of(context)!.characterSetup,
-                  style: TextStyle(
-                    color: palette.text,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+                  style: style.title(
+                    TextStyle(
+                      color: palette.text,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0),
                 const SizedBox(height: 8),
@@ -119,7 +123,7 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _SectionHeader(title: "저장된 캐릭터 불러오기"),
+                    _SectionHeader(title: "저장된 캐릭터 불러오기", number: 1),
                     TextButton.icon(
                       onPressed: () =>
                           setState(() => _showOnlyVaulted = !_showOnlyVaulted),
@@ -212,6 +216,7 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
                 // ── Image Upload Section ──
                 _SectionHeader(
                   title: AppLocalizations.of(context)!.characterImageUpload,
+                  number: 2,
                 ),
                 const SizedBox(height: 16),
                 GestureDetector(
@@ -220,16 +225,19 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
                     duration: const Duration(milliseconds: 300),
                     height: 180,
                     width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: palette.surface,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: _selectedImageBytes != null
-                            ? palette.accent.withValues(alpha: 0.5)
-                            : palette.line,
-                        width: 1.5,
-                      ),
-                    ),
+                    decoration: style
+                        .card(palette)
+                        .copyWith(
+                          borderRadius: BorderRadius.circular(
+                            style.radiusLarge,
+                          ),
+                          border: Border.all(
+                            color: _selectedImageBytes != null && !style.isRoute
+                                ? palette.accent.withValues(alpha: 0.5)
+                                : style.edge(palette),
+                            width: style.borderWidth,
+                          ),
+                        ),
                     clipBehavior: Clip.antiAlias,
                     child: _selectedImageBytes != null
                         ? Stack(
@@ -260,21 +268,29 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
                                     vertical: 8,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: palette.accent,
-                                    borderRadius: BorderRadius.circular(12),
+                                    color: style.primary(palette),
+                                    borderRadius: BorderRadius.circular(
+                                      style.radiusSmall,
+                                    ),
+                                    border: style.isRoute
+                                        ? Border.all(
+                                            color: palette.text,
+                                            width: 2,
+                                          )
+                                        : null,
                                   ),
                                   child: Row(
                                     children: [
                                       Icon(
                                         Icons.edit_rounded,
                                         size: 14,
-                                        color: palette.onAccent,
+                                        color: style.onPrimary(palette),
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
                                         "변경하기",
                                         style: TextStyle(
-                                          color: palette.onAccent,
+                                          color: style.onPrimary(palette),
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -329,6 +345,7 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
                 // ── Personality Traits ──
                 _SectionHeader(
                   title: AppLocalizations.of(context)!.personalityTraitsLabel,
+                  number: 3,
                 ),
                 const SizedBox(height: 16),
                 Wrap(
@@ -394,28 +411,52 @@ class _CharacterStepState extends ConsumerState<CharacterStep> {
 
 class _SectionHeader extends StatelessWidget {
   final String title;
-  const _SectionHeader({required this.title});
+  final int number;
+  const _SectionHeader({required this.title, required this.number});
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
     return Row(
       children: [
-        Container(
-          width: 4,
-          height: 16,
-          decoration: BoxDecoration(
-            color: palette.accent,
-            borderRadius: BorderRadius.circular(2),
+        if (style.isRoute)
+          Container(
+            width: 24,
+            height: 24,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: palette.highlight,
+              borderRadius: BorderRadius.circular(style.radiusSmall),
+              border: Border.all(color: palette.text, width: 2),
+            ),
+            child: Text(
+              "$number",
+              style: TextStyle(
+                color: palette.onHighlight,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          )
+        else
+          Container(
+            width: 4,
+            height: 16,
+            decoration: BoxDecoration(
+              color: palette.accent,
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
-        ),
         const SizedBox(width: 10),
         Text(
           title,
-          style: TextStyle(
-            color: palette.muted,
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
+          style: style.title(
+            TextStyle(
+              color: palette.muted,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ],
@@ -437,23 +478,16 @@ class _CharacterListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
+    final onControl = style.onControl(palette, selected: isSelected);
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         width: 140,
-        margin: const EdgeInsets.only(right: 12),
+        margin: const EdgeInsets.only(right: 12, bottom: 4),
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? palette.accent.withValues(alpha: 0.1)
-              : palette.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? palette.accent : palette.line,
-            width: 1.5,
-          ),
-        ),
+        decoration: style.control(palette, selected: isSelected),
         child: Stack(
           children: [
             Column(
@@ -479,7 +513,9 @@ class _CharacterListItem extends StatelessWidget {
                   char.name,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: isSelected ? palette.accent : palette.text,
+                    color: isSelected && style.isNight
+                        ? palette.accent
+                        : onControl,
                     fontSize: 13,
                   ),
                   maxLines: 1,
@@ -487,13 +523,21 @@ class _CharacterListItem extends StatelessWidget {
                 ),
               ],
             ),
+            if (isSelected && !style.isNight)
+              Positioned(
+                top: 0,
+                left: 0,
+                child: Icon(Icons.check, color: onControl, size: 14),
+              ),
             if (char.isInVault)
               Positioned(
                 top: 0,
                 right: 0,
                 child: Icon(
                   Icons.star_rounded,
-                  color: palette.accent,
+                  color: isSelected && !style.isNight
+                      ? onControl
+                      : palette.accent,
                   size: 12,
                 ),
               ),
@@ -511,13 +555,10 @@ class _EmptyCharacterState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: palette.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: palette.line),
-      ),
+      decoration: style.card(palette),
       child: Center(
         child: Text(
           message,
@@ -544,6 +585,7 @@ class _CustomTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -570,11 +612,14 @@ class _CustomTextField extends StatelessWidget {
               vertical: 16,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: palette.line),
+              borderRadius: BorderRadius.circular(style.radius),
+              borderSide: BorderSide(
+                color: style.edge(palette),
+                width: style.borderWidth,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(style.radius),
               borderSide: BorderSide(color: palette.accent),
             ),
           ),
@@ -598,21 +643,42 @@ class _TraitChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return FilterChip(
-      label: Text(label),
+    final style = context.appStyle;
+    final color = style.onControl(palette, selected: isSelected);
+    // A focusable, announced toggle, as the FilterChip it replaces was.
+    return Semantics(
+      button: true,
       selected: isSelected,
-      onSelected: onSelected,
-      backgroundColor: palette.surface,
-      selectedColor: palette.accent.withValues(alpha: 0.2),
-      checkmarkColor: palette.accent,
-      labelStyle: TextStyle(
-        color: isSelected ? palette.accent : palette.muted,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        fontSize: 13,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: isSelected ? palette.accent : palette.line),
+      child: InkWell(
+        onTap: () => onSelected(!isSelected),
+        borderRadius: BorderRadius.circular(style.radiusSmall),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.only(bottom: 3, right: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: style.control(palette, selected: isSelected),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isSelected && !style.isNight) ...[
+                Icon(Icons.check, size: 14, color: color),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected && style.isNight
+                      ? palette.accent
+                      : isSelected
+                      ? color
+                      : palette.muted,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -632,17 +698,12 @@ class _NavButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
     return isPrimary
         ? ElevatedButton(
             onPressed: onPressed,
             style: ElevatedButton.styleFrom(
-              backgroundColor: palette.accent,
-              foregroundColor: palette.onAccent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
               padding: const EdgeInsets.symmetric(vertical: 16),
-              elevation: 0,
             ),
             child: Text(
               label,
@@ -653,9 +714,12 @@ class _NavButton extends StatelessWidget {
             onPressed: onPressed,
             style: OutlinedButton.styleFrom(
               foregroundColor: palette.muted,
-              side: BorderSide(color: palette.line),
+              side: BorderSide(
+                color: style.edge(palette),
+                width: style.borderWidth,
+              ),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(style.radiusSmall),
               ),
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
             ),

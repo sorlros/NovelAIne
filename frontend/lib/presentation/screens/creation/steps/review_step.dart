@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/theme/app_style.dart';
 import '../../../../data/models/creation_config.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 
@@ -19,6 +20,7 @@ class ReviewStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -28,10 +30,12 @@ class ReviewStep extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             AppLocalizations.of(context)!.reviewSettings,
-            style: TextStyle(
-              color: palette.text,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+            style: style.title(
+              TextStyle(
+                color: palette.text,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0),
           const SizedBox(height: 8),
@@ -56,9 +60,12 @@ class ReviewStep extends StatelessWidget {
                   onPressed: onPrev,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: palette.muted,
-                    side: BorderSide(color: palette.line),
+                    side: BorderSide(
+                      color: style.edge(palette),
+                      width: style.borderWidth,
+                    ),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(style.radiusSmall),
                     ),
                     padding: const EdgeInsets.symmetric(
                       vertical: 16,
@@ -72,13 +79,7 @@ class ReviewStep extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: onSubmit,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: palette.accent,
-                      foregroundColor: palette.onAccent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      elevation: 0,
                     ),
                     child: Text(
                       AppLocalizations.of(context)!.startNewAdventure,
@@ -106,30 +107,28 @@ class _StoryPreviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: palette.surface,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: palette.line, width: 1),
-      ),
+      decoration: style.card(palette),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(style.radius),
         child: Stack(
           children: [
             // Decorative background element
-            Positioned(
-              top: -30,
-              right: -30,
-              child: Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: palette.accent.withValues(alpha: 0.1),
+            if (style.isNight)
+              Positioned(
+                top: -30,
+                right: -30,
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: palette.accent.withValues(alpha: 0.1),
+                  ),
                 ),
               ),
-            ),
             Padding(
               padding: const EdgeInsets.all(28.0),
               child: Column(
@@ -141,7 +140,9 @@ class _StoryPreviewCard extends StatelessWidget {
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: palette.accent.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(
+                            style.radiusSmall,
+                          ),
                         ),
                         child: Icon(
                           Icons.auto_stories_rounded,
@@ -152,10 +153,12 @@ class _StoryPreviewCard extends StatelessWidget {
                       const SizedBox(width: 12),
                       Text(
                         "스토리 요약",
-                        style: TextStyle(
-                          color: palette.text,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                        style: style.title(
+                          TextStyle(
+                            color: palette.text,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],

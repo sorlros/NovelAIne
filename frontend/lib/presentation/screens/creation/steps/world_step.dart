@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 import '../../../../core/theme/app_palette.dart';
+import '../../../../core/theme/app_style.dart';
 import '../../../../data/models/creation_config.dart';
 import '../../../../data/constants/creation_prompts.dart';
 
@@ -25,6 +26,7 @@ class _WorldStepState extends State<WorldStep> {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -37,10 +39,12 @@ class _WorldStepState extends State<WorldStep> {
                 const SizedBox(height: 8),
                 Text(
                   AppLocalizations.of(context)!.worldTheme,
-                  style: TextStyle(
-                    color: palette.text,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+                  style: style.title(
+                    TextStyle(
+                      color: palette.text,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0),
                 const SizedBox(height: 8),
@@ -55,7 +59,7 @@ class _WorldStepState extends State<WorldStep> {
                 const SizedBox(height: 40),
 
                 // Narrative Type Selection
-                _SectionTitle(title: "서사 유형"),
+                _SectionTitle(title: "서사 유형", number: 1),
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -84,7 +88,10 @@ class _WorldStepState extends State<WorldStep> {
                 const SizedBox(height: 40),
 
                 // Genre Selection
-                _SectionTitle(title: AppLocalizations.of(context)!.genreLabel),
+                _SectionTitle(
+                  title: AppLocalizations.of(context)!.genreLabel,
+                  number: 2,
+                ),
                 const SizedBox(height: 16),
                 Wrap(
                   spacing: 12,
@@ -107,7 +114,10 @@ class _WorldStepState extends State<WorldStep> {
                 const SizedBox(height: 40),
 
                 // Tone Selection
-                _SectionTitle(title: AppLocalizations.of(context)!.toneLabel),
+                _SectionTitle(
+                  title: AppLocalizations.of(context)!.toneLabel,
+                  number: 3,
+                ),
                 const SizedBox(height: 16),
                 _CustomDropdown(
                   value: widget.config.toneLabel,
@@ -140,16 +150,6 @@ class _WorldStepState extends State<WorldStep> {
                         widget.config.toneLabel != null)
                     ? widget.onNext
                     : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: palette.accent,
-                  foregroundColor: palette.onAccent,
-                  disabledBackgroundColor: palette.surface,
-                  disabledForegroundColor: palette.faint,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  elevation: 0,
-                ),
                 child: Text(
                   widget.isQuickStart
                       ? AppLocalizations.of(context)!.startAdventureAuto
@@ -170,19 +170,48 @@ class _WorldStepState extends State<WorldStep> {
 
 class _SectionTitle extends StatelessWidget {
   final String title;
-  const _SectionTitle({required this.title});
+  final int number;
+  const _SectionTitle({required this.title, required this.number});
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return Text(
+    final style = context.appStyle;
+    final text = Text(
       title,
-      style: TextStyle(
-        color: palette.muted,
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.5,
+      style: style.title(
+        TextStyle(
+          color: palette.muted,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+        ),
       ),
+    );
+    if (!style.isRoute) return text;
+    return Row(
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: palette.highlight,
+            borderRadius: BorderRadius.circular(style.radiusSmall),
+            border: Border.all(color: palette.text, width: 2),
+          ),
+          child: Text(
+            "$number",
+            style: TextStyle(
+              color: palette.onHighlight,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        text,
+      ],
     );
   }
 }
@@ -201,28 +230,37 @@ class _CustomChoiceChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
+    final color = style.onControl(palette, selected: isSelected);
     return GestureDetector(
       onTap: () => onSelected(true),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? palette.accent.withValues(alpha: 0.15)
-              : palette.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? palette.accent : palette.line,
-            width: 1.5,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? palette.accent : palette.muted,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            fontSize: 14,
-          ),
+        decoration: style.control(palette, selected: isSelected),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (isSelected && !style.isNight) ...[
+              Icon(Icons.check, size: 16, color: color),
+              const SizedBox(width: 6),
+            ],
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: isSelected && style.isNight
+                      ? palette.accent
+                      : isSelected
+                      ? color
+                      : palette.muted,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -245,13 +283,10 @@ class _CustomDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: palette.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: palette.line),
-      ),
+      decoration: style.card(palette),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: value,
@@ -262,7 +297,7 @@ class _CustomDropdown extends StatelessWidget {
           isExpanded: true,
           icon: Icon(Icons.keyboard_arrow_down_rounded, color: palette.accent),
           dropdownColor: palette.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(style.radius),
           items: items.map((item) {
             return DropdownMenuItem(
               value: item,

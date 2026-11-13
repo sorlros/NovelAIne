@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../core/theme/app_style.dart';
 import 'wizard_screen.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../providers/content_provider.dart';
@@ -15,6 +16,7 @@ class CreationModeSelectionScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
+    final style = context.appStyle;
     final selectedModel = ref.watch(selectedModelProvider);
     return ResponsiveLayout(
       currentIndex: 2,
@@ -31,7 +33,7 @@ class CreationModeSelectionScreen extends ConsumerWidget {
       body: Stack(
         children: [
           // Background Subtle Effects
-          const _SubtleBackgroundGlow(),
+          if (style.isNight) const _SubtleBackgroundGlow(),
 
           SafeArea(
             child: Center(
@@ -58,11 +60,13 @@ class CreationModeSelectionScreen extends ConsumerWidget {
 
                       Text(
                             "어떻게 시작할까요?",
-                            style: TextStyle(
-                              fontSize: 34,
-                              fontWeight: FontWeight.bold,
-                              color: palette.text,
-                              letterSpacing: -1.0,
+                            style: style.title(
+                              TextStyle(
+                                fontSize: 34,
+                                fontWeight: FontWeight.bold,
+                                color: palette.text,
+                                letterSpacing: -1.0,
+                              ),
                             ),
                           )
                           .animate()
@@ -96,7 +100,6 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                                 Expanded(
                                   child: _ModernModeCard(
                                     title: "빠른 시작",
-                                    subtitle: "Quick Start",
                                     description:
                                         "장르와 몇 가지 키워드만 고르면 AI가 즉시 흥미로운 서막을 만들어냅니다.",
                                     iconData: Icons.bolt,
@@ -118,7 +121,6 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                                 Expanded(
                                   child: _ModernModeCard(
                                     title: "상세 설정",
-                                    subtitle: "World Builder",
                                     description:
                                         "세계의 법칙, 다면적인 캐릭터, 복잡한 설정들을 직접 설계하고 지휘합니다.",
                                     iconData: Icons.architecture,
@@ -143,7 +145,6 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                               children: [
                                 _ModernModeCard(
                                   title: "빠른 시작",
-                                  subtitle: "Quick Start",
                                   description:
                                       "장르와 몇 가지 키워드만 고르면 AI가 즉시 흥미로운 서막을 만들어냅니다.",
                                   iconData: Icons.bolt,
@@ -163,7 +164,6 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                                 const SizedBox(height: 24),
                                 _ModernModeCard(
                                   title: "상세 설정",
-                                  subtitle: "World Builder",
                                   description:
                                       "세계의 법칙, 다면적인 캐릭터, 복잡한 설정들을 직접 설계하고 지휘합니다.",
                                   iconData: Icons.architecture,
@@ -203,9 +203,9 @@ class CreationModeSelectionScreen extends ConsumerWidget {
     String selectedModel,
   ) {
     final palette = context.palette;
-    final proLocked = ref
-        .watch(currentPlanProvider)
-        .locks(AppConstants.proLlmModel);
+    final style = context.appStyle;
+    final plan = ref.watch(currentPlanProvider);
+    final proLocked = plan.locks(AppConstants.proLlmModel);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -214,11 +214,13 @@ class CreationModeSelectionScreen extends ConsumerWidget {
             Icon(Icons.psychology, color: palette.accent, size: 20),
             const SizedBox(width: 10),
             Text(
-              "AI 스토리 엔진",
-              style: TextStyle(
-                color: palette.text,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+              "글 쓰는 엔진",
+              style: style.title(
+                TextStyle(
+                  color: palette.text,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -228,7 +230,7 @@ class CreationModeSelectionScreen extends ConsumerWidget {
           children: [
             Expanded(
               child: _ModelOptionTile(
-                title: "DeepSeek V4.1 Flash",
+                title: "기본 엔진",
                 subtitle: "빠르고 가벼운 전개",
                 isSelected: selectedModel == AppConstants.defaultLlmModel,
                 onTap: () => ref.read(selectedModelProvider.notifier).state =
@@ -238,7 +240,7 @@ class CreationModeSelectionScreen extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _ModelOptionTile(
-                title: "Claude Sonnet 5.5",
+                title: "고급 엔진",
                 subtitle: "치밀하고 풍부한 서사",
                 isSelected: selectedModel == AppConstants.proLlmModel,
                 locked: proLocked,
@@ -257,6 +259,13 @@ class CreationModeSelectionScreen extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          plan.premium
+              ? "2~3분 걸려요"
+              : "무료로 이번 주 ${plan.remaining('story')}편 남음 · 2~3분 걸려요",
+          style: TextStyle(color: palette.muted, fontSize: 13),
         ),
       ],
     ).animate().fadeIn(delay: 300.ms);
@@ -281,35 +290,32 @@ class _ModelOptionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
+    final onControl = style.onControl(palette, selected: isSelected);
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? palette.accent.withValues(alpha: 0.15)
-              : palette.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? palette.accent : palette.line,
-            width: 1.5,
-          ),
-        ),
+        decoration: style.control(palette, selected: isSelected),
         child: Column(
           children: [
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (locked) ...[
-                  Icon(Icons.lock, color: palette.muted, size: 14),
+                  Icon(
+                    Icons.lock,
+                    color: isSelected ? onControl : palette.muted,
+                    size: 14,
+                  ),
                   const SizedBox(width: 4),
                 ],
                 Flexible(
                   child: Text(
                     title,
                     style: TextStyle(
-                      color: isSelected ? palette.text : palette.muted,
+                      color: isSelected ? onControl : palette.muted,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
@@ -321,9 +327,7 @@ class _ModelOptionTile extends StatelessWidget {
             Text(
               locked ? '유료' : subtitle,
               style: TextStyle(
-                color: isSelected
-                    ? palette.accent.withValues(alpha: 0.8)
-                    : palette.faint,
+                color: isSelected ? onControl : palette.faint,
                 fontSize: 11,
               ),
             ),
@@ -336,7 +340,6 @@ class _ModelOptionTile extends StatelessWidget {
 
 class _ModernModeCard extends StatefulWidget {
   final String title;
-  final String subtitle;
   final String description;
   final IconData iconData;
   final int delay;
@@ -344,7 +347,6 @@ class _ModernModeCard extends StatefulWidget {
 
   const _ModernModeCard({
     required this.title,
-    required this.subtitle,
     required this.description,
     required this.iconData,
     required this.delay,
@@ -361,6 +363,7 @@ class _ModernModeCardState extends State<_ModernModeCard> {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -370,52 +373,55 @@ class _ModernModeCardState extends State<_ModernModeCard> {
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
           padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: palette.surface,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: _isHovered
-                  ? palette.accent.withValues(alpha: 0.5)
-                  : palette.line,
-              width: 1.5,
-            ),
-            boxShadow: [
-              if (_isHovered)
-                BoxShadow(
-                  color: palette.accent.withValues(alpha: 0.15),
-                  blurRadius: 20,
-                  spreadRadius: 5,
+          decoration: style
+              .card(palette)
+              .copyWith(
+                border: Border.all(
+                  color: _isHovered && !style.isRoute
+                      ? palette.accent.withValues(alpha: 0.5)
+                      : style.edge(palette),
+                  width: style.borderWidth,
                 ),
-            ],
-          ),
+                boxShadow: style.isNight
+                    ? [
+                        if (_isHovered)
+                          BoxShadow(
+                            color: palette.accent.withValues(alpha: 0.15),
+                            blurRadius: 20,
+                            spreadRadius: 5,
+                          ),
+                      ]
+                    : style.shadow(palette),
+              ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: palette.accent.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16),
+                  color: style.isRoute
+                      ? palette.highlight
+                      : palette.accent.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(style.radiusSmall),
+                  border: style.isRoute
+                      ? Border.all(color: palette.text, width: 2)
+                      : null,
                 ),
-                child: Icon(widget.iconData, color: palette.accent, size: 32),
+                child: Icon(
+                  widget.iconData,
+                  color: style.isRoute ? palette.onHighlight : palette.accent,
+                  size: 32,
+                ),
               ),
               const SizedBox(height: 24),
               Text(
-                widget.subtitle.toUpperCase(),
-                style: TextStyle(
-                  color: palette.accent,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
                 widget.title,
-                style: TextStyle(
-                  color: palette.text,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+                style: style.title(
+                  TextStyle(
+                    color: palette.text,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),

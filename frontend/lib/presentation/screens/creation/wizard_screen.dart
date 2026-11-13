@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../core/theme/app_style.dart';
 import '../../../../data/models/creation_config.dart';
 import '../../../../data/services/api_service.dart';
 import '../../../../data/repositories/story_repository.dart';
@@ -214,6 +215,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
 
     return Scaffold(
       backgroundColor: palette.ground,
@@ -229,10 +231,12 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
           widget.isQuickStart
               ? AppLocalizations.of(context)!.quickStart
               : AppLocalizations.of(context)!.detailedSettings,
-          style: TextStyle(
-            color: palette.text,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
+          style: style.title(
+            TextStyle(
+              color: palette.text,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
         centerTitle: true,
@@ -240,25 +244,26 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       body: Stack(
         children: [
           // Background ambient glow
-          Positioned(
-            top: -50,
-            left: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: palette.accent.withValues(alpha: 0.08),
-                boxShadow: [
-                  BoxShadow(
-                    color: palette.accent.withValues(alpha: 0.1),
-                    blurRadius: 100,
-                    spreadRadius: 50,
-                  ),
-                ],
+          if (style.isNight)
+            Positioned(
+              top: -50,
+              left: -50,
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: palette.accent.withValues(alpha: 0.08),
+                  boxShadow: [
+                    BoxShadow(
+                      color: palette.accent.withValues(alpha: 0.1),
+                      blurRadius: 100,
+                      spreadRadius: 50,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
           SafeArea(
             child: Column(
               children: [
@@ -304,6 +309,7 @@ class _StepIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Column(
@@ -322,11 +328,22 @@ class _StepIndicator extends StatelessWidget {
                       width: isCurrent ? 32 : 24,
                       height: isCurrent ? 32 : 24,
                       decoration: BoxDecoration(
-                        color: isCompleted || isCurrent
+                        color: style.isRoute
+                            ? (isCurrent
+                                  ? palette.highlight
+                                  : isCompleted
+                                  ? palette.surface
+                                  : palette.ground)
+                            : isCompleted || isCurrent
                             ? palette.accent
                             : palette.raised,
-                        shape: BoxShape.circle,
-                        boxShadow: isCurrent
+                        borderRadius: BorderRadius.circular(
+                          style.isNight ? style.radiusLarge : style.radiusSmall,
+                        ),
+                        border: style.isRoute
+                            ? Border.all(color: palette.text, width: 2)
+                            : null,
+                        boxShadow: isCurrent && style.isNight
                             ? [
                                 BoxShadow(
                                   color: palette.accent.withValues(alpha: 0.4),
@@ -341,13 +358,17 @@ class _StepIndicator extends StatelessWidget {
                             ? Icon(
                                 Icons.check,
                                 size: 16,
-                                color: palette.onAccent,
+                                color: style.isRoute
+                                    ? palette.text
+                                    : palette.onAccent,
                               )
                             : Text(
                                 "${index + 1}",
                                 style: TextStyle(
                                   color: isCurrent
-                                      ? palette.onAccent
+                                      ? (style.isRoute
+                                            ? palette.onHighlight
+                                            : palette.onAccent)
                                       : palette.muted,
                                   fontSize: isCurrent ? 14 : 12,
                                   fontWeight: FontWeight.bold,
