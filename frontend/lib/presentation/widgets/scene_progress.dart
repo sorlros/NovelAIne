@@ -12,6 +12,9 @@ class SceneProgress extends StatelessWidget {
   /// Scenes (from 1) that have a picture; the night strip lights them.
   final Set<int> pictured;
 
+  /// Scenes reached by a choice that stays in the story; the route marks them with a diamond.
+  final Set<int> lasting;
+
   /// Frames or stops shown, ending a little after [current].
   final int span;
 
@@ -22,6 +25,7 @@ class SceneProgress extends StatelessWidget {
     super.key,
     required this.current,
     this.pictured = const {},
+    this.lasting = const {},
     this.span = 10,
     this.onBand = false,
   });
@@ -89,21 +93,16 @@ class SceneProgress extends StatelessWidget {
             if (scene != stops.first)
               Container(width: 18, height: 2.5, color: ink),
             if (scene == current)
-              Container(
-                width: 20,
-                height: 20,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: palette.highlight,
-                  border: Border.all(color: palette.text, width: 2.5),
-                ),
+              _currentStop(palette)
+            else if (lasting.contains(scene))
+              Transform.rotate(
+                angle: 0.785398, // a quarter turn of a square: a diamond
                 child: Container(
-                  width: 6,
-                  height: 6,
+                  width: 12,
+                  height: 12,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: palette.text,
+                    color: palette.highlight,
+                    border: Border.all(color: palette.text, width: 2),
                   ),
                 ),
               )
@@ -127,6 +126,24 @@ class SceneProgress extends StatelessWidget {
               color: ink,
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _currentStop(AppPalette palette) {
+    return Container(
+      width: 20,
+      height: 20,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: palette.highlight,
+        border: Border.all(color: palette.text, width: 2.5),
+      ),
+      child: Container(
+        width: 6,
+        height: 6,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: palette.text),
       ),
     );
   }

@@ -24,6 +24,31 @@ class PlayChoice {
   }
 }
 
+/// One scene the reader has reached, and the choice that led there.
+class PlayStep {
+  final int seq;
+
+  /// What the reader chose or wrote to reach this scene; empty for the opening scene.
+  final String label;
+
+  /// The choice that led here stays in the story.
+  final bool lasting;
+
+  const PlayStep({
+    required this.seq,
+    required this.label,
+    required this.lasting,
+  });
+
+  factory PlayStep.fromJson(Map<String, dynamic> json) {
+    return PlayStep(
+      seq: (json['seq'] as num?)?.toInt() ?? 0,
+      label: json['label']?.toString() ?? '',
+      lasting: json['lasting'] == true,
+    );
+  }
+}
+
 class PlayStatus {
   final int beatSeq;
   final String? question;
@@ -40,6 +65,9 @@ class PlayStatus {
   /// Scene image or BGM generation is still queued or running on the server.
   final bool mediaPending;
 
+  /// The scenes reached so far, in order. Empty from a server that does not send it.
+  final List<PlayStep> path;
+
   const PlayStatus({
     required this.beatSeq,
     required this.question,
@@ -49,9 +77,16 @@ class PlayStatus {
     required this.presentCharacters,
     required this.callbacks,
     this.mediaPending = false,
+    this.path = const [],
   });
 
   bool get canUndo => beatSeq > 1;
+
+  /// Scenes reached by a choice that stays in the story.
+  Set<int> get lastingSeqs => {
+    for (final step in path)
+      if (step.lasting) step.seq,
+  };
 
   factory PlayStatus.fromJson(Map<String, dynamic> json) {
     final question = json['question']?.toString();
@@ -68,6 +103,9 @@ class PlayStatus {
       ),
       callbacks: List<String>.from(json['callbacks'] ?? const []),
       mediaPending: json['media_pending'] == true,
+      path: (json['path'] as List? ?? const [])
+          .map((step) => PlayStep.fromJson(Map<String, dynamic>.from(step)))
+          .toList(),
     );
   }
 }

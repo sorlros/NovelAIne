@@ -24,6 +24,8 @@ import '../../data/models/play_models.dart';
 import '../../data/models/story_model.dart';
 import '../providers/content_provider.dart';
 import '../providers/plan_provider.dart';
+import '../providers/reading_prefs_provider.dart';
+import 'profile/theme_screen.dart';
 import '../widgets/character_card.dart';
 import '../widgets/custom_loading_indicator.dart';
 import '../widgets/custom_toast.dart';
@@ -62,10 +64,6 @@ final importantCharacterNamesProvider = StateProvider.autoDispose<List<String>>(
 final characterPersistenceProvider =
     StateProvider.autoDispose<Map<String, int>>((ref) => {});
 
-// 폰트 상태 관리 추가
-final selectedFontProvider = StateProvider.autoDispose<String>(
-  (ref) => 'Noto Serif KR',
-);
 // 현재 이야기의 AI 모델 상태 관리
 final currentStoryModelProvider = StateProvider.autoDispose<String>(
   (ref) => AppConstants.defaultLlmModel,
@@ -123,16 +121,6 @@ double? itemTopOffset(ScrollPosition position, String id) {
   if (found == null) return null;
   return RenderAbstractViewport.of(found).getOffsetToReveal(found, 0).offset;
 }
-
-final List<String> availableFonts = [
-  'Noto Serif KR',
-  'EB Garamond',
-  'JetBrains Mono',
-  'Gowun Batang',
-  'Nanum Myeongjo',
-  'Song Myung',
-  'Gowun Dodum',
-];
 
 /// Width of the character panel shown left of the story on wide screens.
 const double _sidePanelWidth = 300;
@@ -226,7 +214,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   }
 
   void _preCacheFonts() {
-    for (var font in availableFonts) {
+    for (var font in readingFonts) {
       GoogleFonts.getFont(font);
     }
   }
@@ -594,7 +582,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         target: _guideEngineKey,
         text: "장면을 쓰는 엔진을 바꿔요. 바꿔도 이야기는 그대로 이어져요.",
       ),
-      GuideStep(target: _guideFontKey, text: "본문 서체를 바꿔요."),
+      GuideStep(target: _guideFontKey, text: "글자 크기와 서체, 줄 간격, 화면 테마를 바꿔요."),
       GuideStep(
         target: _guideChoicesKey,
         // The panel is the last item of a lazily built list: going to the end builds it, and building the
@@ -1326,17 +1314,6 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             curve: Curves.easeIn,
             child: Row(
               children: [
-                // [데스크탑 전용] 사이드 패널
-                if (!isMobile && viewMode == StoryViewMode.manuscript)
-                  KeyedSubtree(
-                    key: _guideCharactersKey,
-                    child: _buildDesktopSidePanel(
-                      context,
-                      visibleCharacters,
-                      importantNames,
-                    ),
-                  ),
-
                 Expanded(
                   child: NestedScrollView(
                     headerSliverBuilder: (context, innerBoxIsScrolled) => [
@@ -1438,6 +1415,16 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                     ),
                   ),
                 ),
+                // [데스크탑 전용] 오른쪽 패널
+                if (!isMobile && viewMode == StoryViewMode.manuscript)
+                  KeyedSubtree(
+                    key: _guideCharactersKey,
+                    child: _buildDesktopSidePanel(
+                      context,
+                      visibleCharacters,
+                      importantNames,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1467,141 +1454,222 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   ) {
     final palette = context.palette;
     final style = context.appStyle;
+    final prefs = ref.watch(readingPrefsProvider);
+    final lastingSteps = _isSkeleton
+        ? (_play?.path.where((step) => step.lasting).toList() ??
+              const <PlayStep>[])
+        : const <PlayStep>[];
+
+    Widget section(String title, Widget child, {bool first = false}) {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+        decoration: BoxDecoration(
+          border: style.isPaper && !first
+              ? Border(top: BorderSide(color: palette.text, width: 2))
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: style.title(
+                TextStyle(
+                  color: palette.text,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
+      );
+    }
+
+    Widget avatar(Map<String, dynamic> char) {
+      final image = char['image_url'];
+      final shape = style.isNight ? BoxShape.circle : BoxShape.rectangle;
+      return Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          shape: shape,
+          borderRadius: style.isNight
+              ? null
+              : BorderRadius.circular(style.radiusSmall),
+          color: palette.line,
+          image: image != null
+              ? DecorationImage(
+                  image: CachedNetworkImageProvider(image),
+                  fit: BoxFit.cover,
+                )
+              : null,
+        ),
+        child: image == null ? Icon(Icons.person, color: palette.faint) : null,
+      );
+    }
+
+    Widget sizeButton(String text, int delta) {
+      final next = prefs.sizeStep + delta;
+      final enabled = next >= 0 && next < ReadingPrefs.sizes.length;
+      return Expanded(
+        child: GestureDetector(
+          onTap: enabled
+              ? () {
+                  HapticFeedback.selectionClick();
+                  ref
+                      .read(readingPrefsProvider.notifier)
+                      .set(prefs.copyWith(sizeStep: next));
+                }
+              : null,
+          child: Opacity(
+            opacity: enabled ? 1 : 0.4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              alignment: Alignment.center,
+              decoration: style.control(palette, selected: false),
+              child: Text(
+                text,
+                style: TextStyle(
+                  color: style.onControl(palette, selected: false),
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final decoration = switch (style.kind) {
+      StyleKind.night => BoxDecoration(
+        color: palette.surface,
+        border: Border(left: BorderSide(color: palette.line, width: 1)),
+      ),
+      StyleKind.paper => BoxDecoration(
+        border: Border(left: BorderSide(color: palette.line, width: 1)),
+      ),
+      StyleKind.route => BoxDecoration(
+        color: palette.surface,
+        border: Border(left: BorderSide(color: palette.text, width: 2)),
+      ),
+    };
+
     return Container(
       width: _sidePanelWidth,
-      decoration: BoxDecoration(
-        color: palette.surface.withValues(alpha: 0.6),
-        border: Border(right: BorderSide(color: palette.line, width: 1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      decoration: decoration,
+      child: ListView(
+        padding: const EdgeInsets.only(top: 80, bottom: 100),
         children: [
-          const SizedBox(height: 80),
-          Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          section(
+            "이 장면의 인물",
+            Column(
               children: [
-                Text(
-                  "인물 정보",
-                  style: style.title(
-                    GoogleFonts.notoSerif(
-                      color: palette.text,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                if (visibleCharacters.isEmpty)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      "아직 없습니다.",
+                      style: TextStyle(color: palette.muted, fontSize: 12),
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "현재 장면에 등장하거나 중요한 인물들입니다.",
-                  style: TextStyle(color: palette.muted, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: visibleCharacters.length,
-              itemBuilder: (context, index) {
-                final char = visibleCharacters[index];
-                final isProtagonist = char['role_in_story'] == 'protagonist';
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      showModalBottomSheet(
-                        context: context,
-                        backgroundColor: Colors.transparent,
-                        isScrollControlled: true,
-                        builder: (context) => CharacterSheetWidget(
-                          character: char,
-                          isProtagonist: isProtagonist,
+                for (final char in visibleCharacters)
+                  Builder(
+                    builder: (context) {
+                      final isProtagonist =
+                          char['role_in_story'] == 'protagonist';
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          showModalBottomSheet(
+                            context: context,
+                            backgroundColor: Colors.transparent,
+                            isScrollControlled: true,
+                            builder: (context) => CharacterSheetWidget(
+                              character: char,
+                              isProtagonist: isProtagonist,
+                            ),
+                          );
+                        },
+                        leading: avatar(char),
+                        title: Text(
+                          char['name'],
+                          style: TextStyle(
+                            color: palette.text,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
+                        subtitle: Text(
+                          isProtagonist ? "주인공" : "조연",
+                          style: TextStyle(color: palette.muted, fontSize: 11),
+                        ),
+                        trailing: isProtagonist
+                            ? Icon(Icons.star, color: palette.accent, size: 16)
+                            : null,
                       );
                     },
-                    leading: CircleAvatar(
-                      radius: 20,
-                      backgroundImage: char['image_url'] != null
-                          ? CachedNetworkImageProvider(char['image_url'])
-                          : null,
-                      backgroundColor: palette.line,
-                      child: char['image_url'] == null
-                          ? Icon(Icons.person, color: palette.faint)
-                          : null,
-                    ),
-                    title: Text(
-                      char['name'],
-                      style: TextStyle(
-                        color: palette.text,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    subtitle: Text(
-                      isProtagonist ? "주인공" : "조연",
-                      style: TextStyle(color: palette.muted, fontSize: 11),
-                    ),
-                    trailing: isProtagonist
-                        ? Icon(Icons.star, color: palette.accent, size: 16)
-                        : null,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(style.radius),
-                    ),
-                    tileColor: palette.surface,
                   ),
-                );
-              },
+              ],
             ),
+            first: true,
           ),
-          Divider(color: palette.line, height: 1),
-          Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "글 쓰는 엔진",
-                  style: TextStyle(
-                    color: palette.text,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Consumer(
-                  builder: (context, ref, _) {
-                    final currentModel = ref.watch(currentStoryModelProvider);
-                    return Column(
+          if (_isSkeleton)
+            section(
+              "이야기에 남은 선택",
+              lastingSteps.isEmpty
+                  ? Text(
+                      "아직 없습니다.",
+                      style: TextStyle(color: palette.muted, fontSize: 12),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildModelToggleOption(
-                          ref,
-                          "기본 엔진",
-                          "빠른 전개",
-                          AppConstants.defaultLlmModel,
-                          currentModel == AppConstants.defaultLlmModel,
-                        ),
-                        const SizedBox(height: 12),
-                        _buildModelToggleOption(
-                          ref,
-                          "고급 엔진",
-                          "치밀한 묘사",
-                          AppConstants.proLlmModel,
-                          currentModel == AppConstants.proLlmModel,
-                        ),
+                        for (final step in lastingSteps)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "장면 ${step.seq}",
+                                  style: TextStyle(
+                                    color: palette.accent,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  step.label,
+                                  style: TextStyle(
+                                    color: palette.text,
+                                    fontSize: 13,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                       ],
-                    );
-                  },
-                ),
+                    ),
+            ),
+          section(
+            "보기",
+            Row(
+              children: [
+                sizeButton("글자 작게", -1),
+                const SizedBox(width: 8),
+                sizeButton("글자 크게", 1),
               ],
             ),
           ),
-          const SizedBox(height: 100),
         ],
       ),
-    ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.05, end: 0);
+    ).animate().fadeIn(duration: 400.ms).slideX(begin: 0.05, end: 0);
   }
 
   Widget _buildIntegratedCharacterSection(
@@ -1720,6 +1788,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           size: 18,
         ),
         onPressed: () => Navigator.pop(context),
+        tooltip: '뒤로',
       ),
       actions: [
         IconButton(
@@ -1749,9 +1818,17 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         ),
         IconButton(
           key: _guideFontKey,
-          icon: Icon(Icons.text_fields_rounded, color: iconColor, size: 20),
-          onPressed: () => _showFontSettings(context),
-          tooltip: "서체 설정",
+          icon: Text(
+            "가",
+            style: GoogleFonts.notoSerif(
+              color: iconColor,
+              fontSize: 19,
+              fontWeight: FontWeight.w700,
+              height: 1,
+            ),
+          ),
+          onPressed: () => _showViewSettings(context),
+          tooltip: "보기 설정",
         ),
         const SizedBox(width: 4),
       ],
@@ -1777,78 +1854,179 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     );
   }
 
-  void _showFontSettings(BuildContext context) {
+  void _showViewSettings(BuildContext context) {
     final palette = context.palette;
     final style = context.appStyle;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Consumer(
+      isScrollControlled: true,
+      builder: (sheetContext) => Consumer(
         builder: (context, ref, _) {
-          final currentFont = ref.watch(selectedFontProvider);
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            decoration: BoxDecoration(
-              color: palette.surface,
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(style.radiusLarge),
-              ),
-              border: Border.all(
-                color: style.edge(palette),
-                width: style.borderWidth,
+          final prefs = ref.watch(readingPrefsProvider);
+          void change(ReadingPrefs next) {
+            HapticFeedback.selectionClick();
+            ref.read(readingPrefsProvider.notifier).set(next);
+          }
+
+          Widget label(String text) => Padding(
+            padding: const EdgeInsets.only(top: 22, bottom: 10),
+            child: Text(
+              text,
+              style: TextStyle(
+                color: palette.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+          );
+
+          Widget segments(
+            List<String> labels,
+            int selected,
+            ValueChanged<int> onPick,
+          ) {
+            return Row(
               children: [
-                Text(
-                  "서체 설정",
-                  style: style.title(
-                    TextStyle(
-                      color: palette.text,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: availableFonts.map((font) {
-                    final isSelected = currentFont == font;
-                    return GestureDetector(
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        ref.read(selectedFontProvider.notifier).state = font;
-                      },
+                for (var i = 0; i < labels.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => onPick(i),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        alignment: Alignment.center,
                         decoration: style.control(
                           palette,
-                          selected: isSelected,
+                          selected: i == selected,
                         ),
                         child: Text(
-                          font,
-                          style: GoogleFonts.getFont(
-                            font,
+                          labels[i],
+                          style: TextStyle(
                             color: style.onControl(
                               palette,
-                              selected: isSelected,
+                              selected: i == selected,
                             ),
-                            fontSize: 14,
+                            fontSize: 13,
                           ),
                         ),
                       ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 20),
+                    ),
+                  ),
+                ],
               ],
+            );
+          }
+
+          return SafeArea(
+            top: false,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+              decoration: BoxDecoration(
+                color: palette.surface,
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(style.radiusLarge),
+                ),
+                border: Border.all(
+                  color: style.edge(palette),
+                  width: style.borderWidth,
+                ),
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "보기 설정",
+                      style: style.title(
+                        TextStyle(
+                          color: palette.text,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    label("서체"),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: readingFonts.map((font) {
+                        final isSelected = prefs.font == font;
+                        return GestureDetector(
+                          onTap: () => change(prefs.copyWith(font: font)),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            decoration: style.control(
+                              palette,
+                              selected: isSelected,
+                            ),
+                            child: Text(
+                              font,
+                              style: GoogleFonts.getFont(
+                                font,
+                                color: style.onControl(
+                                  palette,
+                                  selected: isSelected,
+                                ),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    label("글자 크기"),
+                    segments(
+                      ReadingPrefs.sizeLabels,
+                      prefs.sizeStep,
+                      (i) => change(prefs.copyWith(sizeStep: i)),
+                    ),
+                    label("줄 간격"),
+                    segments(
+                      ReadingPrefs.spacingLabels,
+                      prefs.spacingStep,
+                      (i) => change(prefs.copyWith(spacingStep: i)),
+                    ),
+                    const SizedBox(height: 18),
+                    Divider(color: palette.line, height: 1),
+                    InkWell(
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        Navigator.of(this.context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ThemeScreen(),
+                          ),
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                "화면 테마",
+                                style: TextStyle(
+                                  color: palette.text,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              color: palette.muted,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           );
         },
@@ -2089,6 +2267,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           SceneProgress(
             current: current < 1 ? 1 : current,
             pictured: pictured,
+            lasting: _play?.lastingSeqs ?? const {},
             onBand: onBand,
           ),
         ],
@@ -2244,7 +2423,7 @@ class _RefinedNarrativeCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
-    final selectedFont = ref.watch(selectedFontProvider);
+    final prefs = ref.watch(readingPrefsProvider);
     final isInitialLoadDone = ref.watch(isInitialLoadDoneProvider);
     final streamingMessageId = ref.watch(streamingMessageIdProvider);
     final viewMode = ref.watch(viewModeProvider);
@@ -2259,13 +2438,13 @@ class _RefinedNarrativeCard extends ConsumerWidget {
     TextStyle getBaseStyle({
       double fontSize = 19,
       FontStyle fontStyle = FontStyle.normal,
-      double height = 2.0,
+      double? height,
     }) {
       return GoogleFonts.getFont(
-        selectedFont,
+        prefs.font,
         color: palette.text,
-        fontSize: isMobile ? fontSize - 2 : fontSize,
-        height: height,
+        fontSize: (isMobile ? fontSize - 2 : fontSize) * prefs.scale,
+        height: height ?? prefs.lineHeight,
         fontStyle: fontStyle,
         letterSpacing: 0.4,
       ).copyWith(fontFamilyFallback: _fontFallbacks);
