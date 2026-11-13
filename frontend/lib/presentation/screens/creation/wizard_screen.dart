@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/theme/app_palette.dart';
 import '../../../../data/models/creation_config.dart';
 import '../../../../data/services/api_service.dart';
 import '../../../../data/repositories/story_repository.dart';
@@ -16,7 +17,8 @@ import 'steps/world_step.dart';
 import 'steps/character_step.dart';
 import 'steps/review_step.dart';
 
-class WizardScreen extends ConsumerStatefulWidget { // Changed to ConsumerStatefulWidget
+class WizardScreen extends ConsumerStatefulWidget {
+  // Changed to ConsumerStatefulWidget
   final bool isQuickStart;
 
   const WizardScreen({super.key, required this.isQuickStart});
@@ -83,14 +85,14 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
 
     try {
       final apiService = ApiService();
-      
+
       // 선택된 모델 설정
       _config.llmModel = ref.read(selectedModelProvider);
-      
+
       // [수정] 현재 로그인된 사용자 ID 가져오기
       final authState = ref.read(authProvider);
       final userId = authState.value?.id;
-      
+
       final createdStory = await apiService.createStory(
         _config,
         userId: userId,
@@ -122,31 +124,45 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       // 2. 생성된 스토리의 장면들을 서버에서 가져와 '사전 파싱' 진행 (Isolate 활용)
       List<Map<String, dynamic>> processedMessages = [];
       try {
-        final scenes = await repository.getScenes(createdStory.id, forceRefresh: true);
-        
+        final scenes = await repository.getScenes(
+          createdStory.id,
+          forceRefresh: true,
+        );
+
         if (scenes.isNotEmpty) {
           // [성능 핵심] 무거운 맵 변환 작업을 Isolate에서 수행하여 애니메이션 멈춤 방지
           processedMessages = await compute((List<dynamic> rawScenes) {
-            return rawScenes.map((scene) => {
-              'id': scene['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
-              'role': scene['role'] ?? 'ai',
-              'content': scene['content'] ?? "",
-              'imageUrl': scene['imageUrl'] ?? scene['image_url'],
-              'sceneType': scene['sceneType'] ?? scene['scene_type'] ?? 'narrative',
-            }).toList();
+            return rawScenes
+                .map(
+                  (scene) => {
+                    'id':
+                        scene['id']?.toString() ??
+                        DateTime.now().millisecondsSinceEpoch.toString(),
+                    'role': scene['role'] ?? 'ai',
+                    'content': scene['content'] ?? "",
+                    'imageUrl': scene['imageUrl'] ?? scene['image_url'],
+                    'sceneType':
+                        scene['sceneType'] ??
+                        scene['scene_type'] ??
+                        'narrative',
+                  },
+                )
+                .toList();
           }, scenes);
 
           // [성능 핵심] StoryScreen에 진입하기 전, 캐시 및 메시지 프로바이더 미리 채우기
           ref.read(preWarmedScenesProvider.notifier).update((state) {
-            final newState = Map<String, List<Map<String, dynamic>>>.from(state);
+            final newState = Map<String, List<Map<String, dynamic>>>.from(
+              state,
+            );
             newState[createdStory.id] = processedMessages;
             return newState;
           });
-          
+
           // 전역 메시지 상태 미리 설정 (StoryScreen 진입 시 즉시 렌더링용)
           ref.read(messageProvider.notifier).state = processedMessages;
         }
-        
+
         // [수정] 스토리 목록 동기화 강제 수행 및 프로바이더 무효화
         await repository.getStories(userId: userId, forceRefresh: true);
         ref.invalidate(storiesProvider);
@@ -173,7 +189,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       }
 
       if (!mounted) return;
-      
+
       // [성능 핵심] StoryScreen 상태 제어: 진입하자마자 UI가 보이고 초기화가 완료된 것으로 설정
       ref.read(isUIReadyProvider.notifier).state = true;
       ref.read(isInitialLoadDoneProvider.notifier).state = true;
@@ -189,9 +205,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context); // Close loading dialog
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e is ApiException ? e.message : "생성 실패: $e")),
       );
     }
@@ -199,26 +213,24 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = widget.isQuickStart 
-        ? const Color(0xFFFFD700) 
-        : const Color(0xFF00E5FF);
+    final palette = context.palette;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F0F),
+      backgroundColor: palette.ground,
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white70),
+          icon: Icon(Icons.close, color: palette.muted),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           widget.isQuickStart
               ? AppLocalizations.of(context)!.quickStart
               : AppLocalizations.of(context)!.detailedSettings,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: palette.text,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -236,10 +248,10 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
               height: 250,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: accentColor.withValues(alpha: 0.08),
+                color: palette.accent.withValues(alpha: 0.08),
                 boxShadow: [
                   BoxShadow(
-                    color: accentColor.withValues(alpha: 0.1),
+                    color: palette.accent.withValues(alpha: 0.1),
                     blurRadius: 100,
                     spreadRadius: 50,
                   ),
@@ -250,11 +262,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
           SafeArea(
             child: Column(
               children: [
-                _StepIndicator(
-                  currentStep: _currentStep, 
-                  totalSteps: 3, 
-                  accentColor: accentColor,
-                ),
+                _StepIndicator(currentStep: _currentStep, totalSteps: 3),
                 Expanded(
                   child: PageView(
                     physics: const NeverScrollableScrollPhysics(),
@@ -290,16 +298,12 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
 class _StepIndicator extends StatelessWidget {
   final int currentStep;
   final int totalSteps;
-  final Color accentColor;
 
-  const _StepIndicator({
-    required this.currentStep, 
-    required this.totalSteps,
-    required this.accentColor,
-  });
+  const _StepIndicator({required this.currentStep, required this.totalSteps});
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Column(
@@ -319,24 +323,32 @@ class _StepIndicator extends StatelessWidget {
                       height: isCurrent ? 32 : 24,
                       decoration: BoxDecoration(
                         color: isCompleted || isCurrent
-                            ? accentColor
-                            : Colors.white10,
+                            ? palette.accent
+                            : palette.raised,
                         shape: BoxShape.circle,
-                        boxShadow: isCurrent ? [
-                          BoxShadow(
-                            color: accentColor.withValues(alpha: 0.4),
-                            blurRadius: 10,
-                            spreadRadius: 2,
-                          )
-                        ] : null,
+                        boxShadow: isCurrent
+                            ? [
+                                BoxShadow(
+                                  color: palette.accent.withValues(alpha: 0.4),
+                                  blurRadius: 10,
+                                  spreadRadius: 2,
+                                ),
+                              ]
+                            : null,
                       ),
                       child: Center(
                         child: isCompleted
-                            ? const Icon(Icons.check, size: 16, color: Colors.black)
+                            ? Icon(
+                                Icons.check,
+                                size: 16,
+                                color: palette.onAccent,
+                              )
                             : Text(
                                 "${index + 1}",
                                 style: TextStyle(
-                                  color: isCurrent ? Colors.black : Colors.white54,
+                                  color: isCurrent
+                                      ? palette.onAccent
+                                      : palette.muted,
                                   fontSize: isCurrent ? 14 : 12,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -351,9 +363,7 @@ class _StepIndicator extends StatelessWidget {
                           margin: const EdgeInsets.symmetric(horizontal: 8),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(1),
-                            color: isCompleted
-                                ? accentColor
-                                : Colors.white10,
+                            color: isCompleted ? palette.accent : palette.line,
                           ),
                         ),
                       ),
@@ -369,7 +379,7 @@ class _StepIndicator extends StatelessWidget {
               Text(
                 _getStepTitle(context, currentStep),
                 style: TextStyle(
-                  color: accentColor,
+                  color: palette.accent,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.5,
@@ -377,8 +387,8 @@ class _StepIndicator extends StatelessWidget {
               ).animate().fadeIn().slideX(begin: -0.1, end: 0),
               Text(
                 "${currentStep + 1} / $totalSteps",
-                style: const TextStyle(
-                  color: Colors.white30,
+                style: TextStyle(
+                  color: palette.faint,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -392,10 +402,14 @@ class _StepIndicator extends StatelessWidget {
 
   String _getStepTitle(BuildContext context, int step) {
     switch (step) {
-      case 0: return "세계관 설정";
-      case 1: return "주인공 설정";
-      case 2: return "최종 확인";
-      default: return "";
+      case 0:
+        return "세계관 설정";
+      case 1:
+        return "주인공 설정";
+      case 2:
+        return "최종 확인";
+      default:
+        return "";
     }
   }
 }

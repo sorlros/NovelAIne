@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../../../core/theme/app_palette.dart';
 import '../../../../data/models/creation_config.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 
@@ -17,9 +18,7 @@ class ReviewStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = config.isQuickStart
-        ? const Color(0xFFFFD700)
-        : const Color(0xFF00E5FF);
+    final palette = context.palette;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -29,20 +28,20 @@ class ReviewStep extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             AppLocalizations.of(context)!.reviewSettings,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: palette.text,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
           ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             "선택하신 설정을 마지막으로 확인해 주세요.\n곧 당신의 이야기가 시작됩니다.",
-            style: TextStyle(color: Colors.white54, fontSize: 14, height: 1.5),
+            style: TextStyle(color: palette.muted, fontSize: 14, height: 1.5),
           ).animate().fadeIn(delay: 100.ms, duration: 400.ms),
           const SizedBox(height: 40),
 
-          _StoryPreviewCard(config: config, accentColor: accentColor)
+          _StoryPreviewCard(config: config)
               .animate()
               .fadeIn(delay: 200.ms)
               .scale(begin: const Offset(0.95, 0.95), end: const Offset(1, 1)),
@@ -56,8 +55,8 @@ class ReviewStep extends StatelessWidget {
                 OutlinedButton(
                   onPressed: onPrev,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white70,
-                    side: const BorderSide(color: Colors.white24),
+                    foregroundColor: palette.muted,
+                    side: BorderSide(color: palette.line),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -73,8 +72,8 @@ class ReviewStep extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: onSubmit,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: accentColor,
-                      foregroundColor: Colors.black,
+                      backgroundColor: palette.accent,
+                      foregroundColor: palette.onAccent,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -101,18 +100,18 @@ class ReviewStep extends StatelessWidget {
 
 class _StoryPreviewCard extends StatelessWidget {
   final CreationConfig config;
-  final Color accentColor;
 
-  const _StoryPreviewCard({required this.config, required this.accentColor});
+  const _StoryPreviewCard({required this.config});
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: palette.surface,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.white10, width: 1),
+        border: Border.all(color: palette.line, width: 1),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
@@ -127,7 +126,7 @@ class _StoryPreviewCard extends StatelessWidget {
                 height: 120,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: accentColor.withValues(alpha: 0.1),
+                  color: palette.accent.withValues(alpha: 0.1),
                 ),
               ),
             ),
@@ -141,20 +140,20 @@ class _StoryPreviewCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: accentColor.withValues(alpha: 0.15),
+                          color: palette.accent.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
                           Icons.auto_stories_rounded,
-                          color: accentColor,
+                          color: palette.accent,
                           size: 20,
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Text(
+                      Text(
                         "스토리 요약",
                         style: TextStyle(
-                          color: Colors.white,
+                          color: palette.text,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -182,21 +181,21 @@ class _StoryPreviewCard extends StatelessWidget {
                     icon: Icons.style_rounded,
                   ),
                   const SizedBox(height: 24),
-                  const Divider(color: Colors.white10, height: 1),
+                  Divider(color: palette.line, height: 1),
                   const SizedBox(height: 24),
                   Row(
                     children: [
                       Icon(
                         Icons.info_outline_rounded,
                         size: 14,
-                        color: accentColor.withValues(alpha: 0.6),
+                        color: palette.accent.withValues(alpha: 0.6),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           "작성하신 설정을 바탕으로 AI가 첫 장면을 집필합니다.",
                           style: TextStyle(
-                            color: Colors.white30,
+                            color: palette.faint,
                             fontSize: 12,
                             fontStyle: FontStyle.italic,
                           ),
@@ -227,18 +226,19 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: Colors.white24),
+        Icon(icon, size: 18, color: palette.faint),
         const SizedBox(width: 16),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               label,
-              style: const TextStyle(
-                color: Colors.white30,
+              style: TextStyle(
+                color: palette.faint,
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -246,8 +246,8 @@ class _InfoRow extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               value,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: palette.text,
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),

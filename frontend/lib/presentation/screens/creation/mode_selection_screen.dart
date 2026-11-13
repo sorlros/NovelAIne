@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants.dart';
+import '../../../core/theme/app_palette.dart';
 import 'wizard_screen.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../providers/content_provider.dart';
@@ -13,6 +14,7 @@ class CreationModeSelectionScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.palette;
     final selectedModel = ref.watch(selectedModelProvider);
     return ResponsiveLayout(
       currentIndex: 2,
@@ -22,7 +24,7 @@ class CreationModeSelectionScreen extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70),
+          icon: Icon(Icons.arrow_back_ios_new, color: palette.muted),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -47,19 +49,19 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 20),
-                      const Icon(
+                      Icon(
                         Icons.edit_note,
-                        color: Color(0xFF6B4EFF),
+                        color: palette.accent,
                         size: 48,
                       ).animate().fadeIn().slideY(begin: -0.2, end: 0),
                       const SizedBox(height: 16),
 
-                      const Text(
+                      Text(
                             "어떻게 시작할까요?",
                             style: TextStyle(
                               fontSize: 34,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: palette.text,
                               letterSpacing: -1.0,
                             ),
                           )
@@ -72,7 +74,7 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                       Text(
                         "상상 속의 세계를 펼칠 준비가 되었습니다.\n원하는 창작 방식을 선택해 주세요.",
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.6),
+                          color: palette.muted,
                           fontSize: 16,
                           height: 1.6,
                         ),
@@ -98,7 +100,6 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                                     description:
                                         "장르와 몇 가지 키워드만 고르면 AI가 즉시 흥미로운 서막을 만들어냅니다.",
                                     iconData: Icons.bolt,
-                                    accentColor: const Color(0xFFFFBE0B),
                                     delay: 400,
                                     onTap: () {
                                       Navigator.push(
@@ -121,7 +122,6 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                                     description:
                                         "세계의 법칙, 다면적인 캐릭터, 복잡한 설정들을 직접 설계하고 지휘합니다.",
                                     iconData: Icons.architecture,
-                                    accentColor: const Color(0xFF6B4EFF),
                                     delay: 600,
                                     onTap: () {
                                       Navigator.push(
@@ -147,7 +147,6 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                                   description:
                                       "장르와 몇 가지 키워드만 고르면 AI가 즉시 흥미로운 서막을 만들어냅니다.",
                                   iconData: Icons.bolt,
-                                  accentColor: const Color(0xFFFFBE0B),
                                   delay: 400,
                                   onTap: () {
                                     Navigator.push(
@@ -168,7 +167,6 @@ class CreationModeSelectionScreen extends ConsumerWidget {
                                   description:
                                       "세계의 법칙, 다면적인 캐릭터, 복잡한 설정들을 직접 설계하고 지휘합니다.",
                                   iconData: Icons.architecture,
-                                  accentColor: const Color(0xFF6B4EFF),
                                   delay: 600,
                                   onTap: () {
                                     Navigator.push(
@@ -204,6 +202,7 @@ class CreationModeSelectionScreen extends ConsumerWidget {
     WidgetRef ref,
     String selectedModel,
   ) {
+    final palette = context.palette;
     final proLocked = ref
         .watch(currentPlanProvider)
         .locks(AppConstants.proLlmModel);
@@ -212,12 +211,12 @@ class CreationModeSelectionScreen extends ConsumerWidget {
       children: [
         Row(
           children: [
-            const Icon(Icons.psychology, color: Color(0xFF6B4EFF), size: 20),
+            Icon(Icons.psychology, color: palette.accent, size: 20),
             const SizedBox(width: 10),
             Text(
               "AI 스토리 엔진",
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.9),
+                color: palette.text,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -281,6 +280,7 @@ class _ModelOptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -288,13 +288,11 @@ class _ModelOptionTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF6B4EFF).withValues(alpha: 0.15)
-              : const Color(0xFF1A1A1A),
+              ? palette.accent.withValues(alpha: 0.15)
+              : palette.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected
-                ? const Color(0xFF6B4EFF)
-                : Colors.white.withValues(alpha: 0.05),
+            color: isSelected ? palette.accent : palette.line,
             width: 1.5,
           ),
         ),
@@ -304,14 +302,14 @@ class _ModelOptionTile extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (locked) ...[
-                  const Icon(Icons.lock, color: Colors.white54, size: 14),
+                  Icon(Icons.lock, color: palette.muted, size: 14),
                   const SizedBox(width: 4),
                 ],
                 Flexible(
                   child: Text(
                     title,
                     style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.white70,
+                      color: isSelected ? palette.text : palette.muted,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
@@ -324,8 +322,8 @@ class _ModelOptionTile extends StatelessWidget {
               locked ? '유료' : subtitle,
               style: TextStyle(
                 color: isSelected
-                    ? const Color(0xFF6B4EFF).withValues(alpha: 0.8)
-                    : Colors.white38,
+                    ? palette.accent.withValues(alpha: 0.8)
+                    : palette.faint,
                 fontSize: 11,
               ),
             ),
@@ -341,7 +339,6 @@ class _ModernModeCard extends StatefulWidget {
   final String subtitle;
   final String description;
   final IconData iconData;
-  final Color accentColor;
   final int delay;
   final VoidCallback onTap;
 
@@ -350,7 +347,6 @@ class _ModernModeCard extends StatefulWidget {
     required this.subtitle,
     required this.description,
     required this.iconData,
-    required this.accentColor,
     required this.delay,
     required this.onTap,
   });
@@ -364,6 +360,7 @@ class _ModernModeCardState extends State<_ModernModeCard> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -374,18 +371,18 @@ class _ModernModeCardState extends State<_ModernModeCard> {
           curve: Curves.easeInOut,
           padding: const EdgeInsets.all(32),
           decoration: BoxDecoration(
-            color: const Color(0xFF151515),
+            color: palette.surface,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
               color: _isHovered
-                  ? widget.accentColor.withValues(alpha: 0.5)
-                  : Colors.white10,
+                  ? palette.accent.withValues(alpha: 0.5)
+                  : palette.line,
               width: 1.5,
             ),
             boxShadow: [
               if (_isHovered)
                 BoxShadow(
-                  color: widget.accentColor.withValues(alpha: 0.15),
+                  color: palette.accent.withValues(alpha: 0.15),
                   blurRadius: 20,
                   spreadRadius: 5,
                 ),
@@ -397,20 +394,16 @@ class _ModernModeCardState extends State<_ModernModeCard> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: widget.accentColor.withValues(alpha: 0.1),
+                  color: palette.accent.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(
-                  widget.iconData,
-                  color: widget.accentColor,
-                  size: 32,
-                ),
+                child: Icon(widget.iconData, color: palette.accent, size: 32),
               ),
               const SizedBox(height: 24),
               Text(
                 widget.subtitle.toUpperCase(),
                 style: TextStyle(
-                  color: widget.accentColor,
+                  color: palette.accent,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.5,
@@ -419,8 +412,8 @@ class _ModernModeCardState extends State<_ModernModeCard> {
               const SizedBox(height: 8),
               Text(
                 widget.title,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: palette.text,
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
@@ -429,7 +422,7 @@ class _ModernModeCardState extends State<_ModernModeCard> {
               Text(
                 widget.description,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6),
+                  color: palette.muted,
                   fontSize: 15,
                   height: 1.5,
                 ),
@@ -440,17 +433,13 @@ class _ModernModeCardState extends State<_ModernModeCard> {
                   Text(
                     "시작하기",
                     style: TextStyle(
-                      color: widget.accentColor,
+                      color: palette.accent,
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Icon(
-                    Icons.arrow_forward,
-                    color: widget.accentColor,
-                    size: 16,
-                  ),
+                  Icon(Icons.arrow_forward, color: palette.accent, size: 16),
                 ],
               ),
             ],
@@ -466,6 +455,7 @@ class _SubtleBackgroundGlow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Stack(
       children: [
         Positioned(
@@ -476,10 +466,10 @@ class _SubtleBackgroundGlow extends StatelessWidget {
             height: 400,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFF6B4EFF).withValues(alpha: 0.05),
+              color: palette.accent.withValues(alpha: 0.05),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF6B4EFF).withValues(alpha: 0.05),
+                  color: palette.accent.withValues(alpha: 0.05),
                   blurRadius: 100,
                   spreadRadius: 50,
                 ),
@@ -495,10 +485,10 @@ class _SubtleBackgroundGlow extends StatelessWidget {
             height: 300,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFFFFBE0B).withValues(alpha: 0.03),
+              color: palette.accent.withValues(alpha: 0.03),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFFFBE0B).withValues(alpha: 0.03),
+                  color: palette.accent.withValues(alpha: 0.03),
                   blurRadius: 100,
                   spreadRadius: 50,
                 ),
