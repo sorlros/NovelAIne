@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../core/theme/app_style.dart';
 import '../../../data/models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../home_screen.dart';
@@ -127,6 +128,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
       if (next.valueOrNull != null) _openHome();
     });
     final palette = context.palette;
+    final style = context.appStyle;
     final authState = ref.watch(authProvider);
     final isLoading = authState.isLoading;
 
@@ -164,11 +166,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                             const SizedBox(height: 24),
                             Text(
                               "NovelAIne",
-                              style: TextStyle(
-                                fontSize: 48,
-                                fontWeight: FontWeight.bold,
-                                color: palette.text,
-                                letterSpacing: -1,
+                              style: style.title(
+                                TextStyle(
+                                  fontSize: 48,
+                                  fontWeight: FontWeight.bold,
+                                  color: palette.text,
+                                  letterSpacing: -1,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 16),
@@ -218,11 +222,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                         const SizedBox(height: 16),
                         Text(
                           "NovelAIne",
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: palette.text,
-                            letterSpacing: -1,
+                          style: style.title(
+                            TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: palette.text,
+                              letterSpacing: -1,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 32),
@@ -240,13 +246,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
   }
 
   Widget _buildFormCard(bool isLoading) {
-    final palette = context.palette;
+    final style = context.appStyle;
     return Container(
-      decoration: BoxDecoration(
-        color: palette.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: palette.line, width: 1),
-      ),
+      decoration: style.card(context.palette),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -295,14 +297,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                   height: 52,
                   child: ElevatedButton(
                     onPressed: isLoading ? null : _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: palette.accent,
-                      foregroundColor: palette.onAccent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
                     child: isLoading
                         ? SizedBox(
                             width: 24,
@@ -310,7 +304,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                               valueColor: AlwaysStoppedAnimation<Color>(
-                                palette.onAccent,
+                                style.onPrimary(context.palette),
                               ),
                             ),
                           )
@@ -335,9 +329,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
 
   Widget _buildTabBar() {
     final palette = context.palette;
+    final style = context.appStyle;
     return Container(
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: palette.line, width: 1)),
+        border: Border(
+          bottom: BorderSide(
+            color: style.edge(palette),
+            width: style.borderWidth,
+          ),
+        ),
       ),
       child: TabBar(
         controller: _tabController,
@@ -365,6 +365,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     void Function(String)? onSubmitted,
   }) {
     final palette = context.palette;
+    final style = context.appStyle;
+    final restEdge = style.isNight
+        ? BorderSide.none
+        : BorderSide(color: style.edge(palette), width: style.borderWidth);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -392,15 +396,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
               horizontal: 16,
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
+              borderRadius: BorderRadius.circular(style.radiusSmall),
+              borderSide: restEdge,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
+              borderRadius: BorderRadius.circular(style.radiusSmall),
+              borderSide: restEdge,
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(style.radiusSmall),
               borderSide: BorderSide(color: palette.accent, width: 1.5),
             ),
           ),

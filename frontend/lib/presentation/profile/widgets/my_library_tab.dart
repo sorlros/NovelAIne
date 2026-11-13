@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../core/theme/app_style.dart';
 import '../../providers/content_provider.dart';
+import '../../screens/home_screen.dart' show genreLabel;
 import '../../screens/story_screen.dart';
 
 class MyLibraryTab extends ConsumerWidget {
@@ -12,6 +14,7 @@ class MyLibraryTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
+    final style = context.appStyle;
     final storiesState = ref.watch(storiesProvider);
 
     return storiesState.when(
@@ -28,10 +31,12 @@ class MyLibraryTab extends ConsumerWidget {
           children: [
             Text(
               "읽고 있는 이야기",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: palette.text,
+              style: style.title(
+                TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: palette.text,
+                ),
               ),
             ).animate().fadeIn().slideX(),
             const SizedBox(height: 16),
@@ -56,21 +61,19 @@ class MyLibraryTab extends ConsumerWidget {
             const SizedBox(height: 32),
             Text(
               "완독한 이야기",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: palette.text,
+              style: style.title(
+                TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: palette.text,
+                ),
               ),
             ).animate().fadeIn().slideX(delay: 200.ms),
             const SizedBox(height: 16),
             completedStories.isEmpty
                 ? Container(
                     padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: palette.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: palette.line),
-                    ),
+                    decoration: style.card(palette),
                     child: Center(
                       child: Text(
                         "아직 완독한 이야기가 없습니다.",
@@ -105,6 +108,7 @@ class MyLibraryTab extends ConsumerWidget {
 
   Widget _buildStoryCard(BuildContext context, dynamic story, int index) {
     final palette = context.palette;
+    final style = context.appStyle;
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -122,11 +126,7 @@ class MyLibraryTab extends ConsumerWidget {
           children: [
             Expanded(
               child: Container(
-                decoration: BoxDecoration(
-                  color: palette.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: palette.line),
-                ),
+                decoration: style.card(palette),
                 clipBehavior: Clip.antiAlias,
                 child: story.coverImageUrl != null
                     ? CachedNetworkImage(
@@ -152,17 +152,19 @@ class MyLibraryTab extends ConsumerWidget {
             const SizedBox(height: 12),
             Text(
               story.title,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: palette.text,
-                fontSize: 14,
+              style: style.title(
+                TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: palette.text,
+                  fontSize: 14,
+                ),
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
             Text(
-              story.genre,
+              genreLabel(story.genre),
               style: TextStyle(fontSize: 12, color: palette.muted),
             ),
           ],

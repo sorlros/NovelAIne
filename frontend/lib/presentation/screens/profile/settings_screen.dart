@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../core/theme/app_style.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../providers/auth_provider.dart';
 import '../auth/auth_screen.dart';
@@ -14,6 +15,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
+    final style = context.appStyle;
     final authState = ref.watch(authProvider);
     final user = authState.value;
 
@@ -58,10 +60,12 @@ class SettingsScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
                 Text(
                   user?.username ?? "사용자",
-                  style: GoogleFonts.notoSerif(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: palette.text,
+                  style: style.title(
+                    GoogleFonts.notoSerif(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: palette.text,
+                    ),
                   ),
                 ),
                 Text(
@@ -71,6 +75,7 @@ class SettingsScreen extends ConsumerWidget {
                 const SizedBox(height: 48),
                 _buildMenuItem(
                   palette: palette,
+                  style: style,
                   icon: Icons.palette_outlined,
                   title: "화면 테마",
                   onTap: () => Navigator.push(
@@ -82,24 +87,28 @@ class SettingsScreen extends ConsumerWidget {
                 ),
                 _buildMenuItem(
                   palette: palette,
+                  style: style,
                   icon: Icons.edit_outlined,
                   title: "회원 정보 수정",
                   onTap: () {},
                 ),
                 _buildMenuItem(
                   palette: palette,
+                  style: style,
                   icon: Icons.notifications_none_rounded,
                   title: "알림 설정",
                   onTap: () {},
                 ),
                 _buildMenuItem(
                   palette: palette,
+                  style: style,
                   icon: Icons.security_rounded,
                   title: "보안 및 개인정보",
                   onTap: () {},
                 ),
                 _buildMenuItem(
                   palette: palette,
+                  style: style,
                   icon: Icons.help_outline_rounded,
                   title: "고객 센터",
                   onTap: () {},
@@ -114,6 +123,7 @@ class SettingsScreen extends ConsumerWidget {
 
   Widget _buildMenuItem({
     required AppPalette palette,
+    required AppStyle style,
     required IconData icon,
     required String title,
     required VoidCallback onTap,
@@ -122,14 +132,10 @@ class SettingsScreen extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(style.radius),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          decoration: BoxDecoration(
-            color: palette.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: palette.line),
-          ),
+          decoration: style.card(palette),
           child: Row(
             children: [
               Icon(icon, color: palette.accent, size: 22),

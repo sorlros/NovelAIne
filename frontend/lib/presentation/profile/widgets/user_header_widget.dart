@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../core/theme/app_style.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/content_provider.dart';
 import 'package:frontend/l10n/app_localizations.dart';
@@ -13,6 +14,7 @@ class UserHeaderWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
+    final style = context.appStyle;
     // Fetch actual user data from Provider/Riverpod
     final authState = ref.watch(authProvider);
     final storiesState = ref.watch(storiesProvider);
@@ -80,10 +82,17 @@ class UserHeaderWidget extends ConsumerWidget {
               children: [
                 Text(
                   username,
-                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: palette.text,
+                  style: style.title(
+                    Theme.of(context).textTheme.displayMedium?.copyWith(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: palette.text,
+                        ) ??
+                        TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: palette.text,
+                        ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -122,15 +131,18 @@ class UserHeaderWidget extends ConsumerWidget {
 
   Widget _buildStatItem(BuildContext context, String label, String value) {
     final palette = context.palette;
+    final style = context.appStyle;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           value,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: palette.text,
+          style: style.title(
+            TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: palette.text,
+            ),
           ),
         ),
         const SizedBox(height: 4),

@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../core/theme/app_style.dart';
 import '../../providers/content_provider.dart';
 import '../character_sheet_widget.dart';
 import '../../widgets/responsive_layout.dart';
@@ -29,6 +30,7 @@ class _CharacterVaultScreenState extends ConsumerState<CharacterVaultScreen> {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
     final charactersAsync = ref.watch(charactersProvider);
     final double screenWidth = MediaQuery.of(context).size.width;
     final bool isMobile = screenWidth < 600;
@@ -40,10 +42,12 @@ class _CharacterVaultScreenState extends ConsumerState<CharacterVaultScreen> {
         elevation: 0,
         title: Text(
           "캐릭터 보관함",
-          style: GoogleFonts.notoSerif(
-            color: palette.text,
-            fontSize: isMobile ? 18 : 20,
-            fontWeight: FontWeight.bold,
+          style: style.title(
+            GoogleFonts.notoSerif(
+              color: palette.text,
+              fontSize: isMobile ? 18 : 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
         centerTitle: true,
@@ -71,11 +75,7 @@ class _CharacterVaultScreenState extends ConsumerState<CharacterVaultScreen> {
                 ),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: palette.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: palette.line),
-                  ),
+                  decoration: style.card(palette),
                   child: TextField(
                     controller: _searchController,
                     style: TextStyle(color: palette.text, fontSize: 15),
@@ -89,8 +89,11 @@ class _CharacterVaultScreenState extends ConsumerState<CharacterVaultScreen> {
                       ),
                       hintText: "이름으로 캐릭터 검색...",
                       hintStyle: TextStyle(color: palette.faint, fontSize: 14),
-                      filled: false, // the box around the field is the fill
+                      // The box around the field is its fill and outline: none of the theme's.
+                      filled: false,
                       border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
                     ),
                   ),
                 ),
@@ -228,14 +231,11 @@ class _VaultCharacterCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: BoxDecoration(
-          color: palette.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: palette.line),
-        ),
+        decoration: style.card(palette),
         clipBehavior: Clip.antiAlias,
         child: Stack(
           children: [
@@ -268,10 +268,12 @@ class _VaultCharacterCard extends StatelessWidget {
                       children: [
                         Text(
                           char.name,
-                          style: TextStyle(
-                            color: palette.text,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
+                          style: style.title(
+                            TextStyle(
+                              color: palette.text,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

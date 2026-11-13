@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_palette.dart';
+import '../../core/theme/app_style.dart';
 import '../providers/auth_provider.dart';
 import '../screens/auth/auth_screen.dart';
 import 'package:frontend/l10n/app_localizations.dart';
@@ -47,12 +48,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
     return ResponsiveLayout(
       currentIndex: 4,
       appBar: AppBar(
         title: Text(
           "내 프로필",
-          style: TextStyle(fontWeight: FontWeight.bold, color: palette.text),
+          style: style.title(
+            TextStyle(fontWeight: FontWeight.bold, color: palette.text),
+          ),
         ),
         backgroundColor: palette.ground,
         elevation: 0,
@@ -83,11 +87,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 TabBar(
                   controller: _tabController,
                   indicator: BoxDecoration(
-                    color: palette.accent,
-                    borderRadius: BorderRadius.circular(16),
+                    color: style.primary(palette),
+                    borderRadius: BorderRadius.circular(style.radius),
+                    border: style.isRoute
+                        ? Border.all(color: palette.text, width: 2)
+                        : null,
                   ),
                   indicatorSize: TabBarIndicatorSize.tab,
-                  labelColor: palette.onAccent,
+                  labelColor: style.onPrimary(palette),
                   labelStyle: const TextStyle(fontWeight: FontWeight.bold),
                   unselectedLabelColor: palette.muted,
                   dividerColor: Colors.transparent,
@@ -127,18 +134,12 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     final palette = context.palette;
+    final style = context.appStyle;
     return Container(
       color: palette
           .ground, // Match background to obscure content scrolling underneath
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-      child: Container(
-        decoration: BoxDecoration(
-          color: palette.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: palette.line),
-        ),
-        child: tabBar,
-      ),
+      child: Container(decoration: style.card(palette), child: tabBar),
     );
   }
 

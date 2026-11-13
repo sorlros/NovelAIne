@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import '../../core/theme/app_palette.dart';
+import '../../core/theme/app_style.dart';
 import '../screens/home_screen.dart';
 import '../screens/explore_screen.dart';
 import '../screens/vault/vault_screen.dart';
@@ -50,9 +51,20 @@ class SideMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
+    final route = style.isRoute;
+    final onMenu = route ? palette.onAccent : palette.text;
     return Container(
       width: 250,
-      color: palette.surface,
+      decoration: BoxDecoration(
+        color: route ? palette.accent : palette.surface,
+        border: Border(
+          right: BorderSide(
+            color: style.edge(palette),
+            width: style.borderWidth,
+          ),
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -61,14 +73,16 @@ class SideMenu extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: Row(
               children: [
-                Icon(Icons.auto_stories, color: palette.text, size: 28),
+                Icon(Icons.auto_stories, color: onMenu, size: 28),
                 const SizedBox(width: 12),
                 Text(
                   "NovelAIne",
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: palette.text,
+                  style: style.title(
+                    TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: onMenu,
+                    ),
                   ),
                 ),
               ],
@@ -77,7 +91,7 @@ class SideMenu extends StatelessWidget {
           const SizedBox(height: 48),
           _SideMenuItem(
             icon: Icons.menu_book,
-            title: "내 서재",
+            title: "서재",
             isSelected: currentIndex == 0,
             onTap: () => _navigateTo(context, 0),
           ),
@@ -89,21 +103,21 @@ class SideMenu extends StatelessWidget {
           ),
           _SideMenuItem(
             icon: Icons.edit,
-            title: "창작하기",
+            title: "만들기",
             isSelected: currentIndex == 2,
             onTap: () => _navigateTo(context, 2),
           ),
           _SideMenuItem(
             icon: Icons.archive_outlined,
-            title: "캐릭터 보관함",
+            title: "보관함",
             isSelected: currentIndex == 3,
             onTap: () => _navigateTo(context, 3),
           ),
           const Spacer(),
-          Divider(color: palette.line, height: 1),
+          Divider(color: route ? palette.onAccent : palette.line, height: 1),
           _SideMenuItem(
             icon: Icons.person_outline,
-            title: "내 프로필",
+            title: "내 정보",
             isSelected: currentIndex == 4,
             onTap: () => _navigateTo(context, 4),
           ),
@@ -130,32 +144,58 @@ class _SideMenuItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final primaryColor = palette.accent.withValues(alpha: 0.18);
-    final textColor = palette.text;
-    final textSecondary = palette.muted;
+    final style = context.appStyle;
+    final route = style.isRoute;
+    final Color textColor;
+    if (route) {
+      textColor = isSelected ? palette.onHighlight : palette.onAccent;
+    } else {
+      textColor = isSelected ? palette.text : palette.muted;
+    }
+    final BoxDecoration? decoration = !isSelected
+        ? null
+        : switch (style.kind) {
+            StyleKind.night => BoxDecoration(
+              color: palette.accent.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(style.radius),
+            ),
+            StyleKind.paper => null,
+            StyleKind.route => BoxDecoration(
+              color: palette.highlight,
+              borderRadius: BorderRadius.circular(style.radiusSmall),
+              border: Border.all(color: palette.text, width: 2),
+            ),
+          };
 
     return InkWell(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? primaryColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
+        decoration: decoration,
         child: Row(
           children: [
-            Icon(
-              icon,
-              color: isSelected ? textColor : textSecondary,
-              size: 17.6, // 80% of 22
-            ),
-            const SizedBox(width: 12.8), // 80% of 16
+            if (style.isPaper)
+              SizedBox(
+                width: 12,
+                child: isSelected
+                    ? Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: palette.accent,
+                          shape: BoxShape.circle,
+                        ),
+                      )
+                    : null,
+              ),
+            Icon(icon, color: textColor, size: 17.6),
+            const SizedBox(width: 12.8),
             Text(
               title,
               style: TextStyle(
-                color: isSelected ? textColor : textSecondary,
-                fontSize: 12.8, // 80% of 16
+                color: textColor,
+                fontSize: 14,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),

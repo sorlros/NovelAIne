@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/theme/app_palette.dart';
+import '../../../core/theme/app_style.dart';
 import '../../providers/content_provider.dart';
 import '../../../data/models/story_model.dart';
 import '../../../data/models/character_model.dart';
@@ -101,6 +102,7 @@ class MyCreationsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
+    final style = context.appStyle;
     final storiesState = ref.watch(storiesProvider);
     final charactersState = ref.watch(vaultCharactersProvider);
 
@@ -109,10 +111,12 @@ class MyCreationsTab extends ConsumerWidget {
       children: [
         Text(
           "내 스토리",
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: palette.text,
+          style: style.title(
+            TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: palette.text,
+            ),
           ),
         ).animate().fadeIn().slideX(),
         const SizedBox(height: 16),
@@ -146,10 +150,12 @@ class MyCreationsTab extends ConsumerWidget {
           children: [
             Text(
               "내 캐릭터",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: palette.text,
+              style: style.title(
+                TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: palette.text,
+                ),
               ),
             ),
             IconButton(
@@ -186,7 +192,7 @@ class MyCreationsTab extends ConsumerWidget {
               itemCount: characters.length,
               itemBuilder: (context, index) {
                 final char = characters[index];
-                return _buildCharacterCard(palette, char, index);
+                return _buildCharacterCard(palette, style, char, index);
               },
             );
           },
@@ -206,13 +212,10 @@ class MyCreationsTab extends ConsumerWidget {
     int index,
   ) {
     final palette = context.palette;
+    final style = context.appStyle;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: palette.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: palette.line),
-      ),
+      decoration: style.card(palette),
       child: ListTile(
         onTap: () {
           Navigator.push(
@@ -229,13 +232,15 @@ class MyCreationsTab extends ConsumerWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: palette.accent.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(style.radiusSmall),
           ),
           child: Icon(Icons.menu_book, color: palette.accent),
         ),
         title: Text(
           story.title,
-          style: TextStyle(fontWeight: FontWeight.bold, color: palette.text),
+          style: style.title(
+            TextStyle(fontWeight: FontWeight.bold, color: palette.text),
+          ),
         ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4.0),
@@ -263,15 +268,12 @@ class MyCreationsTab extends ConsumerWidget {
 
   Widget _buildCharacterCard(
     AppPalette palette,
+    AppStyle style,
     CharacterModel char,
     int index,
   ) {
     return Container(
-      decoration: BoxDecoration(
-        color: palette.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: palette.line),
-      ),
+      decoration: style.card(palette),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -309,10 +311,12 @@ class MyCreationsTab extends ConsumerWidget {
           const SizedBox(height: 16),
           Text(
             char.name,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: palette.text,
+            style: style.title(
+              TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: palette.text,
+              ),
             ),
           ),
           const SizedBox(height: 6),

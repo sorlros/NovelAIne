@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/app_palette.dart';
+import '../../core/theme/app_style.dart';
 
 enum ToastType { success, error, info }
 
@@ -55,6 +56,7 @@ class _ToastWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
     IconData icon;
     Color accentColor;
 
@@ -77,29 +79,42 @@ class _ToastWidget extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 500),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(style.radiusLarge),
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                filter: ImageFilter.blur(
+                  sigmaX: style.isNight ? 10 : 0,
+                  sigmaY: style.isNight ? 10 : 0,
+                ),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 16,
                   ),
-                  decoration: BoxDecoration(
-                    color: palette.surface.withValues(alpha: 0.92),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: accentColor.withValues(alpha: 0.3),
-                      width: 1.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.4),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
+                  decoration: style.isNight
+                      ? BoxDecoration(
+                          color: palette.surface.withValues(alpha: 0.92),
+                          borderRadius: BorderRadius.circular(
+                            style.radiusLarge,
+                          ),
+                          border: Border.all(
+                            color: accentColor.withValues(alpha: 0.3),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.4),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        )
+                      : style
+                            .card(palette)
+                            .copyWith(
+                              borderRadius: BorderRadius.circular(
+                                style.radiusLarge,
+                              ),
+                            ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -108,10 +123,12 @@ class _ToastWidget extends StatelessWidget {
                       Expanded(
                         child: Text(
                           message,
-                          style: GoogleFonts.notoSerif(
-                            color: palette.text,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
+                          style: style.title(
+                            GoogleFonts.notoSerif(
+                              color: palette.text,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ),
