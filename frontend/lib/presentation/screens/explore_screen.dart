@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/theme/app_palette.dart';
 import '../../data/models/story_model.dart';
 import '../../data/services/api_service.dart';
 import '../widgets/responsive_layout.dart';
@@ -56,6 +57,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 700;
+    final palette = context.palette;
 
     return ResponsiveLayout(
       currentIndex: 1,
@@ -70,7 +72,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: _refresh,
-        color: const Color(0xFF7C3AED),
+        color: palette.accent,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
@@ -80,12 +82,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
               future: _storiesFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const SliverFillRemaining(
+                  return SliverFillRemaining(
                     hasScrollBody: false,
                     child: Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF7C3AED),
-                      ),
+                      child: CircularProgressIndicator(color: palette.accent),
                     ),
                   );
                 }
@@ -155,6 +155,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _buildHeader(bool isMobile) {
+    final palette = context.palette;
     return Padding(
       padding: EdgeInsets.fromLTRB(
         isMobile ? 20 : 36,
@@ -174,7 +175,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
               Text(
                 '공개 서재',
                 style: GoogleFonts.notoSerif(
-                  color: Colors.white,
+                  color: palette.text,
                   fontSize: isMobile ? 28 : 36,
                   fontWeight: FontWeight.bold,
                 ),
@@ -189,8 +190,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   );
                 },
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white70,
-                  side: const BorderSide(color: Colors.white24),
+                  foregroundColor: palette.muted,
+                  side: BorderSide(color: palette.line),
                 ),
                 icon: const Icon(Icons.forum_outlined, size: 18),
                 label: const Text('커뮤니티'),
@@ -201,7 +202,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           Text(
             '다른 창작자들이 공개한 인터랙티브 스토리를 읽고 영감을 얻어보세요.',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.58),
+              color: palette.muted,
               fontSize: isMobile ? 14 : 16,
               height: 1.5,
             ),
@@ -212,6 +213,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _buildGenreFilters() {
+    final palette = context.palette;
     return SizedBox(
       height: 48,
       child: ListView.separated(
@@ -225,15 +227,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
             label: Text(filter['label']!),
             selected: isSelected,
             onSelected: (_) => _selectGenre(value),
-            backgroundColor: Colors.white.withValues(alpha: 0.05),
-            selectedColor: const Color(0xFF7C3AED).withValues(alpha: 0.25),
+            backgroundColor: palette.surface,
+            selectedColor: palette.accent.withValues(alpha: 0.25),
             labelStyle: TextStyle(
-              color: isSelected ? Colors.white : Colors.white60,
+              color: isSelected ? palette.text : palette.muted,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
-            side: BorderSide(
-              color: isSelected ? const Color(0xFF7C3AED) : Colors.white12,
-            ),
+            side: BorderSide(color: isSelected ? palette.accent : palette.line),
           );
         },
         separatorBuilder: (context, index) => const SizedBox(width: 8),
@@ -251,15 +251,16 @@ class _PublicStoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.055),
+          color: palette.surface,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white10),
+          border: Border.all(color: palette.line),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -277,7 +278,7 @@ class _PublicStoryCard extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.notoSerif(
-                color: Colors.white,
+                color: palette.text,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
                 height: 1.25,
@@ -288,38 +289,27 @@ class _PublicStoryCard extends StatelessWidget {
               story.description.isEmpty ? '설명이 아직 없습니다.' : story.description,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.58),
-                height: 1.45,
-              ),
+              style: TextStyle(color: palette.muted, height: 1.45),
             ),
             const Spacer(),
             Row(
               children: [
-                const Icon(
-                  Icons.person_outline,
-                  color: Colors.white38,
-                  size: 16,
-                ),
+                Icon(Icons.person_outline, color: palette.faint, size: 16),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     story.authorUsername ?? 'Traveler',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                    style: TextStyle(color: palette.muted, fontSize: 12),
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Icon(
-                  Icons.menu_book_outlined,
-                  color: Colors.white38,
-                  size: 16,
-                ),
+                Icon(Icons.menu_book_outlined, color: palette.faint, size: 16),
                 const SizedBox(width: 4),
                 Text(
                   '${story.totalScenes}',
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  style: TextStyle(color: palette.muted, fontSize: 12),
                 ),
               ],
             ),
@@ -337,16 +327,17 @@ class _Tag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFF7C3AED).withValues(alpha: 0.16),
+        color: palette.accent.withValues(alpha: 0.16),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: Color(0xFFBCA7FF),
+        style: TextStyle(
+          color: palette.accent,
           fontSize: 10,
           fontWeight: FontWeight.bold,
         ),
@@ -368,19 +359,20 @@ class _ExploreMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 64, color: Colors.white24),
+            Icon(icon, size: 64, color: palette.faint),
             const SizedBox(height: 20),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: palette.text,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -389,7 +381,7 @@ class _ExploreMessage extends StatelessWidget {
             Text(
               description,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white54, height: 1.45),
+              style: TextStyle(color: palette.muted, height: 1.45),
             ),
           ],
         ),

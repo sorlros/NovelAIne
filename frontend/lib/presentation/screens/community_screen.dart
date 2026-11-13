@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/theme/app_palette.dart';
 import '../../data/models/community_models.dart';
 import '../../data/models/story_model.dart';
 import '../../data/services/api_service.dart';
@@ -82,10 +83,11 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
   void _showError(String message) {
     if (!mounted) return;
+    final palette = context.palette;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: const Color(0xFF7F1D1D),
+        content: Text(message, style: TextStyle(color: palette.ground)),
+        backgroundColor: palette.danger,
       ),
     );
   }
@@ -93,6 +95,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 700;
+    final palette = context.palette;
 
     return ResponsiveLayout(
       currentIndex: 1,
@@ -107,7 +110,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: _refresh,
-        color: const Color(0xFF7C3AED),
+        color: palette.accent,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
@@ -117,12 +120,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
               future: _feedFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const SliverFillRemaining(
+                  return SliverFillRemaining(
                     hasScrollBody: false,
                     child: Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF7C3AED),
-                      ),
+                      child: CircularProgressIndicator(color: palette.accent),
                     ),
                   );
                 }
@@ -192,6 +193,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   Widget _buildHeader(bool isMobile) {
+    final palette = context.palette;
     return Padding(
       padding: EdgeInsets.fromLTRB(
         isMobile ? 20 : 36,
@@ -205,7 +207,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
           Text(
             '커뮤니티',
             style: GoogleFonts.notoSerif(
-              color: Colors.white,
+              color: palette.text,
               fontSize: isMobile ? 28 : 36,
               fontWeight: FontWeight.bold,
             ),
@@ -214,7 +216,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
           Text(
             '공개된 인터랙티브 스토리에 반응을 남기고 창작자와 독자가 함께 이야기를 확장합니다.',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.58),
+              color: palette.muted,
               fontSize: isMobile ? 14 : 16,
               height: 1.5,
             ),
@@ -225,6 +227,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   Widget _buildGenreFilters() {
+    final palette = context.palette;
     return SizedBox(
       height: 48,
       child: ListView.separated(
@@ -238,15 +241,13 @@ class _CommunityScreenState extends State<CommunityScreen> {
             label: Text(filter['label']!),
             selected: isSelected,
             onSelected: (_) => _selectGenre(value),
-            backgroundColor: Colors.white.withValues(alpha: 0.05),
-            selectedColor: const Color(0xFF7C3AED).withValues(alpha: 0.25),
+            backgroundColor: palette.surface,
+            selectedColor: palette.accent.withValues(alpha: 0.25),
             labelStyle: TextStyle(
-              color: isSelected ? Colors.white : Colors.white60,
+              color: isSelected ? palette.text : palette.muted,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
-            side: BorderSide(
-              color: isSelected ? const Color(0xFF7C3AED) : Colors.white12,
-            ),
+            side: BorderSide(color: isSelected ? palette.accent : palette.line),
           );
         },
         separatorBuilder: (context, index) => const SizedBox(width: 8),
@@ -271,13 +272,14 @@ class _CommunityStoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final story = item.story;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.055),
+        color: palette.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: palette.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -297,7 +299,7 @@ class _CommunityStoryCard extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.notoSerif(
-              color: Colors.white,
+              color: palette.text,
               fontSize: 22,
               fontWeight: FontWeight.bold,
               height: 1.25,
@@ -308,22 +310,19 @@ class _CommunityStoryCard extends StatelessWidget {
             story.description.isEmpty ? '설명이 아직 없습니다.' : story.description,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.58),
-              height: 1.45,
-            ),
+            style: TextStyle(color: palette.muted, height: 1.45),
           ),
           const SizedBox(height: 18),
           Row(
             children: [
-              const Icon(Icons.person_outline, color: Colors.white38, size: 16),
+              Icon(Icons.person_outline, color: palette.faint, size: 16),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   story.authorUsername ?? 'Traveler',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  style: TextStyle(color: palette.muted, fontSize: 12),
                 ),
               ),
               _Metric(
@@ -350,8 +349,8 @@ class _CommunityStoryCard extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onRead,
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF7C3AED),
-                  foregroundColor: Colors.white,
+                  backgroundColor: palette.accent,
+                  foregroundColor: palette.onAccent,
                 ),
                 icon: const Icon(Icons.auto_stories_outlined, size: 18),
                 label: const Text('읽기'),
@@ -360,12 +359,10 @@ class _CommunityStoryCard extends StatelessWidget {
                 onPressed: onLike,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: item.isLiked
-                      ? const Color(0xFFFF8AAE)
-                      : Colors.white70,
+                      ? palette.danger
+                      : palette.muted,
                   side: BorderSide(
-                    color: item.isLiked
-                        ? const Color(0xFFFF8AAE)
-                        : Colors.white24,
+                    color: item.isLiked ? palette.danger : palette.line,
                   ),
                 ),
                 icon: Icon(
@@ -379,8 +376,8 @@ class _CommunityStoryCard extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: onComments,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white70,
-                  side: const BorderSide(color: Colors.white24),
+                  foregroundColor: palette.muted,
+                  side: BorderSide(color: palette.line),
                 ),
                 icon: const Icon(Icons.mode_comment_outlined, size: 18),
                 label: const Text('댓글'),
@@ -438,10 +435,14 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
       });
     } catch (error) {
       if (!mounted) return;
+      final palette = context.palette;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('댓글을 등록하지 못했습니다. 로그인 상태를 확인해주세요.'),
-          backgroundColor: Color(0xFF7F1D1D),
+        SnackBar(
+          content: Text(
+            '댓글을 등록하지 못했습니다. 로그인 상태를 확인해주세요.',
+            style: TextStyle(color: palette.ground),
+          ),
+          backgroundColor: palette.danger,
         ),
       );
     } finally {
@@ -463,10 +464,14 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
       ).showSnackBar(const SnackBar(content: Text('댓글을 삭제했습니다.')));
     } catch (error) {
       if (!mounted) return;
+      final palette = context.palette;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('댓글을 삭제하지 못했습니다. 권한 또는 네트워크 상태를 확인해주세요.'),
-          backgroundColor: Color(0xFF7F1D1D),
+        SnackBar(
+          content: Text(
+            '댓글을 삭제하지 못했습니다. 권한 또는 네트워크 상태를 확인해주세요.',
+            style: TextStyle(color: palette.ground),
+          ),
+          backgroundColor: palette.danger,
         ),
       );
     } finally {
@@ -488,10 +493,14 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
       ).showSnackBar(const SnackBar(content: Text('신고가 접수되었습니다.')));
     } catch (error) {
       if (!mounted) return;
+      final palette = context.palette;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('신고를 접수하지 못했습니다. 로그인 상태를 확인해주세요.'),
-          backgroundColor: Color(0xFF7F1D1D),
+        SnackBar(
+          content: Text(
+            '신고를 접수하지 못했습니다. 로그인 상태를 확인해주세요.',
+            style: TextStyle(color: palette.ground),
+          ),
+          backgroundColor: palette.danger,
         ),
       );
     } finally {
@@ -503,6 +512,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final currentUser = ref.watch(authProvider).valueOrNull;
+    final palette = context.palette;
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: DraggableScrollableSheet(
@@ -511,9 +521,11 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
         maxChildSize: 0.92,
         builder: (context, scrollController) {
           return Container(
-            decoration: const BoxDecoration(
-              color: Color(0xFF120F1D),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            decoration: BoxDecoration(
+              color: palette.surface,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
             ),
             child: Column(
               children: [
@@ -522,7 +534,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                   width: 44,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.white24,
+                    color: palette.line,
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
@@ -535,8 +547,8 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                           widget.story.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: palette.text,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -545,7 +557,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                       IconButton(
                         onPressed: () => Navigator.pop(context),
                         icon: const Icon(Icons.close_rounded),
-                        color: Colors.white60,
+                        color: palette.muted,
                       ),
                     ],
                   ),
@@ -555,9 +567,9 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                     future: _commentsFuture,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
+                        return Center(
                           child: CircularProgressIndicator(
-                            color: Color(0xFF7C3AED),
+                            color: palette.accent,
                           ),
                         );
                       }
@@ -592,7 +604,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                           );
                         },
                         separatorBuilder: (context, index) =>
-                            const Divider(color: Colors.white10, height: 24),
+                            Divider(color: palette.line, height: 24),
                         itemCount: comments.length,
                       );
                     },
@@ -610,13 +622,13 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                             minLines: 1,
                             maxLines: 3,
                             maxLength: 1000,
-                            style: const TextStyle(color: Colors.white),
+                            style: TextStyle(color: palette.text),
                             decoration: InputDecoration(
                               counterText: '',
                               hintText: '댓글을 입력하세요',
-                              hintStyle: const TextStyle(color: Colors.white38),
+                              hintStyle: TextStyle(color: palette.faint),
                               filled: true,
-                              fillColor: Colors.white.withValues(alpha: 0.06),
+                              fillColor: palette.raised,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(18),
                                 borderSide: BorderSide.none,
@@ -628,16 +640,16 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                         IconButton.filled(
                           onPressed: _isSubmitting ? null : _submitComment,
                           style: IconButton.styleFrom(
-                            backgroundColor: const Color(0xFF7C3AED),
-                            foregroundColor: Colors.white,
+                            backgroundColor: palette.accent,
+                            foregroundColor: palette.onAccent,
                           ),
                           icon: _isSubmitting
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 18,
                                   height: 18,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: Colors.white,
+                                    color: palette.onAccent,
                                   ),
                                 )
                               : const Icon(Icons.send_rounded),
@@ -672,6 +684,7 @@ class _CommentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final canDelete = currentUserId != null && currentUserId == comment.userId;
     final canReport = currentUserId != null && currentUserId != comment.userId;
 
@@ -680,16 +693,12 @@ class _CommentTile extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 18,
-          backgroundColor: const Color(0xFF7C3AED).withValues(alpha: 0.3),
+          backgroundColor: palette.accent.withValues(alpha: 0.3),
           backgroundImage: comment.authorAvatarUrl == null
               ? null
               : NetworkImage(comment.authorAvatarUrl!),
           child: comment.authorAvatarUrl == null
-              ? const Icon(
-                  Icons.person_outline,
-                  color: Colors.white70,
-                  size: 18,
-                )
+              ? Icon(Icons.person_outline, color: palette.muted, size: 18)
               : null,
         ),
         const SizedBox(width: 12),
@@ -704,15 +713,15 @@ class _CommentTile extends StatelessWidget {
                       comment.authorUsername,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: palette.text,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
                   Text(
                     _formatDate(comment.createdAt),
-                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                    style: TextStyle(color: palette.faint, fontSize: 12),
                   ),
                   const SizedBox(width: 4),
                   if (isPending)
@@ -724,31 +733,31 @@ class _CommentTile extends StatelessWidget {
                   else if (canDelete || canReport)
                     PopupMenuButton<String>(
                       tooltip: '댓글 관리',
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.more_horiz_rounded,
-                        color: Colors.white38,
+                        color: palette.faint,
                         size: 18,
                       ),
-                      color: const Color(0xFF1D1930),
+                      color: palette.surface,
                       onSelected: (value) {
                         if (value == 'delete') onDelete();
                         if (value == 'report') onReport();
                       },
                       itemBuilder: (context) => [
                         if (canDelete)
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'delete',
                             child: Text(
                               '삭제',
-                              style: TextStyle(color: Colors.white),
+                              style: TextStyle(color: palette.text),
                             ),
                           ),
                         if (canReport)
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'report',
                             child: Text(
                               '신고',
-                              style: TextStyle(color: Colors.white),
+                              style: TextStyle(color: palette.text),
                             ),
                           ),
                       ],
@@ -758,7 +767,7 @@ class _CommentTile extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 comment.content,
-                style: const TextStyle(color: Colors.white70, height: 1.45),
+                style: TextStyle(color: palette.muted, height: 1.45),
               ),
             ],
           ),
@@ -776,15 +785,13 @@ class _Metric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: Colors.white38, size: 16),
+        Icon(icon, color: palette.faint, size: 16),
         const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white54, fontSize: 12),
-        ),
+        Text(label, style: TextStyle(color: palette.muted, fontSize: 12)),
       ],
     );
   }
@@ -797,16 +804,17 @@ class _Tag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFF7C3AED).withValues(alpha: 0.16),
+        color: palette.accent.withValues(alpha: 0.16),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: Color(0xFFBCA7FF),
+        style: TextStyle(
+          color: palette.accent,
           fontSize: 10,
           fontWeight: FontWeight.bold,
         ),
@@ -828,19 +836,20 @@ class _CommunityMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 64, color: Colors.white24),
+            Icon(icon, size: 64, color: palette.faint),
             const SizedBox(height: 20),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: palette.text,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -849,7 +858,7 @@ class _CommunityMessage extends StatelessWidget {
             Text(
               description,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white54, height: 1.45),
+              style: TextStyle(color: palette.muted, height: 1.45),
             ),
           ],
         ),

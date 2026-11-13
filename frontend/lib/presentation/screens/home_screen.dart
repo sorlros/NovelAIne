@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../core/constants.dart'; // Added missing import
+import '../../core/theme/app_palette.dart';
 import 'story_generation_screen.dart';
 import 'story_screen.dart';
 
@@ -82,6 +83,7 @@ class _HeaderSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final bool isMobile =
         MediaQuery.of(context).size.width < AppConstants.desktopBreakpoint;
 
@@ -101,14 +103,14 @@ class _HeaderSection extends StatelessWidget {
                     style: GoogleFonts.notoSerif(
                       fontWeight: FontWeight.bold,
                       fontSize: isMobile ? 28 : 32, // 모바일에서 폰트 축소
-                      color: Colors.white,
+                      color: palette.text,
                     ),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     "당신의 상상력이 현실이 되는 곳입니다.",
                     style: GoogleFonts.lato(
-                      color: Colors.white54,
+                      color: palette.muted,
                       fontSize: isMobile ? 14 : 15,
                     ),
                   ),
@@ -128,7 +130,7 @@ class _HeaderSection extends StatelessWidget {
               },
               icon: Icon(
                 Icons.settings_outlined,
-                color: Colors.white54,
+                color: palette.muted,
                 size: isMobile ? 24 : 28,
               ),
               tooltip: "설정",
@@ -155,8 +157,8 @@ class _HeaderSection extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6B4EFF),
-              foregroundColor: Colors.white,
+              backgroundColor: palette.accent,
+              foregroundColor: palette.onAccent,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -213,6 +215,7 @@ class _HorizontalStoryListState extends ConsumerState<_HorizontalStoryList> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final storiesState = ref.watch(storiesProvider);
     final bool isMobile =
         MediaQuery.of(context).size.width < AppConstants.desktopBreakpoint;
@@ -220,11 +223,11 @@ class _HorizontalStoryListState extends ConsumerState<_HorizontalStoryList> {
     return storiesState.when(
       data: (stories) {
         if (stories.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24.0),
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: Text(
               "아직 작성 중인 이야기가 없습니다.",
-              style: TextStyle(color: Colors.white54),
+              style: TextStyle(color: palette.muted),
             ),
           );
         }
@@ -246,19 +249,19 @@ class _HorizontalStoryListState extends ConsumerState<_HorizontalStoryList> {
           ),
         );
       },
-      loading: () => _buildShimmer(isMobile),
+      loading: () => _buildShimmer(isMobile, palette),
       error: (error, _) => Center(
-        child: Text('Error: $error', style: const TextStyle(color: Colors.red)),
+        child: Text('Error: $error', style: TextStyle(color: palette.danger)),
       ),
     );
   }
 
-  Widget _buildShimmer(bool isMobile) {
+  Widget _buildShimmer(bool isMobile, AppPalette palette) {
     return SizedBox(
       height: isMobile ? 280 : 320,
       child: Shimmer.fromColors(
-        baseColor: Colors.white.withValues(alpha: 0.05),
-        highlightColor: Colors.white.withValues(alpha: 0.1),
+        baseColor: palette.raised,
+        highlightColor: palette.line,
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -267,7 +270,7 @@ class _HorizontalStoryListState extends ConsumerState<_HorizontalStoryList> {
             width: isMobile ? 170 : 200,
             margin: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
-              color: Colors.black,
+              color: palette.surface,
               borderRadius: BorderRadius.circular(20),
             ),
           ),
@@ -284,8 +287,11 @@ class _StoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final bool isMobile =
         MediaQuery.of(context).size.width < AppConstants.desktopBreakpoint;
+    // The title sits on the cover under a dark gradient; a card without a cover shows it in the theme's own colours.
+    final bool hasCover = story.coverImageUrl != null;
 
     return GestureDetector(
       onTap: () {
@@ -304,7 +310,7 @@ class _StoryCard extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          color: const Color(0xFF1E1E1E),
+          color: palette.surface,
           image: story.coverImageUrl != null
               ? DecorationImage(
                   image: CachedNetworkImageProvider(story.coverImageUrl!),
@@ -322,7 +328,7 @@ class _StoryCard extends StatelessWidget {
               Center(
                 child: Icon(
                   Icons.book,
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: palette.line,
                   size: isMobile ? 48 : 64,
                 ),
               ),
@@ -336,14 +342,16 @@ class _StoryCard extends StatelessWidget {
                   borderRadius: const BorderRadius.vertical(
                     bottom: Radius.circular(20),
                   ),
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.8),
-                    ],
-                  ),
+                  gradient: hasCover
+                      ? LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.8),
+                          ],
+                        )
+                      : null,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -352,7 +360,7 @@ class _StoryCard extends StatelessWidget {
                     Text(
                       story.title,
                       style: GoogleFonts.notoSerif(
-                        color: Colors.white,
+                        color: hasCover ? Colors.white : palette.text,
                         fontWeight: FontWeight.bold,
                         fontSize: isMobile ? 14 : 16,
                       ),
@@ -363,7 +371,7 @@ class _StoryCard extends StatelessWidget {
                     Text(
                       story.genre.toUpperCase(),
                       style: GoogleFonts.lato(
-                        color: const Color(0xFF6B4EFF),
+                        color: hasCover ? Colors.white70 : palette.muted,
                         fontWeight: FontWeight.w900,
                         fontSize: 9,
                         letterSpacing: 1,
@@ -397,16 +405,17 @@ class _GenerationBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: failed ? const Color(0xFFB3261E) : const Color(0xFF6B4EFF),
+        color: failed ? palette.danger : palette.accent,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         failed ? '생성 실패' : '생성 중',
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: failed ? palette.ground : palette.onAccent,
           fontSize: 11,
           fontWeight: FontWeight.bold,
         ),
@@ -427,23 +436,20 @@ class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
   bool _isLoading = false;
 
   Future<void> _handleDelete() async {
+    final palette = context.palette;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('스토리 삭제', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          '이 이야기를 정말 삭제하시겠습니까? 되돌릴 수 없습니다.',
-          style: TextStyle(color: Colors.white70),
-        ),
+        title: const Text('스토리 삭제'),
+        content: const Text('이 이야기를 정말 삭제하시겠습니까? 되돌릴 수 없습니다.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('취소', style: TextStyle(color: Colors.white54)),
+            child: Text('취소', style: TextStyle(color: palette.muted)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('삭제', style: TextStyle(color: Colors.redAccent)),
+            child: Text('삭제', style: TextStyle(color: palette.danger)),
           ),
         ],
       ),
@@ -472,13 +478,14 @@ class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return _isLoading
-        ? const SizedBox(
+        ? SizedBox(
             width: 24,
             height: 24,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: Colors.redAccent,
+              color: palette.danger,
             ),
           )
         : GestureDetector(
@@ -510,6 +517,7 @@ class _RecommendedThemes extends StatelessWidget {
       {'title': '로맨스 스릴러', 'icon': Icons.favorite},
     ];
 
+    final palette = context.palette;
     final bool isMobile =
         MediaQuery.of(context).size.width < AppConstants.desktopBreakpoint;
 
@@ -518,14 +526,14 @@ class _RecommendedThemes extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Icon(Icons.trending_up, color: Color(0xFF6B4EFF), size: 24),
+            Icon(Icons.trending_up, color: palette.accent, size: 24),
             const SizedBox(width: 12),
             Text(
               "추천 테마",
               style: GoogleFonts.notoSerif(
                 fontSize: isMobile ? 18 : 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: palette.text,
               ),
             ),
           ],
@@ -539,6 +547,7 @@ class _RecommendedThemes extends StatelessWidget {
                 (t) => _buildThemeChip(
                   t['title'] as String,
                   t['icon'] as IconData,
+                  palette,
                 ),
               )
               .toList(),
@@ -547,25 +556,25 @@ class _RecommendedThemes extends StatelessWidget {
     ).animate().fadeIn(delay: 400.ms);
   }
 
-  Widget _buildThemeChip(String label, IconData icon) {
+  Widget _buildThemeChip(String label, IconData icon, AppPalette palette) {
     return GestureDetector(
       onTap: () => HapticFeedback.lightImpact(),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: palette.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white10),
+          border: Border.all(color: palette.line),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: const Color(0xFF6B4EFF), size: 18),
+            Icon(icon, color: palette.accent, size: 18),
             const SizedBox(width: 10),
             Text(
               label,
-              style: const TextStyle(
-                color: Colors.white70,
+              style: TextStyle(
+                color: palette.muted,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
