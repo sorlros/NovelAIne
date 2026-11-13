@@ -237,7 +237,9 @@ class HomeScreen extends StatelessWidget {
     return ResponsiveLayout(
       currentIndex: 0,
       body: SafeArea(
-        child: Center(
+        // Top, not centre: a library shorter than the screen would otherwise float down the page.
+        child: Align(
+          alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1200),
             child: SingleChildScrollView(
@@ -590,19 +592,26 @@ class _ContinueCard extends StatelessWidget {
       meta,
       style: TextStyle(color: palette.muted, fontSize: 13),
     );
-    final button = SizedBox(
-      width: double.infinity,
-      child: FilledButton(
-        onPressed: () {
-          HapticFeedback.selectionClick();
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => StoryScreen(initialStory: story),
-            ),
-          );
-        },
-        child: Text('장면 $_scene 이어 읽기'),
+    // Full width on a phone, a button's width on a wide screen.
+    final button = Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 360),
+        child: SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => StoryScreen(initialStory: story),
+                ),
+              );
+            },
+            child: Text('장면 $_scene 이어 읽기'),
+          ),
+        ),
       ),
     );
     final progress = FittedBox(
@@ -673,7 +682,11 @@ class _ContinueCard extends StatelessWidget {
                   children: [
                     label,
                     const SizedBox(height: 10),
-                    _ManuscriptTitle(title: story.title),
+                    Semantics(
+                      label: story.title,
+                      excludeSemantics: true,
+                      child: _ManuscriptTitle(title: story.title),
+                    ),
                     const SizedBox(height: 8),
                     metaText,
                     const SizedBox(height: 16),
@@ -835,7 +848,7 @@ class _NewStoryRow extends StatelessWidget {
         : style.control(palette, selected: selected);
     return Padding(
       padding: EdgeInsets.only(top: style.isPaper ? 0 : 12),
-      child: GestureDetector(
+      child: InkWell(
         onTap: () => _openCreation(context),
         child: Container(
           width: double.infinity,
@@ -874,7 +887,7 @@ class _NewStoryCard extends StatelessWidget {
     final style = context.appStyle;
     final bool isMobile =
         MediaQuery.of(context).size.width < AppConstants.desktopBreakpoint;
-    return GestureDetector(
+    return InkWell(
       onTap: () => _openCreation(context),
       child: Container(
         width: isMobile ? 170 : 200,
@@ -940,51 +953,69 @@ class _StoryRow extends StatelessWidget {
     );
     final delete = _DeleteStoryButton(storyId: story.id, overlay: false);
 
+    // The row opens the story and the delete button sits beside it, so each is its own button for a
+    // screen reader and the keyboard.
     if (style.isPaper) {
-      return InkWell(
-        onTap: () => _openStory(context, story),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: palette.line)),
-          ),
-          child: Row(
-            children: [
-              Expanded(child: info),
-              delete,
-            ],
-          ),
+      return Container(
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: palette.line)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: () => _openStory(context, story),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: info,
+                ),
+              ),
+            ),
+            delete,
+          ],
         ),
       );
     }
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () => _openStory(context, story),
-        borderRadius: BorderRadius.circular(style.radius),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-          decoration: style.card(palette),
-          child: Row(
-            children: [
-              Expanded(child: info),
-              const SizedBox(width: 8),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${story.totalScenes}',
-                    style: appTitleStyle(style, palette, 22, height: 1),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(0, 0, 8, 0),
+        decoration: style.card(palette),
+        child: Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: () => _openStory(context, story),
+                borderRadius: BorderRadius.circular(style.radius),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+                  child: Row(
+                    children: [
+                      Expanded(child: info),
+                      const SizedBox(width: 8),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${story.totalScenes}',
+                            style: appTitleStyle(style, palette, 22, height: 1),
+                          ),
+                          Text(
+                            '장면',
+                            style: TextStyle(
+                              color: palette.muted,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  Text(
-                    '장면',
-                    style: TextStyle(color: palette.muted, fontSize: 11),
-                  ),
-                ],
+                ),
               ),
-              delete,
-            ],
-          ),
+            ),
+            delete,
+          ],
         ),
       ),
     );
@@ -1005,7 +1036,7 @@ class _StoryCard extends StatelessWidget {
     // The title sits on the cover under a dark gradient; a card without a cover shows it in the theme's own colours.
     final bool hasCover = story.coverImageUrl != null;
 
-    return GestureDetector(
+    return InkWell(
       onTap: () => _openStory(context, story),
       child: Container(
         width: isMobile ? 170 : 200, // 모바일에서 가로폭 축소
@@ -1213,7 +1244,7 @@ class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
         icon: Icon(Icons.delete_outline, color: palette.muted, size: 20),
       );
     }
-    return GestureDetector(
+    return InkWell(
       onTap: _handleDelete,
       child: Container(
         padding: const EdgeInsets.all(6),
@@ -1225,6 +1256,7 @@ class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
           Icons.delete_outline,
           color: Colors.white70,
           size: 18,
+          semanticLabel: '삭제',
         ),
       ),
     );

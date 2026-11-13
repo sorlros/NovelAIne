@@ -521,6 +521,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                       IconButton(
                         onPressed: () => Navigator.pop(context),
                         icon: const Icon(Icons.close_rounded),
+                        tooltip: '닫기',
                         color: palette.muted,
                       ),
                     ],

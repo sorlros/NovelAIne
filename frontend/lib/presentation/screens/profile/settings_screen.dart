@@ -40,7 +40,9 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: Center(
+      // Top, not centre: a short menu would otherwise float down the page.
+      body: Align(
+        alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
           child: SingleChildScrollView(
