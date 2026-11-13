@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../core/constants.dart'; // Added missing import
 import '../../core/theme/app_palette.dart';
+import '../../core/theme/app_style.dart';
 import 'story_generation_screen.dart';
 import 'story_screen.dart';
 
@@ -15,6 +16,8 @@ import 'creation/mode_selection_screen.dart' as creation_screen;
 import 'profile/settings_screen.dart'; // Added
 import '../widgets/responsive_layout.dart';
 import '../providers/content_provider.dart';
+import '../providers/plan_provider.dart';
+import '../widgets/scene_progress.dart';
 import '../widgets/custom_toast.dart';
 import '../../../data/models/story_model.dart';
 import '../../../data/repositories/story_repository.dart';
@@ -36,6 +39,196 @@ List<Map<String, dynamic>> _preWarmScenesIsolate(List<dynamic> scenes) {
       .toList();
 }
 
+/// The genre as the reader sees it: Korean for the known ones, the raw value otherwise.
+String genreLabel(String genre) {
+  switch (genre.toLowerCase()) {
+    case 'fantasy':
+      return '판타지';
+    case 'scifi':
+      return 'SF';
+    case 'mystery':
+      return '미스터리';
+    case 'romance':
+      return '로맨스';
+    case 'wuxia':
+      return '무협';
+    case 'apocalypse':
+      return '아포칼립스';
+    case 'horror':
+      return '호러';
+    default:
+      return genre;
+  }
+}
+
+/// Title face of the theme: serif at night, heavier serif on paper, heavy sans on the route.
+TextStyle appTitleStyle(
+  AppStyle style,
+  AppPalette palette,
+  double size, {
+  Color? color,
+  double? height,
+}) {
+  final c = color ?? palette.text;
+  if (style.isRoute) {
+    return style.title(
+      TextStyle(
+        color: c,
+        fontSize: size,
+        fontWeight: FontWeight.w900,
+        height: height,
+      ),
+    );
+  }
+  return GoogleFonts.notoSerif(
+    color: c,
+    fontSize: size,
+    fontWeight: style.isPaper ? FontWeight.w900 : FontWeight.bold,
+    height: height,
+  );
+}
+
+/// Genre filter chips of the explore and community screens.
+class GenreFilterBar extends StatelessWidget {
+  final String? selected;
+  final ValueChanged<String?> onSelect;
+
+  const GenreFilterBar({
+    super.key,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  static const List<Map<String, String?>> filters = [
+    {'label': '전체', 'value': null},
+    {'label': '판타지', 'value': 'fantasy'},
+    {'label': 'SF', 'value': 'scifi'},
+    {'label': '미스터리', 'value': 'mystery'},
+    {'label': '로맨스', 'value': 'romance'},
+    {'label': '무협', 'value': 'wuxia'},
+    {'label': '아포칼립스', 'value': 'apocalypse'},
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
+    return SizedBox(
+      height: 56,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+        scrollDirection: Axis.horizontal,
+        itemBuilder: (context, index) {
+          final filter = filters[index];
+          final value = filter['value'];
+          final isSelected = value == selected;
+          final fg = style.onControl(palette, selected: isSelected);
+          var decoration = style.control(palette, selected: isSelected);
+          if (style.isNight) {
+            decoration = decoration.copyWith(
+              borderRadius: BorderRadius.circular(999),
+            );
+          }
+          return Semantics(
+            button: true,
+            selected: isSelected,
+            child: GestureDetector(
+              onTap: () => onSelect(value),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                alignment: Alignment.center,
+                decoration: decoration,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isSelected && !style.isNight) ...[
+                      Icon(Icons.check, size: 14, color: fg),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      filter['label']!,
+                      style: TextStyle(
+                        color: isSelected ? fg : palette.muted,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemCount: filters.length,
+      ),
+    );
+  }
+}
+
+/// A small tag on a story card (genre, narrative type, status).
+class StoryTag extends StatelessWidget {
+  final String label;
+
+  const StoryTag({super.key, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
+    final BoxDecoration decoration = switch (style.kind) {
+      StyleKind.night => BoxDecoration(
+        color: palette.accent.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      StyleKind.paper => BoxDecoration(
+        borderRadius: BorderRadius.circular(style.radiusSmall),
+        border: Border.all(color: palette.accent),
+      ),
+      StyleKind.route => BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(style.radiusSmall),
+        border: Border.all(color: palette.text, width: 1.5),
+      ),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: decoration,
+      child: Text(
+        label,
+        style: TextStyle(
+          color: style.isRoute ? palette.text : palette.accent,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+}
+
+void _openCreation(BuildContext context) {
+  HapticFeedback.mediumImpact();
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => const creation_screen.CreationModeSelectionScreen(),
+    ),
+  );
+}
+
+void _openStory(BuildContext context, StoryModel story) {
+  HapticFeedback.selectionClick();
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => story.isGenerating
+          ? StoryGenerationScreen(story: story)
+          : StoryScreen(initialStory: story),
+    ),
+  );
+}
+
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -49,26 +242,15 @@ class HomeScreen extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 1200),
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 24.0),
-                      child: _HeaderSection(),
-                    ),
-                    const SizedBox(height: 32),
-                    const _HorizontalStoryList(),
-                    const SizedBox(height: 48),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                      child: const _RecommendedThemes(),
-                    ),
-                    // 모바일 하단 바 높이만큼 추가 여백
-                    const SizedBox(height: 100),
-                  ],
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  _HeaderSection(),
+                  SizedBox(height: 24),
+                  _Library(),
+                  // 모바일 하단 바 높이만큼 추가 여백
+                  SizedBox(height: 100),
+                ],
               ),
             ),
           ),
@@ -78,109 +260,143 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class _HeaderSection extends StatelessWidget {
+class _HeaderSection extends ConsumerWidget {
   const _HeaderSection();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
+    final style = context.appStyle;
+    final plan = ref.watch(currentPlanProvider);
     final bool isMobile =
         MediaQuery.of(context).size.width < AppConstants.desktopBreakpoint;
+    final bool band = style.isRoute;
+    final Color inkColor = band ? palette.onAccent : palette.text;
+    final turns = plan.remaining('turn');
+    final stories = plan.remaining('story');
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "계속 쓰기",
-                    style: GoogleFonts.notoSerif(
-                      fontWeight: FontWeight.bold,
-                      fontSize: isMobile ? 28 : 32, // 모바일에서 폰트 축소
-                      color: palette.text,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    "당신의 상상력이 현실이 되는 곳입니다.",
-                    style: GoogleFonts.lato(
-                      color: palette.muted,
-                      fontSize: isMobile ? 14 : 15,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            IconButton(
-              onPressed: () {
-                HapticFeedback.selectionClick();
-                // Navigate to Settings instead if needed, or just remove
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const SettingsScreen(),
-                  ),
-                );
-              },
-              icon: Icon(
-                Icons.settings_outlined,
-                color: palette.muted,
-                size: isMobile ? 24 : 28,
-              ),
-              tooltip: "설정",
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: () {
-              HapticFeedback.mediumImpact();
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      const creation_screen.CreationModeSelectionScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.add, size: 20),
-            label: const Text(
-              "새로운 이야기 시작",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: palette.accent,
-              foregroundColor: palette.onAccent,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 0,
+    final settings = IconButton(
+      onPressed: () {
+        HapticFeedback.selectionClick();
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const SettingsScreen()),
+        );
+      },
+      icon: Icon(
+        Icons.settings_outlined,
+        color: band ? palette.onAccent : palette.muted,
+        size: isMobile ? 24 : 28,
+      ),
+      tooltip: "설정",
+    );
+
+    Widget remaining() {
+      if (plan.premium) return const SizedBox.shrink();
+      if (band) {
+        TextStyle small = TextStyle(
+          color: palette.onAccent,
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+        );
+        TextStyle big = TextStyle(
+          color: palette.highlight,
+          fontSize: 40,
+          fontWeight: FontWeight.w900,
+          height: 1,
+        );
+        return Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text('오늘 ', style: small),
+                Text('$turns', style: big),
+                Text('장면', style: small),
+                const SizedBox(width: 20),
+                Text('이번 주 ', style: small),
+                Text('$stories', style: big),
+                Text('편 남음', style: small),
+              ],
             ),
           ),
+        );
+      }
+      final base = TextStyle(color: palette.muted, fontSize: 14);
+      final number = TextStyle(
+        color: palette.accent,
+        fontSize: 14,
+        fontWeight: FontWeight.bold,
+      );
+      return Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: Text.rich(
+          TextSpan(
+            style: base,
+            children: [
+              const TextSpan(text: '오늘 '),
+              TextSpan(text: '$turns', style: number),
+              const TextSpan(text: '장면 · 이번 주 '),
+              TextSpan(text: '$stories', style: number),
+              const TextSpan(text: '편 남음'),
+            ],
+          ),
         ),
+      );
+    }
+
+    final content = Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "서재",
+                style: appTitleStyle(
+                  style,
+                  palette,
+                  isMobile ? 28 : 32,
+                  color: inkColor,
+                ),
+              ),
+              remaining(),
+            ],
+          ),
+        ),
+        settings,
       ],
+    );
+
+    if (band) {
+      return Container(
+        width: double.infinity,
+        color: palette.accent,
+        padding: const EdgeInsets.fromLTRB(24, 20, 12, 24),
+        child: content,
+      ).animate().fadeIn();
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      child: content,
     ).animate().fadeIn();
   }
 }
 
-class _HorizontalStoryList extends ConsumerStatefulWidget {
-  const _HorizontalStoryList();
+class _Library extends ConsumerStatefulWidget {
+  const _Library();
 
   @override
-  ConsumerState<_HorizontalStoryList> createState() =>
-      _HorizontalStoryListState();
+  ConsumerState<_Library> createState() => _LibraryState();
 }
 
-class _HorizontalStoryListState extends ConsumerState<_HorizontalStoryList> {
+class _LibraryState extends ConsumerState<_Library> {
   bool _hasPreWarmed = false;
 
   void _preWarmRecentStory(List<StoryModel> stories) async {
@@ -213,9 +429,25 @@ class _HorizontalStoryListState extends ConsumerState<_HorizontalStoryList> {
     }
   }
 
+  /// Scenes (from 1, AI scenes in order) that carry a picture, from the pre-warmed cache.
+  Set<int> _pictured(String storyId) {
+    final scenes = ref.watch(preWarmedScenesProvider)[storyId];
+    if (scenes == null) return const {};
+    final result = <int>{};
+    var number = 0;
+    for (final scene in scenes) {
+      if (scene['role'] != 'ai') continue;
+      number++;
+      final url = scene['imageUrl'];
+      if (url is String && url.isNotEmpty) result.add(number);
+    }
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
     final storiesState = ref.watch(storiesProvider);
     final bool isMobile =
         MediaQuery.of(context).size.width < AppConstants.desktopBreakpoint;
@@ -225,9 +457,16 @@ class _HorizontalStoryListState extends ConsumerState<_HorizontalStoryList> {
         if (stories.isEmpty) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Text(
-              "아직 작성 중인 이야기가 없습니다.",
-              style: TextStyle(color: palette.muted),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "아직 작성 중인 이야기가 없습니다.",
+                  style: TextStyle(color: palette.muted),
+                ),
+                const SizedBox(height: 16),
+                const _NewStoryRow(),
+              ],
             ),
           );
         }
@@ -236,27 +475,71 @@ class _HorizontalStoryListState extends ConsumerState<_HorizontalStoryList> {
           _preWarmRecentStory(stories);
         });
 
-        return SizedBox(
-          height: isMobile ? 280 : 320, // 모바일에서 높이 축소
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            physics: const BouncingScrollPhysics(),
-            itemCount: stories.length,
-            itemBuilder: (context, index) {
-              return _StoryCard(story: stories[index], index: index);
-            },
-          ),
+        StoryModel? resume;
+        for (final story in stories) {
+          if (!story.isGenerating) {
+            resume = story;
+            break;
+          }
+        }
+        final others = [
+          for (final story in stories)
+            if (story.id != resume?.id) story,
+        ];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (resume != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: _ContinueCard(
+                  story: resume,
+                  pictured: _pictured(resume.id),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
+              child: Text(
+                "내 이야기",
+                style: appTitleStyle(style, palette, isMobile ? 18 : 20),
+              ),
+            ),
+            if (style.isNight)
+              SizedBox(
+                height: isMobile ? 280 : 320, // 모바일에서 높이 축소
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: others.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index == others.length) return const _NewStoryCard();
+                    return _StoryCard(story: others[index], index: index);
+                  },
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  children: [
+                    for (final story in others) _StoryRow(story: story),
+                    const _NewStoryRow(),
+                  ],
+                ),
+              ),
+          ],
         );
       },
-      loading: () => _buildShimmer(isMobile, palette),
+      loading: () => _buildShimmer(isMobile, palette, style),
       error: (error, _) => Center(
         child: Text('Error: $error', style: TextStyle(color: palette.danger)),
       ),
     );
   }
 
-  Widget _buildShimmer(bool isMobile, AppPalette palette) {
+  Widget _buildShimmer(bool isMobile, AppPalette palette, AppStyle style) {
     return SizedBox(
       height: isMobile ? 280 : 320,
       child: Shimmer.fromColors(
@@ -271,8 +554,436 @@ class _HorizontalStoryListState extends ConsumerState<_HorizontalStoryList> {
             margin: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
               color: palette.surface,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(style.radiusLarge),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The story to pick up reading: label, title, genre and scene, progress, and the resume button.
+class _ContinueCard extends StatelessWidget {
+  final StoryModel story;
+  final Set<int> pictured;
+
+  const _ContinueCard({required this.story, required this.pictured});
+
+  int get _scene => story.totalScenes < 1 ? 1 : story.totalScenes;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
+    final meta = '${genreLabel(story.genre)} · 장면 $_scene';
+    final label = Text(
+      '이어 읽기',
+      style: TextStyle(
+        color: palette.accent,
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 1,
+      ),
+    );
+    final metaText = Text(
+      meta,
+      style: TextStyle(color: palette.muted, fontSize: 13),
+    );
+    final button = SizedBox(
+      width: double.infinity,
+      child: FilledButton(
+        onPressed: () {
+          HapticFeedback.selectionClick();
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => StoryScreen(initialStory: story),
+            ),
+          );
+        },
+        child: Text('장면 $_scene 이어 읽기'),
+      ),
+    );
+    final progress = FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: SceneProgress(current: _scene, pictured: pictured),
+    );
+
+    switch (style.kind) {
+      case StyleKind.night:
+        final cover = story.coverImageUrl;
+        return Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: style.card(palette),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (cover != null)
+                SizedBox(
+                  height: 150,
+                  width: double.infinity,
+                  child: CachedNetworkImage(
+                    imageUrl: cover,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, _, _) => const SizedBox.shrink(),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    label,
+                    const SizedBox(height: 8),
+                    Text(
+                      story.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: appTitleStyle(style, palette, 20),
+                    ),
+                    const SizedBox(height: 4),
+                    metaText,
+                    const SizedBox(height: 14),
+                    progress,
+                    const SizedBox(height: 16),
+                    button,
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      case StyleKind.paper:
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(color: palette.text, width: 2),
+              bottom: BorderSide(color: palette.line),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    label,
+                    const SizedBox(height: 10),
+                    _ManuscriptTitle(title: story.title),
+                    const SizedBox(height: 8),
+                    metaText,
+                    const SizedBox(height: 16),
+                    button,
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '장면',
+                    style: TextStyle(color: palette.muted, fontSize: 12),
+                  ),
+                  Text(
+                    '$_scene',
+                    style: GoogleFonts.notoSerif(
+                      color: palette.text,
+                      fontSize: 56,
+                      fontWeight: FontWeight.w900,
+                      height: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      case StyleKind.route:
+        return Container(
+          padding: const EdgeInsets.all(18),
+          decoration: style.card(palette),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              label,
+              const SizedBox(height: 8),
+              Text(
+                story.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: appTitleStyle(style, palette, 22),
+              ),
+              const SizedBox(height: 4),
+              metaText,
+              const SizedBox(height: 14),
+              progress,
+              const SizedBox(height: 16),
+              button,
+            ],
+          ),
+        );
+    }
+  }
+}
+
+/// A title written one character per square, six squares a row and two rows at most; the rest goes
+/// below as plain text.
+class _ManuscriptTitle extends StatelessWidget {
+  final String title;
+
+  const _ManuscriptTitle({required this.title});
+
+  static const int _perRow = 6;
+  static const int _boxes = 12;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
+    final runes = title.runes.toList();
+    final boxed = runes.take(_boxes).map(String.fromCharCode).toList();
+    final rest = String.fromCharCodes(runes.skip(_boxes));
+    final rows = [
+      for (var i = 0; i < boxed.length; i += _perRow)
+        boxed.sublist(i, (i + _perRow).clamp(0, boxed.length)),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            // Squares as large as the row allows, up to the paper's 44.
+            final side = (constraints.maxWidth / _perRow).clamp(24.0, 44.0);
+            final grid = BorderSide(
+              color: palette.accent.withValues(alpha: 0.35),
+            );
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final row in rows)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (var i = 0; i < row.length; i++)
+                          Container(
+                            width: side,
+                            height: side,
+                            alignment: Alignment.center,
+                            // Neighbours share one line, as on manuscript paper.
+                            decoration: BoxDecoration(
+                              border: Border(
+                                top: grid,
+                                bottom: grid,
+                                right: grid,
+                                left: i == 0 ? grid : BorderSide.none,
+                              ),
+                            ),
+                            child: Text(
+                              row[i],
+                              style: GoogleFonts.notoSerif(
+                                color: palette.text,
+                                fontSize: side * 0.55,
+                                fontWeight: FontWeight.w900,
+                                height: 1,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+        if (rest.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            rest,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: appTitleStyle(style, palette, 16),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// The last entry of the list in the paper and route styles.
+class _NewStoryRow extends StatelessWidget {
+  const _NewStoryRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
+    final selected = style.isRoute;
+    final fg = style.isPaper
+        ? palette.accent
+        : style.onControl(palette, selected: selected);
+    final BoxDecoration decoration = style.isPaper
+        ? BoxDecoration(
+            border: Border(bottom: BorderSide(color: palette.line)),
+          )
+        : style.control(palette, selected: selected);
+    return Padding(
+      padding: EdgeInsets.only(top: style.isPaper ? 0 : 12),
+      child: GestureDetector(
+        onTap: () => _openCreation(context),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          decoration: decoration,
+          child: Row(
+            mainAxisAlignment: style.isPaper
+                ? MainAxisAlignment.start
+                : MainAxisAlignment.center,
+            children: [
+              Icon(Icons.add, size: 20, color: fg),
+              const SizedBox(width: 8),
+              Text(
+                "새 이야기",
+                style: TextStyle(
+                  color: fg,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The last card of the night style's horizontal list.
+class _NewStoryCard extends StatelessWidget {
+  const _NewStoryCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
+    final bool isMobile =
+        MediaQuery.of(context).size.width < AppConstants.desktopBreakpoint;
+    return GestureDetector(
+      onTap: () => _openCreation(context),
+      child: Container(
+        width: isMobile ? 170 : 200,
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: style.card(palette),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add, color: palette.accent, size: 36),
+            const SizedBox(height: 8),
+            Text(
+              "새 이야기",
+              style: TextStyle(
+                color: palette.text,
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A story of the paper and route lists: a vertical row.
+class _StoryRow extends StatelessWidget {
+  final StoryModel story;
+  const _StoryRow({required this.story});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
+    final meta = '${genreLabel(story.genre)} · 장면 ${story.totalScenes}';
+    final info = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          story.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: appTitleStyle(style, palette, 17),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Flexible(
+              child: Text(
+                meta,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: palette.muted, fontSize: 12),
+              ),
+            ),
+            if (story.isGenerating) ...[
+              const SizedBox(width: 8),
+              _GenerationBadge(failed: story.status == 'failed'),
+            ],
+          ],
+        ),
+      ],
+    );
+    final delete = _DeleteStoryButton(storyId: story.id, overlay: false);
+
+    if (style.isPaper) {
+      return InkWell(
+        onTap: () => _openStory(context, story),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: palette.line)),
+          ),
+          child: Row(
+            children: [
+              Expanded(child: info),
+              delete,
+            ],
+          ),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: () => _openStory(context, story),
+        borderRadius: BorderRadius.circular(style.radius),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+          decoration: style.card(palette),
+          child: Row(
+            children: [
+              Expanded(child: info),
+              const SizedBox(width: 8),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${story.totalScenes}',
+                    style: appTitleStyle(style, palette, 22, height: 1),
+                  ),
+                  Text(
+                    '장면',
+                    style: TextStyle(color: palette.muted, fontSize: 11),
+                  ),
+                ],
+              ),
+              delete,
+            ],
           ),
         ),
       ),
@@ -288,28 +999,19 @@ class _StoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
     final bool isMobile =
         MediaQuery.of(context).size.width < AppConstants.desktopBreakpoint;
     // The title sits on the cover under a dark gradient; a card without a cover shows it in the theme's own colours.
     final bool hasCover = story.coverImageUrl != null;
 
     return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => story.isGenerating
-                ? StoryGenerationScreen(story: story)
-                : StoryScreen(initialStory: story),
-          ),
-        );
-      },
+      onTap: () => _openStory(context, story),
       child: Container(
         width: isMobile ? 170 : 200, // 모바일에서 가로폭 축소
         margin: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(style.radiusLarge),
           color: palette.surface,
           image: story.coverImageUrl != null
               ? DecorationImage(
@@ -339,8 +1041,8 @@ class _StoryCard extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.vertical(
-                    bottom: Radius.circular(20),
+                  borderRadius: BorderRadius.vertical(
+                    bottom: Radius.circular(style.radiusLarge),
                   ),
                   gradient: hasCover
                       ? LinearGradient(
@@ -369,12 +1071,11 @@ class _StoryCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      story.genre.toUpperCase(),
-                      style: GoogleFonts.lato(
+                      '${genreLabel(story.genre)} · 장면 ${story.totalScenes}',
+                      style: TextStyle(
                         color: hasCover ? Colors.white70 : palette.muted,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 9,
-                        letterSpacing: 1,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -406,19 +1107,35 @@ class _GenerationBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: failed ? palette.danger : palette.accent,
+    final style = context.appStyle;
+    final label = failed ? '생성 실패' : '생성 중';
+    final Color tone = failed ? palette.danger : palette.accent;
+    final BoxDecoration decoration = switch (style.kind) {
+      StyleKind.night => BoxDecoration(
+        color: tone,
         borderRadius: BorderRadius.circular(999),
       ),
+      StyleKind.paper => BoxDecoration(
+        borderRadius: BorderRadius.circular(style.radiusSmall),
+        border: Border.all(color: tone),
+      ),
+      StyleKind.route => BoxDecoration(
+        color: failed ? palette.danger : palette.highlight,
+        borderRadius: BorderRadius.circular(style.radiusSmall),
+        border: Border.all(color: palette.text, width: 2),
+      ),
+    };
+    final Color fg = switch (style.kind) {
+      StyleKind.night => failed ? palette.ground : palette.onAccent,
+      StyleKind.paper => tone,
+      StyleKind.route => failed ? palette.ground : palette.onHighlight,
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: decoration,
       child: Text(
-        failed ? '생성 실패' : '생성 중',
-        style: TextStyle(
-          color: failed ? palette.ground : palette.onAccent,
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-        ),
+        label,
+        style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -426,7 +1143,10 @@ class _GenerationBadge extends StatelessWidget {
 
 class _DeleteStoryButton extends ConsumerStatefulWidget {
   final String storyId;
-  const _DeleteStoryButton({required this.storyId});
+
+  /// On a cover card the button floats in a dark circle; in a list row it is a plain icon button.
+  final bool overlay;
+  const _DeleteStoryButton({required this.storyId, this.overlay = true});
 
   @override
   ConsumerState<_DeleteStoryButton> createState() => _DeleteStoryButtonState();
@@ -479,107 +1199,32 @@ class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return _isLoading
-        ? SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: palette.danger,
-            ),
-          )
-        : GestureDetector(
-            onTap: _handleDelete,
-            child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.5),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.delete_outline,
-                color: Colors.white70,
-                size: 18,
-              ),
-            ),
-          );
-  }
-}
-
-class _RecommendedThemes extends StatelessWidget {
-  const _RecommendedThemes();
-
-  @override
-  Widget build(BuildContext context) {
-    final themes = [
-      {'title': '다크 판타지', 'icon': Icons.auto_awesome},
-      {'title': '사이버펑크', 'icon': Icons.memory},
-      {'title': '로맨스 스릴러', 'icon': Icons.favorite},
-    ];
-
-    final palette = context.palette;
-    final bool isMobile =
-        MediaQuery.of(context).size.width < AppConstants.desktopBreakpoint;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.trending_up, color: palette.accent, size: 24),
-            const SizedBox(width: 12),
-            Text(
-              "추천 테마",
-              style: GoogleFonts.notoSerif(
-                fontSize: isMobile ? 18 : 20,
-                fontWeight: FontWeight.bold,
-                color: palette.text,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: themes
-              .map(
-                (t) => _buildThemeChip(
-                  t['title'] as String,
-                  t['icon'] as IconData,
-                  palette,
-                ),
-              )
-              .toList(),
-        ),
-      ],
-    ).animate().fadeIn(delay: 400.ms);
-  }
-
-  Widget _buildThemeChip(String label, IconData icon, AppPalette palette) {
+    if (_isLoading) {
+      return SizedBox(
+        width: 24,
+        height: 24,
+        child: CircularProgressIndicator(strokeWidth: 2, color: palette.danger),
+      );
+    }
+    if (!widget.overlay) {
+      return IconButton(
+        onPressed: _handleDelete,
+        tooltip: '삭제',
+        icon: Icon(Icons.delete_outline, color: palette.muted, size: 20),
+      );
+    }
     return GestureDetector(
-      onTap: () => HapticFeedback.lightImpact(),
+      onTap: _handleDelete,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: palette.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: palette.line),
+          color: Colors.black.withValues(alpha: 0.5),
+          shape: BoxShape.circle,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: palette.accent, size: 18),
-            const SizedBox(width: 10),
-            Text(
-              label,
-              style: TextStyle(
-                color: palette.muted,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+        child: const Icon(
+          Icons.delete_outline,
+          color: Colors.white70,
+          size: 18,
         ),
       ),
     );

@@ -1,11 +1,13 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_palette.dart';
+import '../../core/theme/app_style.dart';
 import '../../data/models/story_model.dart';
 import '../../data/services/api_service.dart';
 import '../widgets/responsive_layout.dart';
 import 'community_screen.dart';
+import 'home_screen.dart'
+    show GenreFilterBar, StoryTag, appTitleStyle, genreLabel;
 import 'story_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
@@ -19,16 +21,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
   final ApiService _apiService = ApiService();
   late Future<List<StoryModel>> _storiesFuture;
   String? _selectedGenre;
-
-  static const List<Map<String, String?>> _genreFilters = [
-    {'label': '전체', 'value': null},
-    {'label': '판타지', 'value': 'fantasy'},
-    {'label': 'SF', 'value': 'scifi'},
-    {'label': '미스터리', 'value': 'mystery'},
-    {'label': '로맨스', 'value': 'romance'},
-    {'label': '무협', 'value': 'wuxia'},
-    {'label': '아포칼립스', 'value': 'apocalypse'},
-  ];
 
   @override
   void initState() {
@@ -77,7 +69,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(child: _buildHeader(isMobile)),
-            SliverToBoxAdapter(child: _buildGenreFilters()),
+            SliverToBoxAdapter(
+              child: GenreFilterBar(
+                selected: _selectedGenre,
+                onSelect: _selectGenre,
+              ),
+            ),
             FutureBuilder<List<StoryModel>>(
               future: _storiesFuture,
               builder: (context, snapshot) {
@@ -156,6 +153,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Widget _buildHeader(bool isMobile) {
     final palette = context.palette;
+    final style = context.appStyle;
     return Padding(
       padding: EdgeInsets.fromLTRB(
         isMobile ? 20 : 36,
@@ -174,11 +172,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             children: [
               Text(
                 '공개 서재',
-                style: GoogleFonts.notoSerif(
-                  color: palette.text,
-                  fontSize: isMobile ? 28 : 36,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: appTitleStyle(style, palette, isMobile ? 28 : 36),
               ),
               OutlinedButton.icon(
                 onPressed: () {
@@ -191,7 +185,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 },
                 style: OutlinedButton.styleFrom(
                   foregroundColor: palette.muted,
-                  side: BorderSide(color: palette.line),
+                  side: BorderSide(
+                    color: style.edge(palette),
+                    width: style.borderWidth,
+                  ),
                 ),
                 icon: const Icon(Icons.forum_outlined, size: 18),
                 label: const Text('커뮤니티'),
@@ -211,36 +208,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
       ),
     );
   }
-
-  Widget _buildGenreFilters() {
-    final palette = context.palette;
-    return SizedBox(
-      height: 48,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        scrollDirection: Axis.horizontal,
-        itemBuilder: (context, index) {
-          final filter = _genreFilters[index];
-          final value = filter['value'];
-          final isSelected = value == _selectedGenre;
-          return ChoiceChip(
-            label: Text(filter['label']!),
-            selected: isSelected,
-            onSelected: (_) => _selectGenre(value),
-            backgroundColor: palette.surface,
-            selectedColor: palette.accent.withValues(alpha: 0.25),
-            labelStyle: TextStyle(
-              color: isSelected ? palette.text : palette.muted,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
-            side: BorderSide(color: isSelected ? palette.accent : palette.line),
-          );
-        },
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-        itemCount: _genreFilters.length,
-      ),
-    );
-  }
 }
 
 class _PublicStoryCard extends StatelessWidget {
@@ -252,24 +219,23 @@ class _PublicStoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(style.radius),
       child: Container(
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: palette.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: palette.line),
-        ),
+        decoration: style.card(palette),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                _Tag(label: story.genre.toUpperCase()),
+                StoryTag(label: genreLabel(story.genre)),
                 const SizedBox(width: 8),
-                _Tag(label: story.narrativeType == 'ensemble' ? '군상극' : '주인공'),
+                StoryTag(
+                  label: story.narrativeType == 'ensemble' ? '군상극' : '주인공',
+                ),
               ],
             ),
             const Spacer(),
@@ -277,12 +243,7 @@ class _PublicStoryCard extends StatelessWidget {
               story.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.notoSerif(
-                color: palette.text,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                height: 1.25,
-              ),
+              style: appTitleStyle(style, palette, 20, height: 1.25),
             ),
             const SizedBox(height: 10),
             Text(
@@ -314,32 +275,6 @@ class _PublicStoryCard extends StatelessWidget {
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Tag extends StatelessWidget {
-  final String label;
-
-  const _Tag({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: palette.accent.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: palette.accent,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
         ),
       ),
     );
