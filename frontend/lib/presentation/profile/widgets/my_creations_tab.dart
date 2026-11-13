@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/theme/app_palette.dart';
+import '../../../core/theme/app_style.dart';
 import '../../providers/content_provider.dart';
 import '../../../data/models/story_model.dart';
 import '../../../data/models/character_model.dart';
@@ -28,33 +30,27 @@ class MyCreationsTab extends ConsumerWidget {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
+            final palette = context.palette;
             return AlertDialog(
-              backgroundColor: const Color(0xFF1E1E1E),
-              title: const Text(
-                "스토리 제목 수정",
-                style: TextStyle(color: Colors.white),
-              ),
+              title: const Text("스토리 제목 수정"),
               content: TextField(
                 controller: titleController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
+                style: TextStyle(color: palette.text),
+                decoration: InputDecoration(
                   hintText: "새로운 제목",
-                  hintStyle: TextStyle(color: Colors.white54),
+                  hintStyle: TextStyle(color: palette.faint),
                   enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white24),
+                    borderSide: BorderSide(color: palette.line),
                   ),
                   focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF7C3AED)),
+                    borderSide: BorderSide(color: palette.accent),
                   ),
                 ),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    "취소",
-                    style: TextStyle(color: Colors.white54),
-                  ),
+                  child: Text("취소", style: TextStyle(color: palette.muted)),
                 ),
                 isLoading
                     ? const Padding(
@@ -85,10 +81,10 @@ class MyCreationsTab extends ConsumerWidget {
                             }
                           }
                         },
-                        child: const Text(
+                        child: Text(
                           "저장",
                           style: TextStyle(
-                            color: Color(0xFF7C3AED),
+                            color: palette.accent,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -105,27 +101,31 @@ class MyCreationsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.palette;
+    final style = context.appStyle;
     final storiesState = ref.watch(storiesProvider);
     final charactersState = ref.watch(vaultCharactersProvider);
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
       children: [
-        const Text(
+        Text(
           "내 스토리",
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+          style: style.title(
+            TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: palette.text,
+            ),
           ),
         ).animate().fadeIn().slideX(),
         const SizedBox(height: 16),
         storiesState.when(
           data: (stories) {
             if (stories.isEmpty) {
-              return const Text(
+              return Text(
                 "아직 작성된 스토리가 없습니다.",
-                style: TextStyle(color: Colors.white54),
+                style: TextStyle(color: palette.muted),
               );
             }
             return Column(
@@ -139,26 +139,27 @@ class MyCreationsTab extends ConsumerWidget {
                   .toList(),
             );
           },
-          loading: () => const Center(
-            child: CircularProgressIndicator(color: Color(0xFF7C3AED)),
-          ),
+          loading: () =>
+              Center(child: CircularProgressIndicator(color: palette.accent)),
           error: (err, _) =>
-              Text("Error: $err", style: const TextStyle(color: Colors.red)),
+              Text("Error: $err", style: TextStyle(color: palette.danger)),
         ),
         const SizedBox(height: 32),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               "내 캐릭터",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+              style: style.title(
+                TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: palette.text,
+                ),
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.add_circle, color: Color(0xFF7C3AED)),
+              icon: Icon(Icons.add_circle, color: palette.accent),
               onPressed: () {
                 Navigator.push(
                   context,
@@ -174,9 +175,9 @@ class MyCreationsTab extends ConsumerWidget {
         charactersState.when(
           data: (characters) {
             if (characters.isEmpty) {
-              return const Text(
+              return Text(
                 "아직 생성된 캐릭터가 없습니다.",
-                style: TextStyle(color: Colors.white54),
+                style: TextStyle(color: palette.muted),
               );
             }
             return GridView.builder(
@@ -191,13 +192,13 @@ class MyCreationsTab extends ConsumerWidget {
               itemCount: characters.length,
               itemBuilder: (context, index) {
                 final char = characters[index];
-                return _buildCharacterCard(char, index);
+                return _buildCharacterCard(palette, style, char, index);
               },
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, _) =>
-              Text("Error: $err", style: const TextStyle(color: Colors.red)),
+              Text("Error: $err", style: TextStyle(color: palette.danger)),
         ),
         const SizedBox(height: 32),
       ],
@@ -210,13 +211,11 @@ class MyCreationsTab extends ConsumerWidget {
     StoryModel story,
     int index,
   ) {
+    final palette = context.palette;
+    final style = context.appStyle;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E), // Dark card background
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
-      ),
+      decoration: style.card(palette),
       child: ListTile(
         onTap: () {
           Navigator.push(
@@ -232,32 +231,29 @@ class MyCreationsTab extends ConsumerWidget {
         leading: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(
-              0xFF7C3AED,
-            ).withValues(alpha: 0.15), // Purple tint
-            borderRadius: BorderRadius.circular(12),
+            color: palette.accent.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(style.radiusSmall),
           ),
-          child: const Icon(Icons.menu_book, color: Color(0xFF7C3AED)),
+          child: Icon(Icons.menu_book, color: palette.accent),
         ),
         title: Text(
           story.title,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+          style: style.title(
+            TextStyle(fontWeight: FontWeight.bold, color: palette.text),
           ),
         ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4.0),
           child: Text(
             story.isPublic ? '공개 중 · ${story.status}' : '비공개 · ${story.status}',
-            style: const TextStyle(color: Colors.white54, fontSize: 13),
+            style: TextStyle(color: palette.muted, fontSize: 13),
           ),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              icon: const Icon(Icons.edit_outlined, color: Colors.white54),
+              icon: Icon(Icons.edit_outlined, color: palette.muted),
               onPressed: () {
                 _showEditStoryDialog(context, ref, story);
               },
@@ -270,13 +266,14 @@ class MyCreationsTab extends ConsumerWidget {
     ).animate().fadeIn().slideY(delay: (300 + index * 100).ms);
   }
 
-  Widget _buildCharacterCard(CharacterModel char, int index) {
+  Widget _buildCharacterCard(
+    AppPalette palette,
+    AppStyle style,
+    CharacterModel char,
+    int index,
+  ) {
     return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white10),
-      ),
+      decoration: style.card(palette),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -287,7 +284,7 @@ class MyCreationsTab extends ConsumerWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: const Color(0xFF7C3AED).withValues(alpha: 0.5),
+                  color: palette.accent.withValues(alpha: 0.5),
                 ),
               ),
               child: ClipOval(
@@ -297,10 +294,8 @@ class MyCreationsTab extends ConsumerWidget {
                   placeholder: (context, url) => const Center(
                     child: CircularProgressIndicator(strokeWidth: 1),
                   ),
-                  errorWidget: (context, url, error) => const Icon(
-                    Icons.broken_image_outlined,
-                    color: Colors.white24,
-                  ),
+                  errorWidget: (context, url, error) =>
+                      Icon(Icons.broken_image_outlined, color: palette.faint),
                 ),
               ),
             )
@@ -308,22 +303,20 @@ class MyCreationsTab extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                color: palette.accent.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.person,
-                size: 36,
-                color: Color(0xFF7C3AED),
-              ),
+              child: Icon(Icons.person, size: 36, color: palette.accent),
             ),
           const SizedBox(height: 16),
           Text(
             char.name,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: Colors.white,
+            style: style.title(
+              TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: palette.text,
+              ),
             ),
           ),
           const SizedBox(height: 6),
@@ -337,9 +330,9 @@ class MyCreationsTab extends ConsumerWidget {
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: Colors.white54,
+                  color: palette.muted,
                   height: 1.3,
                 ),
               ),
@@ -395,6 +388,7 @@ class _VisibilityStoryButtonState
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     if (_isLoading) {
       return const Padding(
         padding: EdgeInsets.all(12),
@@ -412,7 +406,7 @@ class _VisibilityStoryButtonState
         widget.story.isPublic
             ? Icons.public_rounded
             : Icons.public_off_outlined,
-        color: widget.story.isPublic ? const Color(0xFF7C3AED) : Colors.white54,
+        color: widget.story.isPublic ? palette.accent : palette.muted,
       ),
       onPressed: _toggleVisibility,
     );
@@ -434,20 +428,16 @@ class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text('스토리 삭제', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          '정말로 이 스토리를 삭제하시겠습니까?\n이 작업은 취소할 수 없습니다.',
-          style: TextStyle(color: Colors.white70),
-        ),
+        title: const Text('스토리 삭제'),
+        content: const Text('정말로 이 스토리를 삭제하시겠습니까?\n이 작업은 취소할 수 없습니다.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('취소', style: TextStyle(color: Colors.white54)),
+            child: Text('취소', style: TextStyle(color: context.palette.muted)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('삭제', style: TextStyle(color: Colors.redAccent)),
+            child: Text('삭제', style: TextStyle(color: context.palette.danger)),
           ),
         ],
       ),
@@ -477,20 +467,21 @@ class _DeleteStoryButtonState extends ConsumerState<_DeleteStoryButton> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return _isLoading
-        ? const Padding(
-            padding: EdgeInsets.all(12.0),
+        ? Padding(
+            padding: const EdgeInsets.all(12.0),
             child: SizedBox(
               width: 24,
               height: 24,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Colors.redAccent,
+                color: palette.danger,
               ),
             ),
           )
         : IconButton(
-            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+            icon: Icon(Icons.delete_outline, color: palette.danger),
             onPressed: _deleteStory,
           );
   }

@@ -1,512 +1,497 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../../../core/constants.dart';
-import 'wizard_screen.dart';
-import '../../widgets/responsive_layout.dart';
+import '../../../core/theme/app_palette.dart';
+import '../../../core/theme/app_style.dart';
+import '../../../data/constants/creation_prompts.dart';
+import '../../../data/models/creation_config.dart';
 import '../../providers/content_provider.dart';
 import '../../providers/plan_provider.dart';
 import '../../widgets/custom_toast.dart';
+import '../../widgets/responsive_layout.dart';
+import 'start_story.dart';
+import 'wizard_screen.dart';
 
-class CreationModeSelectionScreen extends ConsumerWidget {
+/// The "new story" screen: genre, tone, an optional name and the engine on one page.
+class CreationModeSelectionScreen extends ConsumerStatefulWidget {
   const CreationModeSelectionScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CreationModeSelectionScreen> createState() =>
+      _CreationModeSelectionScreenState();
+}
+
+class _CreationModeSelectionScreenState
+    extends ConsumerState<CreationModeSelectionScreen> {
+  String? _genre;
+  String? _tone;
+  final _nameController = TextEditingController();
+
+  /// One id per screen: tapping create again after a lost response returns the same story.
+  final String _requestId = const Uuid().v4();
+
+  bool get _ready => _genre != null && _tone != null;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  void _create() {
+    final genre = _genre;
+    final tone = _tone;
+    if (genre == null || tone == null) return;
+    final name = _nameController.text.trim();
+    final config = CreationConfig(isQuickStart: true)
+      ..genreLabel = genre
+      ..genrePrompt = CreationPrompts.genres[genre]
+      ..toneLabel = tone
+      ..tonePrompt = CreationPrompts.tones[tone]
+      ..userName = name.isEmpty ? null : name;
+    startStory(context, ref, config, _requestId);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
+    final plan = ref.watch(currentPlanProvider);
     final selectedModel = ref.watch(selectedModelProvider);
+    final proLocked = plan.locks(AppConstants.proLlmModel);
+
     return ResponsiveLayout(
       currentIndex: 2,
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text(""),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Stack(
-        children: [
-          // Background Subtle Effects
-          const _SubtleBackgroundGlow(),
-
-          SafeArea(
-            child: Center(
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
               child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24.0,
-                  vertical: 24.0,
-                ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: 850,
-                  ), // Slightly adjusted
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 20),
-                      const Icon(
-                        Icons.edit_note,
-                        color: Color(0xFF6B4EFF),
-                        size: 48,
-                      ).animate().fadeIn().slideY(begin: -0.2, end: 0),
-                      const SizedBox(height: 16),
-
-                      const Text(
-                            "어떻게 시작할까요?",
-                            style: TextStyle(
-                              fontSize: 34,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              letterSpacing: -1.0,
-                            ),
-                          )
-                          .animate()
-                          .fadeIn(duration: 600.ms)
-                          .slideX(begin: -0.05, end: 0),
-
-                      const SizedBox(height: 12),
-
-                      Text(
-                        "상상 속의 세계를 펼칠 준비가 되었습니다.\n원하는 창작 방식을 선택해 주세요.",
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.6),
-                          fontSize: 16,
-                          height: 1.6,
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 720),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _Header(
+                          onBack: Navigator.canPop(context)
+                              ? () => Navigator.pop(context)
+                              : null,
                         ),
-                      ).animate().fadeIn(delay: 200.ms, duration: 600.ms),
-
-                      const SizedBox(height: 40),
-
-                      // Model Selection
-                      _buildModelSelector(context, ref, selectedModel),
-
-                      const SizedBox(height: 40),
-
-                      // LayoutBuilder to handle side-by-side on desktop vs column on mobile
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          if (constraints.maxWidth > 600) {
-                            return Row(
-                              children: [
-                                Expanded(
-                                  child: _ModernModeCard(
-                                    title: "빠른 시작",
-                                    subtitle: "Quick Start",
-                                    description:
-                                        "장르와 몇 가지 키워드만 고르면 AI가 즉시 흥미로운 서막을 만들어냅니다.",
-                                    iconData: Icons.bolt,
-                                    accentColor: const Color(0xFFFFBE0B),
-                                    delay: 400,
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              const WizardScreen(
-                                                isQuickStart: true,
-                                              ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 24),
-                                Expanded(
-                                  child: _ModernModeCard(
-                                    title: "상세 설정",
-                                    subtitle: "World Builder",
-                                    description:
-                                        "세계의 법칙, 다면적인 캐릭터, 복잡한 설정들을 직접 설계하고 지휘합니다.",
-                                    iconData: Icons.architecture,
-                                    accentColor: const Color(0xFF6B4EFF),
-                                    delay: 600,
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              const WizardScreen(
-                                                isQuickStart: false,
-                                              ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ],
-                            );
-                          } else {
-                            return Column(
-                              children: [
-                                _ModernModeCard(
-                                  title: "빠른 시작",
-                                  subtitle: "Quick Start",
-                                  description:
-                                      "장르와 몇 가지 키워드만 고르면 AI가 즉시 흥미로운 서막을 만들어냅니다.",
-                                  iconData: Icons.bolt,
-                                  accentColor: const Color(0xFFFFBE0B),
-                                  delay: 400,
-                                  onTap: () {
-                                    Navigator.push(
+                        const SizedBox(height: 28),
+                        _SectionTitle(number: 1, title: '장르'),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            for (final key in CreationPrompts.genres.keys)
+                              _ChoiceChip(
+                                label: CreationPrompts.displayName(key),
+                                selected: _genre == key,
+                                onTap: () => setState(() => _genre = key),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 28),
+                        _SectionTitle(number: 2, title: '분위기'),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            for (final key in CreationPrompts.tones.keys)
+                              _ChoiceChip(
+                                label: CreationPrompts.displayName(key),
+                                selected: _tone == key,
+                                onTap: () => setState(() => _tone = key),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 28),
+                        _SectionTitle(number: 3, title: '주인공 이름 (선택)'),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _nameController,
+                          style: TextStyle(color: palette.text),
+                          cursorColor: palette.accent,
+                          decoration: InputDecoration(
+                            hintText: '비워 두면 이야기가 정합니다',
+                            hintStyle: TextStyle(color: palette.faint),
+                            filled: true,
+                            fillColor: palette.surface,
+                            border: _inputBorder(style, palette.line),
+                            enabledBorder: _inputBorder(
+                              style,
+                              style.edge(palette),
+                            ),
+                            focusedBorder: _inputBorder(style, palette.accent),
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        Text(
+                          '글 쓰는 엔진',
+                          style: TextStyle(
+                            color: palette.muted,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _EngineOption(
+                                label: '기본',
+                                selected:
+                                    selectedModel ==
+                                    AppConstants.defaultLlmModel,
+                                onTap: () =>
+                                    ref
+                                        .read(selectedModelProvider.notifier)
+                                        .state = AppConstants
+                                        .defaultLlmModel,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _EngineOption(
+                                label: '고급',
+                                selected:
+                                    selectedModel == AppConstants.proLlmModel,
+                                locked: proLocked,
+                                onTap: () {
+                                  if (proLocked) {
+                                    CustomToast.show(
                                       context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            const WizardScreen(
-                                              isQuickStart: true,
-                                            ),
-                                      ),
+                                      AppConstants.premiumOnlyMessage,
+                                      type: ToastType.error,
                                     );
-                                  },
+                                    return;
+                                  }
+                                  ref
+                                          .read(selectedModelProvider.notifier)
+                                          .state =
+                                      AppConstants.proLlmModel;
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                color: palette.ground,
+                border: Border(
+                  top: BorderSide(
+                    color: style.edge(palette),
+                    width: style.borderWidth,
+                  ),
+                ),
+              ),
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: _ready ? _create : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: style.primary(palette),
+                            foregroundColor: style.onPrimary(palette),
+                            disabledBackgroundColor: palette.raised,
+                            disabledForegroundColor: palette.faint,
+                            elevation: 0,
+                            side: style.primaryEdge(palette),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(style.radius),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                style.isRoute ? '출발' : '이야기 만들기',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                                const SizedBox(height: 24),
-                                _ModernModeCard(
-                                  title: "상세 설정",
-                                  subtitle: "World Builder",
-                                  description:
-                                      "세계의 법칙, 다면적인 캐릭터, 복잡한 설정들을 직접 설계하고 지휘합니다.",
-                                  iconData: Icons.architecture,
-                                  accentColor: const Color(0xFF6B4EFF),
-                                  delay: 600,
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            const WizardScreen(
-                                              isQuickStart: false,
-                                            ),
-                                      ),
-                                    );
-                                  },
-                                ),
+                              ),
+                              if (style.isRoute) ...[
+                                const SizedBox(width: 8),
+                                const Icon(Icons.arrow_forward, size: 18),
                               ],
-                            );
-                          }
-                        },
+                            ],
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 48),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              plan.premium
+                                  ? '2~3분 걸려요'
+                                  : '무료로 이번 주 ${plan.remaining('story')}편 남음 · 2~3분 걸려요',
+                              style: TextStyle(
+                                color: palette.muted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const WizardScreen(isQuickStart: false),
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              foregroundColor: palette.accent,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            child: const Text(
+                              '직접 정하기',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildModelSelector(
-    BuildContext context,
-    WidgetRef ref,
-    String selectedModel,
-  ) {
-    final proLocked = ref
-        .watch(currentPlanProvider)
-        .locks(AppConstants.proLlmModel);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.psychology, color: Color(0xFF6B4EFF), size: 20),
-            const SizedBox(width: 10),
-            Text(
-              "AI 스토리 엔진",
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.9),
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+  OutlineInputBorder _inputBorder(AppStyle style, Color color) =>
+      OutlineInputBorder(
+        borderRadius: BorderRadius.circular(style.radiusSmall),
+        borderSide: BorderSide(color: color, width: style.borderWidth),
+      );
+}
+
+/// Title block: an accent band on the route style, a plain serif title elsewhere.
+class _Header extends StatelessWidget {
+  final VoidCallback? onBack;
+  const _Header({this.onBack});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
+    if (style.isRoute) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: palette.accent,
+          borderRadius: BorderRadius.circular(style.radius),
+          border: Border.all(color: palette.text, width: 2),
+          boxShadow: style.shadow(palette),
         ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _ModelOptionTile(
-                title: "DeepSeek V4.1 Flash",
-                subtitle: "빠르고 가벼운 전개",
-                isSelected: selectedModel == AppConstants.defaultLlmModel,
-                onTap: () => ref.read(selectedModelProvider.notifier).state =
-                    AppConstants.defaultLlmModel,
+        child: Text(
+          '출발 전에 세 가지만',
+          style: style.title(
+            TextStyle(color: palette.onAccent, fontSize: 24, height: 1.3),
+          ),
+        ),
+      );
+    }
+    return Row(
+      children: [
+        if (onBack != null)
+          IconButton(
+            icon: Icon(Icons.arrow_back_ios_new, color: palette.muted),
+            onPressed: onBack,
+          ),
+        Expanded(
+          child: Text(
+            '어떤 이야기를 읽고 싶나요?',
+            style: style.title(
+              TextStyle(
+                color: palette.text,
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                height: 1.3,
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _ModelOptionTile(
-                title: "Claude Sonnet 5.5",
-                subtitle: "치밀하고 풍부한 서사",
-                isSelected: selectedModel == AppConstants.proLlmModel,
-                locked: proLocked,
-                onTap: () {
-                  if (proLocked) {
-                    CustomToast.show(
-                      context,
-                      AppConstants.premiumOnlyMessage,
-                      type: ToastType.error,
-                    );
-                    return;
-                  }
-                  ref.read(selectedModelProvider.notifier).state =
-                      AppConstants.proLlmModel;
-                },
-              ),
-            ),
-          ],
+          ),
         ),
       ],
-    ).animate().fadeIn(delay: 300.ms);
+    );
   }
 }
 
-class _ModelOptionTile extends StatelessWidget {
+class _SectionTitle extends StatelessWidget {
+  final int number;
   final String title;
-  final String subtitle;
-  final bool isSelected;
+  const _SectionTitle({required this.number, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
+    return Row(
+      children: [
+        if (style.isRoute) ...[
+          Container(
+            width: 24,
+            height: 24,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: palette.highlight,
+              borderRadius: BorderRadius.circular(style.radiusSmall),
+              border: Border.all(color: palette.text, width: 2),
+            ),
+            child: Text(
+              '$number',
+              style: TextStyle(
+                color: palette.onHighlight,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+        ],
+        Text(
+          title,
+          style: style.title(
+            TextStyle(
+              color: palette.text,
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChoiceChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _ChoiceChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
+    final color = style.onControl(palette, selected: selected);
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: style
+              .control(palette, selected: selected)
+              .copyWith(
+                borderRadius: BorderRadius.circular(
+                  style.isNight ? style.radiusLarge : style.radiusSmall,
+                ),
+              ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (selected && !style.isNight) ...[
+                Icon(Icons.check, size: 14, color: color),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 14,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EngineOption extends StatelessWidget {
+  final String label;
+  final bool selected;
   final bool locked;
   final VoidCallback onTap;
-
-  const _ModelOptionTile({
-    required this.title,
-    required this.subtitle,
-    required this.isSelected,
+  const _EngineOption({
+    required this.label,
+    required this.selected,
     this.locked = false,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xFF6B4EFF).withValues(alpha: 0.15)
-              : const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected
-                ? const Color(0xFF6B4EFF)
-                : Colors.white.withValues(alpha: 0.05),
-            width: 1.5,
-          ),
-        ),
-        child: Column(
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (locked) ...[
-                  const Icon(Icons.lock, color: Colors.white54, size: 14),
-                  const SizedBox(width: 4),
-                ],
-                Flexible(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.white70,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              locked ? '유료' : subtitle,
-              style: TextStyle(
-                color: isSelected
-                    ? const Color(0xFF6B4EFF).withValues(alpha: 0.8)
-                    : Colors.white38,
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ModernModeCard extends StatefulWidget {
-  final String title;
-  final String subtitle;
-  final String description;
-  final IconData iconData;
-  final Color accentColor;
-  final int delay;
-  final VoidCallback onTap;
-
-  const _ModernModeCard({
-    required this.title,
-    required this.subtitle,
-    required this.description,
-    required this.iconData,
-    required this.accentColor,
-    required this.delay,
-    required this.onTap,
-  });
-
-  @override
-  State<_ModernModeCard> createState() => _ModernModeCardState();
-}
-
-class _ModernModeCardState extends State<_ModernModeCard> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+    final palette = context.palette;
+    final style = context.appStyle;
+    final color = selected
+        ? style.onControl(palette, selected: true)
+        : palette.muted;
+    return Semantics(
+      button: true,
+      selected: selected,
       child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: const Color(0xFF151515),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: _isHovered
-                  ? widget.accentColor.withValues(alpha: 0.5)
-                  : Colors.white10,
-              width: 1.5,
-            ),
-            boxShadow: [
-              if (_isHovered)
-                BoxShadow(
-                  color: widget.accentColor.withValues(alpha: 0.15),
-                  blurRadius: 20,
-                  spreadRadius: 5,
-                ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: style.control(palette, selected: selected),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: widget.accentColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(
-                  widget.iconData,
-                  color: widget.accentColor,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(height: 24),
+              if (locked) ...[
+                Icon(Icons.lock, size: 14, color: color),
+                const SizedBox(width: 4),
+              ],
               Text(
-                widget.subtitle.toUpperCase(),
+                label,
                 style: TextStyle(
-                  color: widget.accentColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                widget.title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
+                  color: color,
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 16),
-              Text(
-                widget.description,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6),
-                  fontSize: 15,
-                  height: 1.5,
+              if (locked) ...[
+                const SizedBox(width: 6),
+                Text(
+                  '유료',
+                  style: TextStyle(color: palette.faint, fontSize: 11),
                 ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Text(
-                    "시작하기",
-                    style: TextStyle(
-                      color: widget.accentColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.arrow_forward,
-                    color: widget.accentColor,
-                    size: 16,
-                  ),
-                ],
-              ),
+              ],
             ],
           ),
-        ).animate().fadeIn(delay: widget.delay.ms).slideY(begin: 0.1, end: 0),
+        ),
       ),
-    );
-  }
-}
-
-class _SubtleBackgroundGlow extends StatelessWidget {
-  const _SubtleBackgroundGlow();
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          top: -100,
-          right: -100,
-          child: Container(
-            width: 400,
-            height: 400,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFF6B4EFF).withValues(alpha: 0.05),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF6B4EFF).withValues(alpha: 0.05),
-                  blurRadius: 100,
-                  spreadRadius: 50,
-                ),
-              ],
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: -150,
-          left: -50,
-          child: Container(
-            width: 300,
-            height: 300,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFFFFBE0B).withValues(alpha: 0.03),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFFFBE0B).withValues(alpha: 0.03),
-                  blurRadius: 100,
-                  spreadRadius: 50,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

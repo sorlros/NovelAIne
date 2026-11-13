@@ -98,6 +98,33 @@ class TurnTest(unittest.IsolatedAsyncioTestCase):
         prompt = [user for kind, _, user in self.model.calls if kind == "stream"][-1]
         self.assertIn(f"독자의 선택: {chosen_fact}", prompt)
 
+    async def test_the_status_shows_the_path_and_which_choices_stay(self):
+        status = play_status(load_context(self.client, self.story_id))
+        self.assertEqual(status["path"], [{"seq": 1, "label": "", "lasting": False}])  # the opening, reached by no choice
+        lasting, _ = await take_turn(self.client, self.story_id, self.model)
+        choices = available_choices(load_context(self.client, self.story_id))
+        quiet_id = next(choice["id"] for choice in choices if not choice["lasting"])
+        quiet, _ = await take_turn(self.client, self.story_id, self.model, choice_id=quiet_id)
+        status = play_status(load_context(self.client, self.story_id))
+        self.assertEqual(status["path"], [
+            {"seq": 1, "label": "", "lasting": False},
+            {"seq": 2, "label": lasting.choice["label"], "lasting": True},
+            {"seq": 3, "label": quiet.choice["label"], "lasting": False},
+        ])
+
+    async def test_a_beat_saved_before_the_path_was_recorded_gets_it_from_the_previous_choice(self):
+        turn, _ = await take_turn(self.client, self.story_id, self.model)
+        beat = next(beat for beat in self.client.rows("story_beats", story_id=self.story_id) if beat["seq"] == 2)
+        beat["card"] = {key: value for key, value in beat["card"].items() if key not in ("chosen_label", "chosen_lasting")}
+        path = play_status(load_context(self.client, self.story_id))["path"]
+        self.assertEqual(path[-1], {"seq": 2, "label": turn.choice["label"], "lasting": True})
+
+    async def test_an_undone_turn_leaves_the_path(self):
+        await take_turn(self.client, self.story_id, self.model)
+        undo_last_turn(self.client, self.story_id)
+        path = play_status(load_context(self.client, self.story_id))["path"]
+        self.assertEqual([step["seq"] for step in path], [1])
+
     async def test_a_choice_that_is_not_offered_is_refused(self):
         with self.assertRaises(PlayError) as caught:
             await prepare_turn(self.client, self.story_id, "made-up", planner_for(self.model))

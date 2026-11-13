@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'dart:ui' as ui;
 
+import '../../core/theme/app_palette.dart';
+
 class WritingEffect extends StatefulWidget {
   final String text;
   final TextStyle style;
@@ -17,7 +19,8 @@ class WritingEffect extends StatefulWidget {
   State<WritingEffect> createState() => _WritingEffectState();
 }
 
-class _WritingEffectState extends State<WritingEffect> with SingleTickerProviderStateMixin {
+class _WritingEffectState extends State<WritingEffect>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<int> _characterCount;
 
@@ -28,7 +31,10 @@ class _WritingEffectState extends State<WritingEffect> with SingleTickerProvider
       duration: widget.duration * widget.text.length,
       vsync: this,
     );
-    _characterCount = StepTween(begin: 0, end: widget.text.length).animate(_controller);
+    _characterCount = StepTween(
+      begin: 0,
+      end: widget.text.length,
+    ).animate(_controller);
     _controller.forward();
   }
 
@@ -37,9 +43,12 @@ class _WritingEffectState extends State<WritingEffect> with SingleTickerProvider
     super.didUpdateWidget(oldWidget);
     if (oldWidget.text != widget.text) {
       _controller.duration = widget.duration * widget.text.length;
-      _characterCount = StepTween(begin: 0, end: widget.text.length).animate(_controller);
+      _characterCount = StepTween(
+        begin: 0,
+        end: widget.text.length,
+      ).animate(_controller);
       if (_controller.status == AnimationStatus.completed) {
-         // If it was already finished, just show the full text
+        // If it was already finished, just show the full text
       } else {
         _controller.forward();
       }
@@ -54,6 +63,7 @@ class _WritingEffectState extends State<WritingEffect> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return AnimatedBuilder(
       animation: _characterCount,
       builder: (context, child) {
@@ -63,6 +73,8 @@ class _WritingEffectState extends State<WritingEffect> with SingleTickerProvider
             text: textToShow,
             fullText: widget.text,
             style: widget.style,
+            penColor: palette.muted,
+            glowColor: palette.accent,
             isFinished: _characterCount.value == widget.text.length,
           ),
           child: Container(
@@ -81,11 +93,17 @@ class _WritingPainter extends CustomPainter {
   final TextStyle style;
   final bool isFinished;
 
+  /// Used when [style] names no colour.
+  final Color penColor;
+  final Color glowColor;
+
   _WritingPainter({
     required this.text,
     required this.fullText,
     required this.style,
     required this.isFinished,
+    required this.penColor,
+    required this.glowColor,
   });
 
   @override
@@ -107,7 +125,7 @@ class _WritingPainter extends CustomPainter {
       );
 
       final Paint penPaint = Paint()
-        ..color = style.color?.withValues(alpha: 0.8) ?? Colors.white70
+        ..color = style.color?.withValues(alpha: 0.8) ?? penColor
         ..strokeWidth = 2.0
         ..style = PaintingStyle.fill;
 
@@ -119,12 +137,14 @@ class _WritingPainter extends CustomPainter {
         ..close();
 
       canvas.drawPath(penPath, penPaint);
-      
+
       // Add a subtle "ink glow" at the tip
       canvas.drawCircle(
-        lastOffset, 
-        2.0, 
-        Paint()..color = (style.color ?? Colors.purpleAccent).withValues(alpha: 0.4)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0)
+        lastOffset,
+        2.0,
+        Paint()
+          ..color = (style.color ?? glowColor).withValues(alpha: 0.4)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0),
       );
     }
   }

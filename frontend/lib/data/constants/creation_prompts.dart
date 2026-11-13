@@ -1,16 +1,25 @@
 class CreationPrompts {
   // 장르 (Genre)
   static const Map<String, String> genres = {
-    '판타지 (Fantasy)': 'High Fantasy, magic, mythical creatures, medieval setting',
-    'SF (Sci-Fi)': 'Science Fiction, futuristic technology, space travel, dystopia',
-    '미스터리 (Mystery)': 'Mystery, detective, suspense, hidden clues, noir atmosphere',
-    '로맨스 (Romance)': 'Romance, emotional connection, relationship drama, modern setting',
+    '판타지 (Fantasy)':
+        'High Fantasy, magic, mythical creatures, medieval setting',
+    'SF (Sci-Fi)':
+        'Science Fiction, futuristic technology, space travel, dystopia',
+    '미스터리 (Mystery)':
+        'Mystery, detective, suspense, hidden clues, noir atmosphere',
+    '로맨스 (Romance)':
+        'Romance, emotional connection, relationship drama, modern setting',
     '무협 (Wuxia)': 'Wuxia, martial arts, eastern philosophy, cultivation',
-    '호러 (Horror)': 'Horror, psychological thriller, supernatural entities, dark atmosphere',
-    '사이버펑크 (Cyberpunk)': 'Cyberpunk, high tech low life, neon lights, mega corporations',
-    '스팀펑크 (Steampunk)': 'Steampunk, steam-powered technology, Victorian aesthetics, alternative history',
-    '스페이스 오페라 (Space Opera)': 'Space Opera, grand scale adventure, alien civilizations, interstellar wars',
-    '아포칼립스 (Apocalypse)': 'Post-Apocalyptic, survival, ruined world, scarce resources',
+    '호러 (Horror)':
+        'Horror, psychological thriller, supernatural entities, dark atmosphere',
+    '사이버펑크 (Cyberpunk)':
+        'Cyberpunk, high tech low life, neon lights, mega corporations',
+    '스팀펑크 (Steampunk)':
+        'Steampunk, steam-powered technology, Victorian aesthetics, alternative history',
+    '스페이스 오페라 (Space Opera)':
+        'Space Opera, grand scale adventure, alien civilizations, interstellar wars',
+    '아포칼립스 (Apocalypse)':
+        'Post-Apocalyptic, survival, ruined world, scarce resources',
   };
 
   // 분위기/톤 (Tone)
@@ -21,6 +30,28 @@ class CreationPrompts {
     '박진감 넘치는 (Action)': 'Action-packed, fast-paced, grand scale, energetic',
     '어둡고 절망적인 (Dark)': 'Dark, gritty, hopeless, survivalist',
   };
+
+  // 화면에 보일 이름. 키는 서버로 가는 값(장르 변환, 분위기)이라 그대로 두고 표시만 다르게 한다.
+  static const Map<String, String> displayNames = {
+    '판타지 (Fantasy)': '판타지',
+    'SF (Sci-Fi)': 'SF',
+    '미스터리 (Mystery)': '미스터리',
+    '로맨스 (Romance)': '로맨스',
+    '무협 (Wuxia)': '무협',
+    '호러 (Horror)': '호러',
+    '사이버펑크 (Cyberpunk)': '사이버펑크',
+    '스팀펑크 (Steampunk)': '스팀펑크',
+    '스페이스 오페라 (Space Opera)': '스페이스 오페라',
+    '아포칼립스 (Apocalypse)': '아포칼립스',
+    '가볍고 유쾌한 (Light)': '가볍게',
+    '진지하고 무거운 (Serious)': '진지하게',
+    '감성적인 (Emotional)': '감성적으로',
+    '박진감 넘치는 (Action)': '박진감 있게',
+    '어둡고 절망적인 (Dark)': '어둡게',
+  };
+
+  /// The name to show for a genre or tone [key]; the key itself if none is listed.
+  static String displayName(String key) => displayNames[key] ?? key;
 
   // 배경 설정 (World Setting - Optional Presets)
   static const Map<String, String> worldSettings = {

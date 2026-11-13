@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/theme/app_palette.dart';
+import '../../../core/theme/app_style.dart';
 import '../../providers/content_provider.dart';
 import '../character_sheet_widget.dart';
 import '../../widgets/responsive_layout.dart';
@@ -27,6 +29,8 @@ class _CharacterVaultScreenState extends ConsumerState<CharacterVaultScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
     final charactersAsync = ref.watch(charactersProvider);
     final double screenWidth = MediaQuery.of(context).size.width;
     final bool isMobile = screenWidth < 600;
@@ -38,17 +42,19 @@ class _CharacterVaultScreenState extends ConsumerState<CharacterVaultScreen> {
         elevation: 0,
         title: Text(
           "캐릭터 보관함",
-          style: GoogleFonts.notoSerif(
-            color: Colors.white,
-            fontSize: isMobile ? 18 : 20,
-            fontWeight: FontWeight.bold,
+          style: style.title(
+            GoogleFonts.notoSerif(
+              color: palette.text,
+              fontSize: isMobile ? 18 : 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: Colors.white70,
+            color: palette.muted,
             size: 20,
           ),
           onPressed: () => Navigator.pop(context),
@@ -69,28 +75,25 @@ class _CharacterVaultScreenState extends ConsumerState<CharacterVaultScreen> {
                 ),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white10),
-                  ),
+                  decoration: style.card(palette),
                   child: TextField(
                     controller: _searchController,
-                    style: const TextStyle(color: Colors.white, fontSize: 15),
+                    style: TextStyle(color: palette.text, fontSize: 15),
                     onChanged: (val) =>
                         setState(() => _searchQuery = val.toLowerCase()),
                     decoration: InputDecoration(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.search_rounded,
-                        color: Colors.white30,
+                        color: palette.faint,
                         size: 20,
                       ),
                       hintText: "이름으로 캐릭터 검색...",
-                      hintStyle: const TextStyle(
-                        color: Colors.white24,
-                        fontSize: 14,
-                      ),
+                      hintStyle: TextStyle(color: palette.faint, fontSize: 14),
+                      // The box around the field is its fill and outline: none of the theme's.
+                      filled: false,
                       border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
                     ),
                   ),
                 ),
@@ -108,7 +111,7 @@ class _CharacterVaultScreenState extends ConsumerState<CharacterVaultScreen> {
                     }).toList();
 
                     if (vaultedOnes.isEmpty) {
-                      return _buildEmptyState();
+                      return _buildEmptyState(palette);
                     }
 
                     // Dynamic column count
@@ -166,13 +169,13 @@ class _CharacterVaultScreenState extends ConsumerState<CharacterVaultScreen> {
                       },
                     );
                   },
-                  loading: () => const Center(
-                    child: CircularProgressIndicator(color: Color(0xFF7C3AED)),
+                  loading: () => Center(
+                    child: CircularProgressIndicator(color: palette.accent),
                   ),
                   error: (err, _) => Center(
                     child: Text(
                       "Error: $err",
-                      style: const TextStyle(color: Colors.redAccent),
+                      style: TextStyle(color: palette.danger),
                     ),
                   ),
                 ),
@@ -184,21 +187,17 @@ class _CharacterVaultScreenState extends ConsumerState<CharacterVaultScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(AppPalette palette) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.archive_outlined,
-            size: 64,
-            color: Colors.white.withValues(alpha: 0.1),
-          ),
+          Icon(Icons.archive_outlined, size: 64, color: palette.faint),
           const SizedBox(height: 24),
           Text(
             _searchQuery.isEmpty ? "보관함이 비어 있습니다." : "검색 결과가 없습니다.",
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.3),
+              color: palette.faint,
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
@@ -211,7 +210,7 @@ class _CharacterVaultScreenState extends ConsumerState<CharacterVaultScreen> {
                 "이야기를 읽는 중에 매력적인 인물을 발견하면\n보관함에 저장해 보세요!",
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.15),
+                  color: palette.faint,
                   fontSize: 13,
                   height: 1.5,
                 ),
@@ -231,14 +230,12 @@ class _VaultCharacterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.03),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white10),
-        ),
+        decoration: style.card(palette),
         clipBehavior: Clip.antiAlias,
         child: Stack(
           children: [
@@ -253,11 +250,11 @@ class _VaultCharacterCard extends StatelessWidget {
                           fit: BoxFit.cover,
                         )
                       : Container(
-                          color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
-                          child: const Icon(
+                          color: palette.accent.withValues(alpha: 0.1),
+                          child: Icon(
                             Icons.person_rounded,
                             size: 40,
-                            color: Colors.white10,
+                            color: palette.faint,
                           ),
                         ),
                 ),
@@ -271,10 +268,12 @@ class _VaultCharacterCard extends StatelessWidget {
                       children: [
                         Text(
                           char.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
+                          style: style.title(
+                            TextStyle(
+                              color: palette.text,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -282,10 +281,7 @@ class _VaultCharacterCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           char.description,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.4),
-                            fontSize: 11,
-                          ),
+                          style: TextStyle(color: palette.faint, fontSize: 11),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -304,9 +300,9 @@ class _VaultCharacterCard extends StatelessWidget {
                   color: Colors.black.withValues(alpha: 0.5),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.star_rounded,
-                  color: Colors.amber,
+                  color: palette.accent,
                   size: 12,
                 ),
               ),

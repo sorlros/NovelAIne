@@ -1,10 +1,13 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/theme/app_palette.dart';
+import '../../core/theme/app_style.dart';
 import '../../data/models/story_model.dart';
 import '../../data/services/api_service.dart';
 import '../widgets/responsive_layout.dart';
 import 'community_screen.dart';
+import 'home_screen.dart'
+    show GenreFilterBar, StoryTag, appTitleStyle, genreLabel;
 import 'story_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
@@ -18,16 +21,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
   final ApiService _apiService = ApiService();
   late Future<List<StoryModel>> _storiesFuture;
   String? _selectedGenre;
-
-  static const List<Map<String, String?>> _genreFilters = [
-    {'label': '전체', 'value': null},
-    {'label': '판타지', 'value': 'fantasy'},
-    {'label': 'SF', 'value': 'scifi'},
-    {'label': '미스터리', 'value': 'mystery'},
-    {'label': '로맨스', 'value': 'romance'},
-    {'label': '무협', 'value': 'wuxia'},
-    {'label': '아포칼립스', 'value': 'apocalypse'},
-  ];
 
   @override
   void initState() {
@@ -56,6 +49,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 700;
+    final palette = context.palette;
 
     return ResponsiveLayout(
       currentIndex: 1,
@@ -70,22 +64,25 @@ class _ExploreScreenState extends State<ExploreScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: _refresh,
-        color: const Color(0xFF7C3AED),
+        color: palette.accent,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(child: _buildHeader(isMobile)),
-            SliverToBoxAdapter(child: _buildGenreFilters()),
+            SliverToBoxAdapter(
+              child: GenreFilterBar(
+                selected: _selectedGenre,
+                onSelect: _selectGenre,
+              ),
+            ),
             FutureBuilder<List<StoryModel>>(
               future: _storiesFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const SliverFillRemaining(
+                  return SliverFillRemaining(
                     hasScrollBody: false,
                     child: Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF7C3AED),
-                      ),
+                      child: CircularProgressIndicator(color: palette.accent),
                     ),
                   );
                 }
@@ -155,6 +152,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _buildHeader(bool isMobile) {
+    final palette = context.palette;
+    final style = context.appStyle;
     return Padding(
       padding: EdgeInsets.fromLTRB(
         isMobile ? 20 : 36,
@@ -173,11 +172,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             children: [
               Text(
                 '공개 서재',
-                style: GoogleFonts.notoSerif(
-                  color: Colors.white,
-                  fontSize: isMobile ? 28 : 36,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: appTitleStyle(style, palette, isMobile ? 28 : 36),
               ),
               OutlinedButton.icon(
                 onPressed: () {
@@ -189,8 +184,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   );
                 },
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white70,
-                  side: const BorderSide(color: Colors.white24),
+                  foregroundColor: palette.muted,
+                  side: BorderSide(
+                    color: style.edge(palette),
+                    width: style.borderWidth,
+                  ),
                 ),
                 icon: const Icon(Icons.forum_outlined, size: 18),
                 label: const Text('커뮤니티'),
@@ -201,43 +199,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
           Text(
             '다른 창작자들이 공개한 인터랙티브 스토리를 읽고 영감을 얻어보세요.',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.58),
+              color: palette.muted,
               fontSize: isMobile ? 14 : 16,
               height: 1.5,
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildGenreFilters() {
-    return SizedBox(
-      height: 48,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        scrollDirection: Axis.horizontal,
-        itemBuilder: (context, index) {
-          final filter = _genreFilters[index];
-          final value = filter['value'];
-          final isSelected = value == _selectedGenre;
-          return ChoiceChip(
-            label: Text(filter['label']!),
-            selected: isSelected,
-            onSelected: (_) => _selectGenre(value),
-            backgroundColor: Colors.white.withValues(alpha: 0.05),
-            selectedColor: const Color(0xFF7C3AED).withValues(alpha: 0.25),
-            labelStyle: TextStyle(
-              color: isSelected ? Colors.white : Colors.white60,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
-            side: BorderSide(
-              color: isSelected ? const Color(0xFF7C3AED) : Colors.white12,
-            ),
-          );
-        },
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-        itemCount: _genreFilters.length,
       ),
     );
   }
@@ -251,24 +218,24 @@ class _PublicStoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(style.radius),
       child: Container(
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.055),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white10),
-        ),
+        decoration: style.card(palette),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                _Tag(label: story.genre.toUpperCase()),
+                StoryTag(label: genreLabel(story.genre)),
                 const SizedBox(width: 8),
-                _Tag(label: story.narrativeType == 'ensemble' ? '군상극' : '주인공'),
+                StoryTag(
+                  label: story.narrativeType == 'ensemble' ? '군상극' : '주인공',
+                ),
               ],
             ),
             const Spacer(),
@@ -276,79 +243,38 @@ class _PublicStoryCard extends StatelessWidget {
               story.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.notoSerif(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                height: 1.25,
-              ),
+              style: appTitleStyle(style, palette, 20, height: 1.25),
             ),
             const SizedBox(height: 10),
             Text(
               story.description.isEmpty ? '설명이 아직 없습니다.' : story.description,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.58),
-                height: 1.45,
-              ),
+              style: TextStyle(color: palette.muted, height: 1.45),
             ),
             const Spacer(),
             Row(
               children: [
-                const Icon(
-                  Icons.person_outline,
-                  color: Colors.white38,
-                  size: 16,
-                ),
+                Icon(Icons.person_outline, color: palette.faint, size: 16),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     story.authorUsername ?? 'Traveler',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                    style: TextStyle(color: palette.muted, fontSize: 12),
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Icon(
-                  Icons.menu_book_outlined,
-                  color: Colors.white38,
-                  size: 16,
-                ),
+                Icon(Icons.menu_book_outlined, color: palette.faint, size: 16),
                 const SizedBox(width: 4),
                 Text(
                   '${story.totalScenes}',
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  style: TextStyle(color: palette.muted, fontSize: 12),
                 ),
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Tag extends StatelessWidget {
-  final String label;
-
-  const _Tag({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: const Color(0xFF7C3AED).withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Color(0xFFBCA7FF),
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
         ),
       ),
     );
@@ -368,19 +294,20 @@ class _ExploreMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 64, color: Colors.white24),
+            Icon(icon, size: 64, color: palette.faint),
             const SizedBox(height: 20),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: palette.text,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -389,7 +316,7 @@ class _ExploreMessage extends StatelessWidget {
             Text(
               description,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white54, height: 1.45),
+              style: TextStyle(color: palette.muted, height: 1.45),
             ),
           ],
         ),

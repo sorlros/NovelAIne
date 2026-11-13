@@ -98,10 +98,10 @@ class AppLocalizationsKo extends AppLocalizations {
   String get worldThemeDesc => '당신의 이야기가 펼쳐질 배경을 설정하세요.';
 
   @override
-  String get genreLabel => '장르 (Genre)';
+  String get genreLabel => '장르';
 
   @override
-  String get toneLabel => '분위기 (Tone)';
+  String get toneLabel => '분위기';
 
   @override
   String get toneSelect => '분위기 선택';

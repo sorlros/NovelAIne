@@ -3,8 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/theme/app_palette.dart';
+import '../../core/theme/app_style.dart';
 import '../../data/models/play_models.dart';
 import '../../data/models/story_model.dart';
 import '../../data/repositories/story_repository.dart';
@@ -12,9 +13,8 @@ import '../../data/services/api_service.dart';
 import '../providers/auth_provider.dart';
 import '../providers/content_provider.dart';
 import '../widgets/custom_toast.dart';
+import 'home_screen.dart' show appTitleStyle;
 import 'story_screen.dart';
-
-const _accent = Color(0xFF7C3AED);
 
 /// Shows a skeleton story's generation progress until it can be read.
 /// Generation runs on the server; leaving this screen only stops polling.
@@ -161,13 +161,14 @@ class _StoryGenerationScreenState extends ConsumerState<StoryGenerationScreen> {
   @override
   Widget build(BuildContext context) {
     final status = _status;
+    final palette = context.palette;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F0F),
+      backgroundColor: palette.ground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white70),
+          icon: Icon(Icons.close, color: palette.muted),
           tooltip: '나가기',
           onPressed: () => Navigator.pop(context),
         ),
@@ -208,23 +209,18 @@ class _ProgressView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
     final current = status?.stepIndex ?? 0;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: GoogleFonts.notoSerif(
-            color: Colors.white,
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        Text(title, style: appTitleStyle(style, palette, 22)),
         const SizedBox(height: 8),
         Text(
           status?.label ?? GenerationStatus.stepLabels['none']!,
-          style: const TextStyle(color: Colors.white70, fontSize: 15),
+          style: TextStyle(color: palette.muted, fontSize: 15),
         ),
         const SizedBox(height: 28),
         for (var i = 0; i < GenerationStatus.steps.length; i++)
@@ -234,16 +230,16 @@ class _ProgressView extends StatelessWidget {
             active: i == current,
           ),
         const SizedBox(height: 28),
-        const Text(
+        Text(
           '몇 분 정도 걸립니다. 나가도 계속 만들어지고, 완성되면 홈의 내 이야기에서 열 수 있습니다.',
-          style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.6),
+          style: TextStyle(color: palette.muted, fontSize: 13, height: 1.6),
         ),
         if (connectionLost)
-          const Padding(
-            padding: EdgeInsets.only(top: 12),
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
             child: Text(
               '서버와 연결이 끊겼습니다. 다시 연결을 시도하고 있습니다.',
-              style: TextStyle(color: Color(0xFFFFD166), fontSize: 13),
+              style: TextStyle(color: palette.warning, fontSize: 13),
             ),
           ),
       ],
@@ -264,21 +260,64 @@ class _StepRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Widget marker = done
-        ? const Icon(Icons.check_circle_rounded, color: _accent, size: 20)
-        : active
-        ? const SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2, color: _accent),
-          )
-        : const Icon(
-            Icons.radio_button_unchecked,
-            color: Colors.white24,
-            size: 20,
-          );
-    return Padding(
+    final palette = context.palette;
+    final style = context.appStyle;
+    final Widget marker;
+    if (style.isNight) {
+      marker = done
+          ? Icon(Icons.check_circle_rounded, color: palette.accent, size: 20)
+          : active
+          ? SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: palette.accent,
+              ),
+            )
+          : Icon(Icons.radio_button_unchecked, color: palette.faint, size: 20);
+    } else {
+      // Square marker: filled with the main action's colour once done, outlined while active or waiting.
+      final route = style.isRoute;
+      marker = Container(
+        width: 22,
+        height: 22,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: done ? style.primary(palette) : null,
+          borderRadius: BorderRadius.circular(style.radiusSmall),
+          border: Border.all(
+            color: route
+                ? palette.text
+                : done
+                ? palette.text
+                : active
+                ? palette.accent
+                : palette.faint,
+            width: style.borderWidth,
+          ),
+        ),
+        child: done
+            ? Icon(Icons.check, size: 15, color: style.onPrimary(palette))
+            : active
+            ? SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: palette.accent,
+                ),
+              )
+            : null,
+      );
+    }
+    return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: style.isPaper
+          ? BoxDecoration(
+              border: Border(bottom: BorderSide(color: palette.line)),
+            )
+          : null,
       child: Row(
         children: [
           marker,
@@ -287,8 +326,11 @@ class _StepRow extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                color: done || active ? Colors.white : Colors.white38,
+                color: done || active ? palette.text : palette.faint,
                 fontSize: 14,
+                fontWeight: active && !style.isNight
+                    ? FontWeight.bold
+                    : FontWeight.normal,
               ),
             ),
           ),
@@ -311,14 +353,16 @@ class _FailedView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           '이야기를 만들지 못했습니다',
           style: TextStyle(
-            color: Colors.white,
+            color: palette.text,
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
@@ -326,14 +370,21 @@ class _FailedView extends StatelessWidget {
         const SizedBox(height: 10),
         Text(
           error ?? '잠시 후 다시 시도해 주세요.',
-          style: const TextStyle(color: Colors.white70, height: 1.6),
+          style: TextStyle(color: palette.muted, height: 1.6),
         ),
         const SizedBox(height: 24),
         FilledButton.icon(
           onPressed: retrying ? null : onRetry,
           icon: const Icon(Icons.refresh_rounded),
           label: Text(retrying ? '다시 시작하는 중...' : '다시 시도'),
-          style: FilledButton.styleFrom(backgroundColor: _accent),
+          style: FilledButton.styleFrom(
+            backgroundColor: style.primary(palette),
+            foregroundColor: style.onPrimary(palette),
+            side: style.primaryEdge(palette),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(style.radiusSmall),
+            ),
+          ),
         ),
       ],
     );
