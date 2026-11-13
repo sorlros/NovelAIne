@@ -1,9 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/theme/app_palette.dart';
 import '../../data/models/play_models.dart';
-
-const _accent = Color(0xFF7C3AED);
-const _remembered = Color(0xFFFFD166);
 
 /// What a skeleton story offers under the latest scene: the scene's question,
 /// its choices, the reader's own action, and undo. Replaces the free-text
@@ -40,24 +38,25 @@ class PlayChoicesPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1C24).withValues(alpha: 0.96),
+        color: palette.surface.withValues(alpha: 0.96),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        border: Border.all(color: palette.line),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _body(),
+          _body(palette),
           if (remainingTurns != null)
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                 '오늘 남은 장면 $remainingTurns',
-                style: const TextStyle(color: Colors.white38, fontSize: 12),
+                style: TextStyle(color: palette.faint, fontSize: 12),
               ),
             ),
           if (status != null && status!.canUndo && !busy)
@@ -67,7 +66,7 @@ class PlayChoicesPanel extends StatelessWidget {
                 onPressed: onUndo,
                 icon: const Icon(Icons.undo_rounded, size: 16),
                 label: const Text('직전 선택 되돌리기'),
-                style: TextButton.styleFrom(foregroundColor: Colors.white54),
+                style: TextButton.styleFrom(foregroundColor: palette.muted),
               ),
             ),
         ],
@@ -75,7 +74,7 @@ class PlayChoicesPanel extends StatelessWidget {
     );
   }
 
-  Widget _body() {
+  Widget _body(AppPalette palette) {
     final current = status;
     if (loadFailed) {
       return _Notice(
@@ -102,8 +101,8 @@ class PlayChoicesPanel extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 12),
             child: Text(
               current.question!,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: palette.text,
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 height: 1.5,
@@ -128,7 +127,11 @@ class _Callbacks extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: Text(
         '당신의 선택: ${names.join(' · ')}',
-        style: const TextStyle(color: _remembered, fontSize: 12, height: 1.5),
+        style: TextStyle(
+          color: context.palette.accent,
+          fontSize: 12,
+          height: 1.5,
+        ),
       ),
     );
   }
@@ -141,10 +144,11 @@ class _ChoiceButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
-        color: Colors.white.withValues(alpha: 0.06),
+        color: palette.raised,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
@@ -153,15 +157,15 @@ class _ChoiceButton extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _accent.withValues(alpha: 0.4)),
+              border: Border.all(color: palette.accent.withValues(alpha: 0.4)),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     choice.label,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: palette.text,
                       fontSize: 15,
                       height: 1.4,
                     ),
@@ -212,6 +216,7 @@ class _OwnActionState extends State<_OwnAction> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     if (!_open) {
       return Align(
         alignment: Alignment.centerLeft,
@@ -219,7 +224,7 @@ class _OwnActionState extends State<_OwnAction> {
           onPressed: () => setState(() => _open = true),
           icon: const Icon(Icons.edit_rounded, size: 16),
           label: const Text('직접 입력'),
-          style: TextButton.styleFrom(foregroundColor: Colors.white70),
+          style: TextButton.styleFrom(foregroundColor: palette.muted),
         ),
       );
     }
@@ -237,16 +242,16 @@ class _OwnActionState extends State<_OwnAction> {
             maxLines: 3,
             textInputAction: TextInputAction.send,
             onSubmitted: (_) => _submit(),
-            style: const TextStyle(color: Colors.white, fontSize: 15),
+            style: TextStyle(color: palette.text, fontSize: 15),
             decoration: InputDecoration(
               hintText: '어떻게 행동할까요?',
-              hintStyle: const TextStyle(color: Colors.white38),
+              hintStyle: TextStyle(color: palette.faint),
               helperText: '이루어질 수 없는 행동은 이야기 속에서 실패로 그려집니다.',
-              helperStyle: const TextStyle(color: Colors.white38),
+              helperStyle: TextStyle(color: palette.faint),
               helperMaxLines: 2,
-              counterStyle: const TextStyle(color: Colors.white38),
+              counterStyle: TextStyle(color: palette.faint),
               filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.06),
+              fillColor: palette.raised,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide.none,
@@ -254,7 +259,7 @@ class _OwnActionState extends State<_OwnAction> {
               suffixIcon: IconButton(
                 tooltip: '보내기',
                 onPressed: _submit,
-                icon: const Icon(Icons.send_rounded, color: _accent),
+                icon: Icon(Icons.send_rounded, color: palette.accent),
               ),
             ),
           ),
@@ -262,7 +267,7 @@ class _OwnActionState extends State<_OwnAction> {
             alignment: Alignment.centerLeft,
             child: TextButton(
               onPressed: () => setState(() => _open = false),
-              style: TextButton.styleFrom(foregroundColor: Colors.white54),
+              style: TextButton.styleFrom(foregroundColor: palette.muted),
               child: const Text('선택지로 돌아가기'),
             ),
           ),
@@ -277,14 +282,15 @@ class _RememberedMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Tooltip(
       message: '이 선택은 이야기에 남습니다',
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: const [
-          Icon(Icons.bookmark_rounded, color: _remembered, size: 14),
-          SizedBox(width: 3),
-          Text('기억됩니다', style: TextStyle(color: _remembered, fontSize: 11)),
+        children: [
+          Icon(Icons.bookmark_rounded, color: palette.accent, size: 14),
+          const SizedBox(width: 3),
+          Text('기억됩니다', style: TextStyle(color: palette.accent, fontSize: 11)),
         ],
       ),
     );
@@ -299,20 +305,24 @@ class _Notice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
           if (loading) ...[
-            const SizedBox(
+            SizedBox(
               width: 16,
               height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2, color: _accent),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: palette.accent,
+              ),
             ),
             const SizedBox(width: 12),
           ],
           Expanded(
-            child: Text(text, style: const TextStyle(color: Colors.white70)),
+            child: Text(text, style: TextStyle(color: palette.muted)),
           ),
           if (action != null) action!,
         ],

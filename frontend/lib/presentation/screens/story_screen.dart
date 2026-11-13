@@ -13,6 +13,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants.dart';
+import '../../core/theme/app_palette.dart';
 import '../../data/services/api_service.dart';
 import '../../data/services/reading_guide_store.dart';
 import '../../data/repositories/story_repository.dart';
@@ -353,6 +354,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     // The tips are about typing free text; skeleton stories offer choices.
     if (!mounted || _isSkeleton) return;
 
+    final palette = context.palette;
     final type = widget.initialStory?.narrativeType ?? 'hero';
     final bool isEnsemble = type == 'ensemble';
 
@@ -367,9 +369,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             constraints: const BoxConstraints(maxWidth: 500),
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A24),
+              color: palette.surface,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white10),
+              border: Border.all(color: palette.line),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -379,14 +381,14 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   children: [
                     Icon(
                       isEnsemble ? Icons.groups_rounded : Icons.person_rounded,
-                      color: const Color(0xFF7C3AED),
+                      color: palette.accent,
                       size: 28,
                     ),
                     const SizedBox(width: 12),
                     Text(
                       isEnsemble ? "군상극 가이드" : "주인공 모드 가이드",
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: palette.text,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
@@ -398,17 +400,17 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   isEnsemble
                       ? "이 서사에는 고정된 주인공이 없습니다. 당신은 세계의 운명을 결정하는 지휘자입니다."
                       : "당신은 이 이야기의 주인공입니다. 당신의 선택이 운명을 결정합니다.",
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: palette.text,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   "💡 이런 식으로 입력해 보세요:",
                   style: TextStyle(
-                    color: Colors.white54,
+                    color: palette.muted,
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                   ),
@@ -417,7 +419,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
+                    color: palette.raised,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(
@@ -441,8 +443,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   child: ElevatedButton(
                     onPressed: () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF7C3AED),
-                      foregroundColor: Colors.white,
+                      backgroundColor: palette.accent,
+                      foregroundColor: palette.onAccent,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -1281,6 +1283,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final messages = ref.watch(messageProvider);
     final isUIReady = ref.watch(isUIReadyProvider);
     // Keeps the auto-disposed flag alive: while no scene card is built it would reset, and every card
@@ -1309,9 +1312,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     }).toList();
 
     return Scaffold(
-      backgroundColor: viewMode == StoryViewMode.manuscript
-          ? const Color(0xFF16161D)
-          : const Color(0xFF000000),
+      backgroundColor: palette.ground,
       resizeToAvoidBottomInset: true,
       body: Stack(
         fit: StackFit.expand,
@@ -1457,13 +1458,12 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     List<Map<String, dynamic>> visibleCharacters,
     List<String> importantNames,
   ) {
+    final palette = context.palette;
     return Container(
       width: _sidePanelWidth,
       decoration: BoxDecoration(
-        color: const Color(0xFF0D0D12).withValues(alpha: 0.6),
-        border: const Border(
-          right: BorderSide(color: Colors.white10, width: 1),
-        ),
+        color: palette.surface.withValues(alpha: 0.6),
+        border: Border(right: BorderSide(color: palette.line, width: 1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1477,7 +1477,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                 Text(
                   "인물 정보",
                   style: GoogleFonts.notoSerif(
-                    color: Colors.white,
+                    color: palette.text,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1485,7 +1485,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                 const SizedBox(height: 8),
                 Text(
                   "현재 장면에 등장하거나 중요한 인물들입니다.",
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                  style: TextStyle(color: palette.muted, fontSize: 12),
                 ),
               ],
             ),
@@ -1517,49 +1517,45 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                       backgroundImage: char['image_url'] != null
                           ? CachedNetworkImageProvider(char['image_url'])
                           : null,
-                      backgroundColor: Colors.white10,
+                      backgroundColor: palette.line,
                       child: char['image_url'] == null
-                          ? const Icon(Icons.person, color: Colors.white24)
+                          ? Icon(Icons.person, color: palette.faint)
                           : null,
                     ),
                     title: Text(
                       char['name'],
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: palette.text,
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     subtitle: Text(
                       isProtagonist ? "주인공" : "조연",
-                      style: TextStyle(color: Colors.white54, fontSize: 11),
+                      style: TextStyle(color: palette.muted, fontSize: 11),
                     ),
                     trailing: isProtagonist
-                        ? const Icon(
-                            Icons.star,
-                            color: Color(0xFF7C3AED),
-                            size: 16,
-                          )
+                        ? Icon(Icons.star, color: palette.accent, size: 16)
                         : null,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    tileColor: Colors.white.withValues(alpha: 0.03),
+                    tileColor: palette.surface,
                   ),
                 );
               },
             ),
           ),
-          const Divider(color: Colors.white10, height: 1),
+          Divider(color: palette.line, height: 1),
           Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   "AI 어시스턴트",
                   style: TextStyle(
-                    color: Colors.white,
+                    color: palette.text,
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1604,6 +1600,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     List<String> importantNames,
   ) {
     if (visibleCharacters.isEmpty) return const SizedBox(height: 20);
+    final palette = context.palette;
     final bool isMobile = MediaQuery.of(context).size.width < 600;
 
     return Column(
@@ -1613,16 +1610,16 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           padding: const EdgeInsets.only(left: 4, bottom: 12),
           child: Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.people_outline_rounded,
-                color: Color(0xFF7C3AED),
+                color: palette.accent,
                 size: 16,
               ),
               const SizedBox(width: 8),
               Text(
                 "현재 현장의 인물들",
                 style: GoogleFonts.lato(
-                  color: Colors.white.withValues(alpha: 0.4),
+                  color: palette.faint,
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.2,
@@ -1665,24 +1662,21 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             top: isMobile ? 12 : 16,
             bottom: isMobile ? 12 : 24,
           ),
-          child: const Divider(
-            color: Colors.white10,
-            height: 1,
-            thickness: 0.5,
-          ),
+          child: Divider(color: palette.line, height: 1, thickness: 0.5),
         ),
       ],
     );
   }
 
   Widget _buildFullScreenLoading() => Container(
-    color: const Color(0xFF0D0D12),
+    color: context.palette.ground,
     child: const StoryCreationLoadingWidget(),
   );
 
   Widget _buildSliverAppBar(BuildContext context, bool isScrolled) {
     final bool isMobile = MediaQuery.of(context).size.width < 600;
     final viewMode = ref.watch(viewModeProvider);
+    final palette = context.palette;
 
     return SliverAppBar(
       expandedHeight: isMobile ? 140.0 : 180.0,
@@ -1690,15 +1684,15 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
       pinned: true,
       backgroundColor: isScrolled
           ? (viewMode == StoryViewMode.manuscript
-                ? const Color(0xFF0D0D12).withValues(alpha: 0.9)
-                : Colors.black)
+                ? palette.surface.withValues(alpha: 0.9)
+                : palette.ground)
           : Colors.transparent,
       elevation: 0,
       centerTitle: true,
       leading: IconButton(
-        icon: const Icon(
+        icon: Icon(
           Icons.arrow_back_ios_new_rounded,
-          color: Colors.white,
+          color: palette.text,
           size: 18,
         ),
         onPressed: () => Navigator.pop(context),
@@ -1710,7 +1704,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             viewMode == StoryViewMode.manuscript
                 ? Icons.visibility_outlined
                 : Icons.edit_note_rounded,
-            color: Colors.white,
+            color: palette.text,
             size: 20,
           ),
           onPressed: () {
@@ -1725,30 +1719,18 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         ),
         IconButton(
           key: _guideEngineKey,
-          icon: const Icon(
-            Icons.psychology_rounded,
-            color: Colors.white,
-            size: 20,
-          ),
+          icon: Icon(Icons.psychology_rounded, color: palette.text, size: 20),
           onPressed: () => _showModelSettings(context),
           tooltip: "AI 엔진 변경",
         ),
         IconButton(
           key: _guideFontKey,
-          icon: const Icon(
-            Icons.text_fields_rounded,
-            color: Colors.white,
-            size: 20,
-          ),
+          icon: Icon(Icons.text_fields_rounded, color: palette.text, size: 20),
           onPressed: () => _showFontSettings(context),
           tooltip: "서체 설정",
         ),
         IconButton(
-          icon: const Icon(
-            Icons.history_edu_rounded,
-            color: Colors.white,
-            size: 20,
-          ),
+          icon: Icon(Icons.history_edu_rounded, color: palette.text, size: 20),
           onPressed: () {},
         ),
         const SizedBox(width: 4),
@@ -1760,7 +1742,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             ? Text(
                 widget.initialStory?.title ?? "Saga",
                 style: GoogleFonts.notoSerif(
-                  color: Colors.white,
+                  color: palette.text,
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
                 ).copyWith(fontFamilyFallback: _fontFallbacks),
@@ -1772,6 +1754,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   }
 
   void _showFontSettings(BuildContext context) {
+    final palette = context.palette;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1781,20 +1764,20 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A24),
+              color: palette.surface,
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(30),
               ),
-              border: Border.all(color: Colors.white10),
+              border: Border.all(color: palette.line),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   "서체 설정",
                   style: TextStyle(
-                    color: Colors.white,
+                    color: palette.text,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1816,21 +1799,19 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                           vertical: 10,
                         ),
                         decoration: BoxDecoration(
-                          color: isSelected
-                              ? const Color(0xFF7C3AED)
-                              : Colors.white.withValues(alpha: 0.05),
+                          color: isSelected ? palette.accent : palette.raised,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: isSelected
                                 ? Colors.transparent
-                                : Colors.white10,
+                                : palette.line,
                           ),
                         ),
                         child: Text(
                           font,
                           style: GoogleFonts.getFont(
                             font,
-                            color: Colors.white,
+                            color: isSelected ? palette.onAccent : palette.text,
                             fontSize: 14,
                           ),
                         ),
@@ -1848,6 +1829,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   }
 
   void _showModelSettings(BuildContext context) {
+    final palette = context.palette;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1857,20 +1839,20 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A24),
+              color: palette.surface,
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(30),
               ),
-              border: Border.all(color: Colors.white10),
+              border: Border.all(color: palette.line),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   "AI 스토리 엔진 전환",
                   style: TextStyle(
-                    color: Colors.white,
+                    color: palette.text,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1878,10 +1860,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                 const SizedBox(height: 12),
                 Text(
                   "중요한 장면에서는 더 정교한 Pro 엔진을 사용해 보세요.",
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: palette.muted, fontSize: 13),
                 ),
                 const SizedBox(height: 24),
                 _buildModelToggleOption(
@@ -1918,6 +1897,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     bool isSelected, {
     bool closesSheet = false,
   }) {
+    final palette = context.palette;
     final locked = ref.watch(currentPlanProvider).locks(modelId);
     return GestureDetector(
       onTap: () async {
@@ -1954,11 +1934,11 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF7C3AED).withValues(alpha: 0.15)
-              : Colors.white.withValues(alpha: 0.05),
+              ? palette.accent.withValues(alpha: 0.15)
+              : palette.raised,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? const Color(0xFF7C3AED) : Colors.white10,
+            color: isSelected ? palette.accent : palette.line,
             width: 1.5,
           ),
         ),
@@ -1966,7 +1946,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           children: [
             Icon(
               locked ? Icons.lock : Icons.auto_awesome,
-              color: isSelected ? const Color(0xFF7C3AED) : Colors.white24,
+              color: isSelected ? palette.accent : palette.faint,
               size: 20,
             ),
             const SizedBox(width: 16),
@@ -1977,7 +1957,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   Text(
                     title,
                     style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.white70,
+                      color: isSelected ? palette.text : palette.muted,
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
                     ),
@@ -1985,18 +1965,15 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   const SizedBox(height: 2),
                   Text(
                     locked ? "유료" : sub,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.4),
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: palette.faint, fontSize: 12),
                   ),
                 ],
               ),
             ),
             if (isSelected)
-              const Icon(
+              Icon(
                 Icons.check_circle,
-                color: Color(0xFF7C3AED),
+                color: palette.accent,
                 size: 20,
               ).animate().scale(duration: 200.ms),
           ],
@@ -2006,6 +1983,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   }
 
   Widget _buildAppBarContent() {
+    final palette = context.palette;
     final bool isMobile = MediaQuery.of(context).size.width < 600;
     return Container(
       padding: EdgeInsets.only(top: isMobile ? 40 : 60),
@@ -2015,7 +1993,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           Text(
             widget.initialStory?.genre.toUpperCase() ?? "STORY",
             style: GoogleFonts.lato(
-              color: const Color(0xFF7C3AED),
+              color: palette.accent,
               fontSize: isMobile ? 10 : 11,
               fontWeight: FontWeight.w900,
               letterSpacing: isMobile ? 3 : 5,
@@ -2029,7 +2007,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                       widget.initialStory?.title ?? "Untitled",
                       textAlign: TextAlign.center,
                       style: GoogleFonts.notoSerif(
-                        color: Colors.white,
+                        color: palette.text,
                         fontSize: isMobile ? 24 : 30,
                         fontWeight: FontWeight.bold,
                         height: 1.2,
@@ -2040,7 +2018,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                     .scale(begin: const Offset(0.95, 0.95)),
           ),
           const SizedBox(height: 16),
-          Container(width: 40, height: 1, color: Colors.white24),
+          Container(width: 40, height: 1, color: palette.line),
         ],
       ),
     );
@@ -2049,21 +2027,15 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   Widget _buildBackdrop(String? url, StoryViewMode mode) {
     if (mode == StoryViewMode.focus) return const SizedBox.shrink();
 
-    final bgColor = mode == StoryViewMode.manuscript
-        ? const Color(0xFF16161D)
-        : const Color(0xFF000000);
-
-    return Positioned.fill(child: Container(color: bgColor));
+    return Positioned.fill(child: Container(color: context.palette.ground));
   }
 
   Widget _buildFloatingControls(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 600;
-    final viewMode = ref.watch(viewModeProvider);
+    final palette = context.palette;
     final isSending =
         _isSendingMessage || ref.watch(streamingMessageIdProvider) != null;
-    final bgColor = viewMode == StoryViewMode.manuscript
-        ? const Color(0xFF16161D)
-        : const Color(0xFF000000);
+    final bgColor = palette.ground;
     return Positioned(
       bottom: 0,
       left: 0,
@@ -2092,9 +2064,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: palette.raised,
                 borderRadius: BorderRadius.circular(35),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                border: Border.all(color: palette.line),
               ),
               child: Row(
                 children: [
@@ -2103,15 +2075,16 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                     child: TextField(
                       controller: _controller,
                       style: GoogleFonts.lato(
-                        color: Colors.white,
+                        color: palette.text,
                         fontSize: 15,
                       ),
                       decoration: InputDecoration(
                         hintText: isSending ? "응답 생성 중..." : "어떻게 행동할까요?",
                         hintStyle: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.3),
+                          color: palette.faint,
                           fontSize: 14,
                         ),
+                        filled: false, // the bar around the field is the fill
                         border: InputBorder.none,
                       ),
                       onSubmitted: (_) {
@@ -2125,22 +2098,20 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: isSending
-                            ? Colors.white24
-                            : const Color(0xFF7C3AED),
+                        color: isSending ? palette.line : palette.accent,
                         shape: BoxShape.circle,
                       ),
                       child: isSending
-                          ? const Padding(
-                              padding: EdgeInsets.all(12),
+                          ? Padding(
+                              padding: const EdgeInsets.all(12),
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: palette.text,
                               ),
                             )
-                          : const Icon(
+                          : Icon(
                               Icons.auto_fix_high_rounded,
-                              color: Colors.white,
+                              color: palette.onAccent,
                               size: 20,
                             ),
                     ),
@@ -2177,6 +2148,7 @@ class _RefinedNarrativeCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.palette;
     final selectedFont = ref.watch(selectedFontProvider);
     final isInitialLoadDone = ref.watch(isInitialLoadDoneProvider);
     final streamingMessageId = ref.watch(streamingMessageIdProvider);
@@ -2196,7 +2168,7 @@ class _RefinedNarrativeCard extends ConsumerWidget {
     }) {
       return GoogleFonts.getFont(
         selectedFont,
-        color: Colors.white.withValues(alpha: 0.92),
+        color: palette.text,
         fontSize: isMobile ? fontSize - 2 : fontSize,
         height: height,
         fontStyle: fontStyle,
@@ -2218,7 +2190,7 @@ class _RefinedNarrativeCard extends ConsumerWidget {
                 Text(
                   "당신의 행동",
                   style: GoogleFonts.lato(
-                    color: const Color(0xFF7C3AED),
+                    color: palette.accent,
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1,
@@ -2231,14 +2203,14 @@ class _RefinedNarrativeCard extends ConsumerWidget {
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+                    color: palette.accent.withValues(alpha: 0.1),
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(20),
                       bottomLeft: Radius.circular(20),
                       bottomRight: Radius.circular(20),
                     ),
                     border: Border.all(
-                      color: const Color(0xFF7C3AED).withValues(alpha: 0.3),
+                      color: palette.accent.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Text(
@@ -2276,7 +2248,7 @@ class _RefinedNarrativeCard extends ConsumerWidget {
                         memCacheWidth: 800,
                         placeholder: (context, url) => Container(
                           height: 200,
-                          color: Colors.white.withValues(alpha: 0.05),
+                          color: palette.surface,
                           child: const Center(
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
@@ -2292,8 +2264,8 @@ class _RefinedNarrativeCard extends ConsumerWidget {
 
             if (isPlaceholder)
               Shimmer.fromColors(
-                baseColor: Colors.white10,
-                highlightColor: Colors.white24,
+                baseColor: palette.raised,
+                highlightColor: palette.line,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -2301,7 +2273,7 @@ class _RefinedNarrativeCard extends ConsumerWidget {
                       width: double.infinity,
                       height: 20,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: palette.text,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -2310,7 +2282,7 @@ class _RefinedNarrativeCard extends ConsumerWidget {
                       width: double.infinity,
                       height: 20,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: palette.text,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -2319,7 +2291,7 @@ class _RefinedNarrativeCard extends ConsumerWidget {
                       width: 200,
                       height: 20,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: palette.text,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -2335,18 +2307,18 @@ class _RefinedNarrativeCard extends ConsumerWidget {
                 data: msg['content'],
                 style: getBaseStyle(),
                 strongStyle: getBaseStyle().copyWith(
-                  color: const Color(0xFF7C3AED),
+                  color: palette.accent,
                   fontWeight: FontWeight.bold,
                 ),
                 quoteDecoration: BoxDecoration(
-                  border: const Border(
-                    left: BorderSide(color: Color(0xFF7C3AED), width: 4),
+                  border: Border(
+                    left: BorderSide(color: palette.accent, width: 4),
                   ),
-                  color: Colors.white.withValues(alpha: 0.03),
+                  color: palette.surface,
                 ),
                 quoteStyle: getBaseStyle(
                   fontStyle: FontStyle.italic,
-                ).copyWith(color: Colors.white.withValues(alpha: 0.7)),
+                ).copyWith(color: palette.muted),
               ),
             if (hasStreamFailed)
               Padding(
@@ -2356,8 +2328,8 @@ class _RefinedNarrativeCard extends ConsumerWidget {
                   icon: const Icon(Icons.refresh_rounded, size: 18),
                   label: const Text('응답 복구'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFFFD166),
-                    side: const BorderSide(color: Color(0xFFFFD166)),
+                    foregroundColor: palette.warning,
+                    side: BorderSide(color: palette.warning),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(999),
                     ),
@@ -2402,6 +2374,7 @@ class _BgmControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final label = isLoading
         ? 'BGM 생성 중'
         : hasBgm
@@ -2411,10 +2384,8 @@ class _BgmControlButton extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: isLoading ? null : onPressed,
       style: OutlinedButton.styleFrom(
-        foregroundColor: isActive ? const Color(0xFFBCA7FF) : Colors.white70,
-        side: BorderSide(
-          color: isActive ? const Color(0xFF7C3AED) : Colors.white24,
-        ),
+        foregroundColor: isActive ? palette.accent : palette.muted,
+        side: BorderSide(color: isActive ? palette.accent : palette.line),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
       ),
       icon: isLoading
@@ -2442,15 +2413,16 @@ class _TipItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             "• ",
             style: TextStyle(
-              color: Color(0xFF7C3AED),
+              color: palette.accent,
               fontWeight: FontWeight.bold,
               fontSize: 16,
             ),
@@ -2458,11 +2430,7 @@ class _TipItem extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-                height: 1.5,
-              ),
+              style: TextStyle(color: palette.muted, fontSize: 13, height: 1.5),
             ),
           ),
         ],

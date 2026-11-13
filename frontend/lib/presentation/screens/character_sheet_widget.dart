@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../core/theme/app_palette.dart';
 import '../../data/services/api_service.dart';
 import '../providers/content_provider.dart';
 import '../widgets/custom_toast.dart';
@@ -13,13 +14,14 @@ class CharacterSheetWidget extends ConsumerStatefulWidget {
   final bool isProtagonist;
 
   const CharacterSheetWidget({
-    super.key, 
+    super.key,
     required this.character,
     this.isProtagonist = false,
   });
 
   @override
-  ConsumerState<CharacterSheetWidget> createState() => _CharacterSheetWidgetState();
+  ConsumerState<CharacterSheetWidget> createState() =>
+      _CharacterSheetWidgetState();
 }
 
 class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
@@ -34,31 +36,30 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
 
   Future<void> _toggleVault() async {
     if (_isUpdating) return;
-    
+
     setState(() => _isUpdating = true);
-    
+
     try {
       final apiService = ApiService();
       final charId = widget.character['id'];
-      
+
       // 실제 API 호출로 업데이트 반영
       await apiService.updateCharacter(charId, {'is_in_vault': !_isInVault});
-      
+
       if (!mounted) return;
 
       setState(() {
         _isInVault = !_isInVault;
       });
-      
+
       CustomToast.show(
-        context, 
+        context,
         _isInVault ? "캐릭터 보관함에 저장되었습니다." : "보관함에서 제거되었습니다.",
-        type: _isInVault ? ToastType.success : ToastType.info
+        type: _isInVault ? ToastType.success : ToastType.info,
       );
-      
+
       // 캐릭터 목록 새로고침
       ref.invalidate(charactersProvider);
-      
     } catch (e) {
       if (mounted) {
         CustomToast.show(context, "보관함 업데이트 실패: $e", type: ToastType.error);
@@ -72,9 +73,11 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final String name = widget.character['name'] ?? 'Unknown Character';
     final String? imageUrl = widget.character['image_url'];
-    final String description = widget.character['description'] ?? 'No description available.';
+    final String description =
+        widget.character['description'] ?? 'No description available.';
     final String? appearance = widget.character['appearance_description'];
     final List<dynamic> traits = widget.character['personality_traits'] ?? [];
     final String? background = widget.character['background_story'];
@@ -84,9 +87,9 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
       child: Container(
         height: MediaQuery.of(context).size.height * 0.85,
         decoration: BoxDecoration(
-          color: const Color(0xFF0D0D12).withValues(alpha: 0.9),
+          color: palette.surface.withValues(alpha: 0.9),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+          border: Border.all(color: palette.line, width: 1),
         ),
         child: Column(
           children: [
@@ -97,34 +100,46 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white54),
+                    icon: Icon(Icons.close_rounded, color: palette.muted),
                     onPressed: () => Navigator.pop(context),
                   ),
                   Container(
                     width: 48,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
+                      color: palette.line,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  _isUpdating 
-                    ? const SizedBox(width: 48, height: 48, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2)))
-                    : IconButton(
-                        icon: Icon(
-                          _isInVault ? Icons.archive_rounded : Icons.archive_outlined,
-                          color: _isInVault ? const Color(0xFF00E5FF) : Colors.white54,
+                  _isUpdating
+                      ? const SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: Padding(
+                            padding: EdgeInsets.all(12),
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : IconButton(
+                          icon: Icon(
+                            _isInVault
+                                ? Icons.archive_rounded
+                                : Icons.archive_outlined,
+                            color: _isInVault ? palette.accent : palette.muted,
+                          ),
+                          onPressed: _toggleVault,
+                          tooltip: "보관함 저장",
                         ),
-                        onPressed: _toggleVault,
-                        tooltip: "보관함 저장",
-                      ),
                 ],
               ),
             ),
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 10,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -138,13 +153,12 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: widget.isProtagonist ? Colors.amber : const Color(0xFF7C3AED),
+                                color: palette.accent,
                                 width: 3,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: (widget.isProtagonist ? Colors.amber : const Color(0xFF7C3AED))
-                                      .withValues(alpha: 0.3),
+                                  color: palette.accent.withValues(alpha: 0.3),
                                   blurRadius: 25,
                                   spreadRadius: 2,
                                 ),
@@ -155,17 +169,27 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
                                   ? CachedNetworkImage(
                                       imageUrl: imageUrl,
                                       fit: BoxFit.cover,
-                                      placeholder: (context, url) => Container(color: Colors.white.withValues(alpha: 0.05)),
-                                      errorWidget: (context, url, error) => const Icon(Icons.person, size: 60, color: Colors.white24),
+                                      placeholder: (context, url) =>
+                                          Container(color: palette.raised),
+                                      errorWidget: (context, url, error) =>
+                                          Icon(
+                                            Icons.person,
+                                            size: 60,
+                                            color: palette.faint,
+                                          ),
                                     )
-                                  : const Icon(Icons.person, size: 60, color: Colors.white24),
+                                  : Icon(
+                                      Icons.person,
+                                      size: 60,
+                                      color: palette.faint,
+                                    ),
                             ),
                           ),
                           const SizedBox(height: 24),
                           Text(
                             name,
                             style: GoogleFonts.notoSerif(
-                              color: Colors.white,
+                              color: palette.text,
                               fontSize: 28,
                               fontWeight: FontWeight.bold,
                             ),
@@ -174,16 +198,21 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
                           const SizedBox(height: 12),
                           if (widget.isProtagonist)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
-                                color: Colors.amber.withValues(alpha: 0.15),
+                                color: palette.accent.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                                border: Border.all(
+                                  color: palette.accent.withValues(alpha: 0.4),
+                                ),
                               ),
                               child: Text(
                                 "PROTAGONIST",
                                 style: GoogleFonts.lato(
-                                  color: Colors.amber,
+                                  color: palette.accent,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 1.5,
@@ -202,7 +231,7 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
                     Text(
                       description,
                       style: GoogleFonts.notoSerif(
-                        color: Colors.white.withValues(alpha: 0.8),
+                        color: palette.muted,
                         fontSize: 16,
                         height: 1.7,
                       ),
@@ -215,7 +244,12 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
                       Wrap(
                         spacing: 8,
                         runSpacing: 10,
-                        children: traits.map((trait) => _buildTraitChip(trait.toString())).toList(),
+                        children: traits
+                            .map(
+                              (trait) =>
+                                  _buildTraitChip(palette, trait.toString()),
+                            )
+                            .toList(),
                       ).animate().fadeIn(delay: 300.ms),
                     ],
 
@@ -226,7 +260,7 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
                       Text(
                         appearance,
                         style: GoogleFonts.notoSerif(
-                          color: Colors.white.withValues(alpha: 0.8),
+                          color: palette.muted,
                           fontSize: 16,
                           height: 1.7,
                         ),
@@ -240,13 +274,13 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
                       Text(
                         background,
                         style: GoogleFonts.notoSerif(
-                          color: Colors.white.withValues(alpha: 0.8),
+                          color: palette.muted,
                           fontSize: 16,
                           height: 1.7,
                         ),
                       ).animate().fadeIn(delay: 500.ms),
                     ],
-                    
+
                     const SizedBox(height: 80),
                   ],
                 ),
@@ -259,13 +293,14 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
   }
 
   Widget _buildSectionHeader(BuildContext context, String title) {
+    final palette = context.palette;
     return Row(
       children: [
         Container(
           width: 4,
           height: 18,
           decoration: BoxDecoration(
-            color: const Color(0xFF7C3AED),
+            color: palette.accent,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -273,7 +308,7 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
         Text(
           title,
           style: GoogleFonts.notoSerif(
-            color: Colors.white,
+            color: palette.text,
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
@@ -282,20 +317,17 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
     );
   }
 
-  Widget _buildTraitChip(String label) {
+  Widget _buildTraitChip(AppPalette palette, String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: palette.raised,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        border: Border.all(color: palette.line),
       ),
       child: Text(
         label,
-        style: GoogleFonts.lato(
-          color: Colors.white.withValues(alpha: 0.7),
-          fontSize: 14,
-        ),
+        style: GoogleFonts.lato(color: palette.muted, fontSize: 14),
       ),
     );
   }

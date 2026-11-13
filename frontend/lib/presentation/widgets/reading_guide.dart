@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/theme/app_palette.dart';
+
 /// One stop of the guide: the widget under [target] is lit and [text] explains it.
 class GuideStep {
   final GlobalKey target;
@@ -24,7 +26,6 @@ class ReadingGuide extends StatefulWidget {
 
 class _ReadingGuideState extends State<ReadingGuide>
     with SingleTickerProviderStateMixin {
-  static const _accent = Color(0xFF7C3AED);
   static const _padding = 8.0;
   static const _settleFrames = 10;
   static const _followFor = Duration(seconds: 3);
@@ -95,6 +96,7 @@ class _ReadingGuideState extends State<ReadingGuide>
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final target = _hole;
     if (_index < 0 || target == null) {
       // Block taps while the first target is being found.
@@ -124,7 +126,7 @@ class _ReadingGuideState extends State<ReadingGuide>
                 behavior: HitTestBehavior.opaque,
                 onTap:
                     () {}, // the dimmed screen is not usable during the guide
-                child: CustomPaint(painter: _DimPainter(hole)),
+                child: CustomPaint(painter: _DimPainter(hole, palette.accent)),
               ),
             ),
             Positioned(
@@ -133,7 +135,7 @@ class _ReadingGuideState extends State<ReadingGuide>
               top: below ? hole.bottom + 12 : null,
               bottom: over ? 24 : (below ? null : size.height - hole.top + 12),
               child: Material(
-                color: const Color(0xFF1A1A24),
+                color: palette.surface,
                 borderRadius: BorderRadius.circular(14),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(18, 16, 10, 8),
@@ -143,8 +145,8 @@ class _ReadingGuideState extends State<ReadingGuide>
                     children: [
                       Text(
                         widget.steps[_index].text,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: palette.text,
                           fontSize: 14,
                           height: 1.5,
                         ),
@@ -154,8 +156,8 @@ class _ReadingGuideState extends State<ReadingGuide>
                         children: [
                           Text(
                             '${_index + 1} / ${widget.steps.length}',
-                            style: const TextStyle(
-                              color: Colors.white38,
+                            style: TextStyle(
+                              color: palette.faint,
                               fontSize: 12,
                             ),
                           ),
@@ -163,9 +165,9 @@ class _ReadingGuideState extends State<ReadingGuide>
                           if (!last)
                             TextButton(
                               onPressed: widget.onDone,
-                              child: const Text(
+                              child: Text(
                                 '건너뛰기',
-                                style: TextStyle(color: Colors.white54),
+                                style: TextStyle(color: palette.muted),
                               ),
                             ),
                           TextButton(
@@ -174,8 +176,8 @@ class _ReadingGuideState extends State<ReadingGuide>
                                 : () => _goTo(_index + 1),
                             child: Text(
                               last ? '시작하기' : '다음',
-                              style: const TextStyle(
-                                color: _accent,
+                              style: TextStyle(
+                                color: palette.accent,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -196,8 +198,9 @@ class _ReadingGuideState extends State<ReadingGuide>
 
 class _DimPainter extends CustomPainter {
   final Rect hole;
+  final Color accent;
 
-  _DimPainter(this.hole);
+  _DimPainter(this.hole, this.accent);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -211,12 +214,13 @@ class _DimPainter extends CustomPainter {
     canvas.drawRRect(
       RRect.fromRectAndRadius(hole, const Radius.circular(12)),
       Paint()
-        ..color = const Color(0xFF7C3AED)
+        ..color = accent
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2,
     );
   }
 
   @override
-  bool shouldRepaint(_DimPainter old) => old.hole != hole;
+  bool shouldRepaint(_DimPainter old) =>
+      old.hole != hole || old.accent != accent;
 }
