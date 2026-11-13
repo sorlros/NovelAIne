@@ -118,7 +118,21 @@ class AppStyle extends ThemeExtension<AppStyle> {
 
   /// Titles: serif at night and on paper, heavy sans on the route.
   TextStyle title(TextStyle base) => isRoute
-      ? base.copyWith(fontFamily: null, fontWeight: FontWeight.w900)
+      // A new style, not copyWith: copyWith cannot drop the serif face a GoogleFonts style names.
+      ? TextStyle(
+          color: base.color,
+          fontSize: base.fontSize,
+          height: base.height,
+          letterSpacing: base.letterSpacing,
+          fontStyle: base.fontStyle,
+          decoration: base.decoration,
+          fontWeight: FontWeight.w900,
+          fontFamilyFallback: const [
+            'Apple SD Gothic Neo',
+            'Malgun Gothic',
+            'sans-serif',
+          ],
+        )
       : base;
 
   @override
