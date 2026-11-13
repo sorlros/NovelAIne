@@ -41,6 +41,7 @@ from app.services.story_skeleton import (
     ROLE_LABELS,
     brief_callbacks,
     build_brief,
+    choice_leaves_trace,
     offer_choices,
     scene_cast,
     walk_cards,
@@ -164,6 +165,32 @@ def present_characters(context: PlayContext) -> List[str]:
     return [name for name in cast if chars[name]["alive"]]
 
 
+def arrival(beat: Dict[str, Any], previous: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """The choice that led to a beat: its label and whether it stays in the story. A beat saved before the turn
+    recorded these gets them from the previous beat's choice, replayed on the state it was taken in."""
+    card = beat["card"]
+    if "chosen_label" in card:
+        return {"label": card["chosen_label"], "lasting": bool(card.get("chosen_lasting"))}
+    choice = next((choice for choice in (previous or {}).get("card", {}).get("choices") or []
+                   if choice.get("id") == card.get("chosen")), None)
+    if choice is None or not card.get("state_before"):
+        return {"label": choice.get("label", "") if choice else "", "lasting": False}
+    return {"label": choice.get("label", ""), "lasting": choice_leaves_trace(card["state_before"], choice)}
+
+
+def reached_path(context: PlayContext) -> List[Dict[str, Any]]:
+    """The scenes reached so far, from the opening to the current one, each with the choice that led there.
+    Followed back through previous_seq, so the scenes planned ahead and those an undo left behind are not in it."""
+    by_seq = {beat["seq"]: beat for beat in context.beats}
+    path, beat, seen = [], context.current, set()
+    while beat is not None and beat["seq"] not in seen:
+        seen.add(beat["seq"])
+        previous = by_seq.get(beat["card"].get("previous_seq"))
+        path.append({"seq": beat["seq"], **(arrival(beat, previous) if previous else {"label": "", "lasting": False})})
+        beat = previous
+    return path[::-1]
+
+
 def play_status(context: PlayContext) -> Dict[str, Any]:
     """What the app shows under the current scene."""
     card, finished = context.current["card"], is_finished(context)
@@ -177,6 +204,7 @@ def play_status(context: PlayContext) -> Dict[str, Any]:
         "finished": finished,
         "present_characters": present_characters(context),
         "callbacks": card.get("callbacks") or [],
+        "path": reached_path(context),
     }
 
 
@@ -481,7 +509,8 @@ def finish_turn(client: Any, turn: Turn, prose: str, client_request_id: Optional
     started, and the beat, a replanned segment and both scenes are saved with it or not at all. Returns the scenes."""
     current_seq = turn.context.current["seq"]
     card = {**turn.next_card, "callbacks": turn.callbacks, "state_before": turn.state_before,
-            "previous_seq": current_seq, "chosen": turn.choice["id"]}
+            "previous_seq": current_seq, "chosen": turn.choice["id"], "chosen_label": turn.choice["label"],
+            "chosen_lasting": bool(turn.choice.get("lasting"))}
     replanned = None
     if turn.replanned is not None:
         replanned = [{"seq": turn.next_seq + offset, "card": planned} for offset, planned in enumerate(turn.replanned[1:], 1)]
