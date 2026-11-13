@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/theme/app_palette.dart';
 import '../../providers/content_provider.dart';
 import '../../screens/story_screen.dart';
 
@@ -10,22 +11,27 @@ class MyLibraryTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.palette;
     final storiesState = ref.watch(storiesProvider);
 
     return storiesState.when(
       data: (stories) {
-        final activeStories = stories.where((s) => s.status == 'active').toList();
-        final completedStories = stories.where((s) => s.status == 'completed').toList();
+        final activeStories = stories
+            .where((s) => s.status == 'active')
+            .toList();
+        final completedStories = stories
+            .where((s) => s.status == 'completed')
+            .toList();
 
         return ListView(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
           children: [
-            const Text(
+            Text(
               "읽고 있는 이야기",
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: palette.text,
               ),
             ).animate().fadeIn().slideX(),
             const SizedBox(height: 16),
@@ -33,9 +39,9 @@ class MyLibraryTab extends ConsumerWidget {
               height: 240,
               child: activeStories.isEmpty
                   ? Center(
-                      child: const Text(
+                      child: Text(
                         "아직 작성 중인 이야기가 없습니다.",
-                        style: TextStyle(color: Colors.white54),
+                        style: TextStyle(color: palette.muted),
                       ).animate().fadeIn(),
                     )
                   : ListView.builder(
@@ -48,12 +54,12 @@ class MyLibraryTab extends ConsumerWidget {
                     ),
             ),
             const SizedBox(height: 32),
-            const Text(
+            Text(
               "완독한 이야기",
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: palette.text,
               ),
             ).animate().fadeIn().slideX(delay: 200.ms),
             const SizedBox(height: 16),
@@ -61,14 +67,14 @@ class MyLibraryTab extends ConsumerWidget {
                 ? Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E1E1E),
+                      color: palette.surface,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white10),
+                      border: Border.all(color: palette.line),
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Text(
                         "아직 완독한 이야기가 없습니다.",
-                        style: TextStyle(color: Colors.white54),
+                        style: TextStyle(color: palette.muted),
                       ),
                     ),
                   ).animate().fadeIn().slideY(delay: 300.ms)
@@ -86,19 +92,19 @@ class MyLibraryTab extends ConsumerWidget {
           ],
         );
       },
-      loading: () => const Center(
-        child: CircularProgressIndicator(color: Color(0xFF7C3AED)),
-      ),
-      error: (err, _) => const Center(
+      loading: () =>
+          Center(child: CircularProgressIndicator(color: palette.accent)),
+      error: (err, _) => Center(
         child: Text(
           "스토리를 불러오는데 실패했습니다.",
-          style: TextStyle(color: Colors.red),
+          style: TextStyle(color: palette.danger),
         ),
       ),
     );
   }
 
   Widget _buildStoryCard(BuildContext context, dynamic story, int index) {
+    final palette = context.palette;
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -117,9 +123,9 @@ class MyLibraryTab extends ConsumerWidget {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E1E1E),
+                  color: palette.surface,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white10),
+                  border: Border.all(color: palette.line),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: story.coverImageUrl != null
@@ -129,16 +135,16 @@ class MyLibraryTab extends ConsumerWidget {
                         placeholder: (context, url) => const Center(
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
-                        errorWidget: (context, url, error) => const Icon(
+                        errorWidget: (context, url, error) => Icon(
                           Icons.broken_image_outlined,
-                          color: Colors.white24,
+                          color: palette.faint,
                         ),
                       )
-                    : const Center(
+                    : Center(
                         child: Icon(
                           Icons.menu_book,
                           size: 40,
-                          color: Colors.white24,
+                          color: palette.faint,
                         ),
                       ),
               ),
@@ -146,9 +152,9 @@ class MyLibraryTab extends ConsumerWidget {
             const SizedBox(height: 12),
             Text(
               story.title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: palette.text,
                 fontSize: 14,
               ),
               maxLines: 1,
@@ -157,10 +163,7 @@ class MyLibraryTab extends ConsumerWidget {
             const SizedBox(height: 4),
             Text(
               story.genre,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.white54,
-              ),
+              style: TextStyle(fontSize: 12, color: palette.muted),
             ),
           ],
         ),

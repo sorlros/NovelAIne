@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import '../../core/theme/app_palette.dart';
 import '../screens/home_screen.dart';
 import '../screens/explore_screen.dart';
 import '../screens/vault/vault_screen.dart';
@@ -48,25 +49,26 @@ class SideMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Container(
       width: 250,
-      color: const Color(0xFF0D0D12), // Darker background to match image
+      color: palette.surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 48),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24.0),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: Row(
               children: [
-                Icon(Icons.auto_stories, color: Colors.white, size: 28),
-                SizedBox(width: 12),
+                Icon(Icons.auto_stories, color: palette.text, size: 28),
+                const SizedBox(width: 12),
                 Text(
                   "NovelAIne",
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: palette.text,
                   ),
                 ),
               ],
@@ -98,7 +100,7 @@ class SideMenu extends StatelessWidget {
             onTap: () => _navigateTo(context, 3),
           ),
           const Spacer(),
-          const Divider(color: Colors.white10, height: 1),
+          Divider(color: palette.line, height: 1),
           _SideMenuItem(
             icon: Icons.person_outline,
             title: "내 프로필",
@@ -127,11 +129,10 @@ class _SideMenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color(
-      0xFF3F3B6C,
-    ); // Matches selected background in image
-    const textColor = Colors.white;
-    const textSecondary = Colors.white54;
+    final palette = context.palette;
+    final primaryColor = palette.accent.withValues(alpha: 0.18);
+    final textColor = palette.text;
+    final textSecondary = palette.muted;
 
     return InkWell(
       onTap: onTap,

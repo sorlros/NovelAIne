@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/l10n/app_localizations.dart';
+import '../../../core/theme/app_palette.dart';
 import '../../../data/models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../home_screen.dart';
@@ -74,7 +75,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     }
 
     // 3. 이메일 형식 검사 (간단한 정규식)
-    final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
     if (!emailRegex.hasMatch(email)) {
       _showError("유효한 이메일 형식이 아닙니다.");
       return;
@@ -108,10 +111,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
   }
 
   void _showError(String message) {
+    final palette = context.palette;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.redAccent,
+        content: Text(message, style: TextStyle(color: palette.ground)),
+        backgroundColor: palette.danger,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -122,11 +126,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     ref.listen<AsyncValue<UserModel?>>(authProvider, (_, next) {
       if (next.valueOrNull != null) _openHome();
     });
+    final palette = context.palette;
     final authState = ref.watch(authProvider);
     final isLoading = authState.isLoading;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D12),
+      backgroundColor: palette.ground,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -141,33 +146,37 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            const Color(0xFF151515),
-                            const Color(0xFF0D0D12),
-                            const Color(0xFF6B4EFF).withValues(alpha: 0.1),
+                            palette.surface,
+                            palette.ground,
+                            palette.accent.withValues(alpha: 0.1),
                           ],
                         ),
                       ),
-                      child: const Center(
+                      child: Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.auto_stories, color: Colors.white, size: 80),
-                            SizedBox(height: 24),
+                            Icon(
+                              Icons.auto_stories,
+                              color: palette.text,
+                              size: 80,
+                            ),
+                            const SizedBox(height: 24),
                             Text(
                               "NovelAIne",
                               style: TextStyle(
                                 fontSize: 48,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                color: palette.text,
                                 letterSpacing: -1,
                               ),
                             ),
-                            SizedBox(height: 16),
+                            const SizedBox(height: 16),
                             Text(
                               "당신의 상상력이 현실이 되는 곳",
                               style: TextStyle(
                                 fontSize: 18,
-                                color: Colors.white54,
+                                color: palette.muted,
                               ),
                             ),
                           ],
@@ -196,20 +205,23 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
               return Center(
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 48,
+                  ),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 400),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.auto_stories, color: Colors.white, size: 48),
+                        Icon(Icons.auto_stories, color: palette.text, size: 48),
                         const SizedBox(height: 16),
-                        const Text(
+                        Text(
                           "NovelAIne",
                           style: TextStyle(
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: palette.text,
                             letterSpacing: -1,
                           ),
                         ),
@@ -228,11 +240,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
   }
 
   Widget _buildFormCard(bool isLoading) {
+    final palette = context.palette;
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF151515),
+        color: palette.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white10, width: 1),
+        border: Border.all(color: palette.line, width: 1),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -283,20 +296,22 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                   child: ElevatedButton(
                     onPressed: isLoading ? null : _submit,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6B4EFF),
-                      foregroundColor: Colors.white,
+                      backgroundColor: palette.accent,
+                      foregroundColor: palette.onAccent,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                       elevation: 0,
                     ),
                     child: isLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 24,
                             height: 24,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                palette.onAccent,
+                              ),
                             ),
                           )
                         : Text(
@@ -319,18 +334,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
   }
 
   Widget _buildTabBar() {
+    final palette = context.palette;
     return Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white10, width: 1)),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: palette.line, width: 1)),
       ),
       child: TabBar(
         controller: _tabController,
         indicatorSize: TabBarIndicatorSize.tab,
-        indicator: const UnderlineTabIndicator(
-          borderSide: BorderSide(color: Color(0xFF6B4EFF), width: 3),
+        indicator: UnderlineTabIndicator(
+          borderSide: BorderSide(color: palette.accent, width: 3),
         ),
-        labelColor: Colors.white,
-        unselectedLabelColor: Colors.white54,
+        labelColor: palette.text,
+        unselectedLabelColor: palette.muted,
         labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         tabs: [
           Tab(text: AppLocalizations.of(context)!.login),
@@ -348,13 +364,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     TextInputAction? textInputAction,
     void Function(String)? onSubmitted,
   }) {
+    final palette = context.palette;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white70,
+          style: TextStyle(
+            color: palette.muted,
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
@@ -365,12 +382,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
           obscureText: obscureText,
           textInputAction: textInputAction,
           onSubmitted: onSubmitted,
-          style: const TextStyle(color: Colors.white, fontSize: 15),
+          style: TextStyle(color: palette.text, fontSize: 15),
           decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: Colors.white54, size: 20),
+            prefixIcon: Icon(icon, color: palette.muted, size: 20),
             filled: true,
-            fillColor: const Color(0xFF1E1E1E),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            fillColor: palette.raised,
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 16,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -381,7 +401,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF6B4EFF), width: 1.5),
+              borderSide: BorderSide(color: palette.accent, width: 1.5),
             ),
           ),
         ),

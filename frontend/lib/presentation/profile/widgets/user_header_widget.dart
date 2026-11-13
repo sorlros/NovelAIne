@@ -1,16 +1,18 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/theme/app_palette.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/content_provider.dart';
 import 'package:frontend/l10n/app_localizations.dart';
-import '../../settings/settings_screen.dart';
+import '../../screens/profile/settings_screen.dart';
 
 class UserHeaderWidget extends ConsumerWidget {
   const UserHeaderWidget({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.palette;
     // Fetch actual user data from Provider/Riverpod
     final authState = ref.watch(authProvider);
     final storiesState = ref.watch(storiesProvider);
@@ -42,10 +44,7 @@ class UserHeaderWidget extends ConsumerWidget {
             padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(
-                color: const Color(0xFF7C3AED),
-                width: 2,
-              ), // Purple border
+              border: Border.all(color: palette.accent, width: 2),
             ),
             child: ClipOval(
               child: CachedNetworkImage(
@@ -56,7 +55,7 @@ class UserHeaderWidget extends ConsumerWidget {
                 placeholder: (context, url) => Container(
                   width: 80,
                   height: 80,
-                  color: const Color(0xFF1E1E1E),
+                  color: palette.surface,
                   child: const Center(
                     child: SizedBox(
                       width: 20,
@@ -68,12 +67,8 @@ class UserHeaderWidget extends ConsumerWidget {
                 errorWidget: (context, url, error) => Container(
                   width: 80,
                   height: 80,
-                  color: const Color(0xFF1E1E1E),
-                  child: const Icon(
-                    Icons.person,
-                    color: Colors.white24,
-                    size: 40,
-                  ),
+                  color: palette.surface,
+                  child: Icon(Icons.person, color: palette.faint, size: 40),
                 ),
               ),
             ),
@@ -88,7 +83,7 @@ class UserHeaderWidget extends ConsumerWidget {
                   style: Theme.of(context).textTheme.displayMedium?.copyWith(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: palette.text,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -112,7 +107,7 @@ class UserHeaderWidget extends ConsumerWidget {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.settings, color: Colors.white54),
+            icon: Icon(Icons.settings, color: palette.muted),
             onPressed: () {
               Navigator.push(
                 context,
@@ -126,22 +121,20 @@ class UserHeaderWidget extends ConsumerWidget {
   }
 
   Widget _buildStatItem(BuildContext context, String label, String value) {
+    final palette = context.palette;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: palette.text,
           ),
         ),
         const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: Colors.white54),
-        ),
+        Text(label, style: TextStyle(fontSize: 12, color: palette.muted)),
       ],
     );
   }

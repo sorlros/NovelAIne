@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import '../../core/constants.dart';
+import '../../core/theme/app_palette.dart';
 import 'side_menu.dart';
 import 'crisp_bottom_nav_bar.dart';
 
@@ -8,7 +9,7 @@ class ResponsiveLayout extends StatelessWidget {
   final int currentIndex;
   final PreferredSizeWidget? appBar;
   final Widget? floatingActionButton;
-  final Color backgroundColor;
+  final Color? backgroundColor;
   final bool showBottomNav;
   final bool extendBodyBehindAppBar;
 
@@ -18,7 +19,7 @@ class ResponsiveLayout extends StatelessWidget {
     required this.currentIndex,
     this.appBar,
     this.floatingActionButton,
-    this.backgroundColor = const Color(0xFF121212),
+    this.backgroundColor,
     this.showBottomNav = true,
     this.extendBodyBehindAppBar = false,
   });
@@ -27,10 +28,11 @@ class ResponsiveLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final bool isDesktop = constraints.maxWidth >= AppConstants.desktopBreakpoint;
+        final bool isDesktop =
+            constraints.maxWidth >= AppConstants.desktopBreakpoint;
 
         return Scaffold(
-          backgroundColor: backgroundColor,
+          backgroundColor: backgroundColor ?? context.palette.ground,
           extendBodyBehindAppBar: extendBodyBehindAppBar,
           appBar: isDesktop ? null : appBar,
           body: KeyedSubtree(

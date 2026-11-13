@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import '../../core/theme/app_palette.dart';
 import '../screens/home_screen.dart';
 import '../screens/explore_screen.dart';
 import '../screens/vault/vault_screen.dart';
@@ -11,11 +12,12 @@ class CrispBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Container(
       height: 70, // Explicit height for stability on web resize
-      decoration: const BoxDecoration(
-        color: Color(0xFF151515),
-        border: Border(top: BorderSide(color: Colors.white10, width: 1)),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        border: Border(top: BorderSide(color: palette.line, width: 1)),
       ),
       child: SafeArea(
         child: Center(
@@ -113,6 +115,7 @@ class _NavBarIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Expanded(
       child: InkWell(
         onTap: onTap,
@@ -123,7 +126,7 @@ class _NavBarIcon extends StatelessWidget {
           children: [
             Icon(
               isSelected ? iconSolid : iconOutlined,
-              color: isSelected ? const Color(0xFF7C3AED) : Colors.white54,
+              color: isSelected ? palette.accent : palette.muted,
               size: 24,
             ),
             if (isSelected)
@@ -131,8 +134,8 @@ class _NavBarIcon extends StatelessWidget {
                 margin: const EdgeInsets.only(top: 4),
                 width: 4,
                 height: 4,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF7C3AED),
+                decoration: BoxDecoration(
+                  color: palette.accent,
                   shape: BoxShape.circle,
                 ),
               ),
