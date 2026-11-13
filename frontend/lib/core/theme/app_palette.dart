@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'app_style.dart';
+
 /// The colours of one screen theme. Screens read them with `context.palette` and name no colour
 /// themselves, so a theme the reader picks reaches every screen.
 @immutable
@@ -37,6 +39,15 @@ class AppPalette extends ThemeExtension<AppPalette> {
   final Color success;
   final Color warning;
 
+  final Color? _highlight;
+  final Color? _onHighlight;
+
+  /// A second, louder fill for what the reader acts on (the route theme's yellow); the accent elsewhere.
+  Color get highlight => _highlight ?? accent;
+
+  /// Text and icons on [highlight].
+  Color get onHighlight => _onHighlight ?? onAccent;
+
   const AppPalette({
     required this.brightness,
     required this.ground,
@@ -51,7 +62,10 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required this.danger,
     required this.success,
     required this.warning,
-  });
+    Color? highlight,
+    Color? onHighlight,
+  }) : _highlight = highlight,
+       _onHighlight = onHighlight;
 
   @override
   AppPalette copyWith({
@@ -68,6 +82,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     Color? danger,
     Color? success,
     Color? warning,
+    Color? highlight,
+    Color? onHighlight,
   }) {
     return AppPalette(
       brightness: brightness ?? this.brightness,
@@ -83,6 +99,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
       danger: danger ?? this.danger,
       success: success ?? this.success,
       warning: warning ?? this.warning,
+      highlight: highlight ?? this.highlight,
+      onHighlight: onHighlight ?? this.onHighlight,
     );
   }
 
@@ -104,6 +122,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
       danger: mix(danger, other.danger),
       success: mix(success, other.success),
       warning: mix(warning, other.warning),
+      highlight: mix(highlight, other.highlight),
+      onHighlight: mix(onHighlight, other.onHighlight),
     );
   }
 
@@ -121,6 +141,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     danger,
     success,
     warning,
+    highlight,
+    onHighlight,
   ];
 
   @override
@@ -131,19 +153,21 @@ class AppPalette extends ThemeExtension<AppPalette> {
   int get hashCode => Object.hashAll(_values);
 }
 
-/// The screen themes a reader can pick. The name is what is stored on the device.
+/// The screen themes a reader can pick: colours and a look. The name is what is stored on the device.
 enum AppThemeId {
-  simya('심야', '밤에 읽는 기본 화면', _simya),
-  meok('먹', '완전한 검정, 가장 어두운 화면', _meok),
-  noeul('노을', '붉은 기운이 도는 따뜻한 어둠', _noeul),
-  wongoji('원고지', '종이와 주홍, 낮에 읽기 좋은 화면', _wongoji),
-  saebyeok('새벽', '푸른 기운이 도는 밝은 화면', _saebyeok);
+  simya('심야', '밤에 읽는 기본 화면', _simya, AppStyle.night),
+  meok('먹', '완전한 검정, 가장 어두운 화면', _meok, AppStyle.night),
+  noeul('노을', '붉은 기운이 도는 따뜻한 어둠', _noeul, AppStyle.night),
+  saebyeok('새벽', '푸른 기운이 도는 밝은 화면', _saebyeok, AppStyle.night),
+  wongoji('원고지', '종이에 명조, 낮에 읽기 좋은 화면', _wongoji, AppStyle.paper),
+  galimgil('갈림길', '굵은 선과 번호, 지나온 길이 보이는 화면', _galimgil, AppStyle.route);
 
   final String label;
   final String description;
   final AppPalette palette;
+  final AppStyle style;
 
-  const AppThemeId(this.label, this.description, this.palette);
+  const AppThemeId(this.label, this.description, this.palette, this.style);
 }
 
 const _simya = AppPalette(
@@ -224,6 +248,24 @@ const _saebyeok = AppPalette(
   danger: Color(0xFFB3261E),
   success: Color(0xFF256B29),
   warning: Color(0xFF8A5A00),
+);
+
+const _galimgil = AppPalette(
+  brightness: Brightness.light,
+  ground: Color(0xFFE9EAF2),
+  surface: Color(0xFFFFFFFF),
+  raised: Color(0xFFF3F4F8),
+  line: Color(0xFFB9BCCB),
+  text: Color(0xFF0F1020),
+  muted: Color(0xFF555872),
+  faint: Color(0xFF6E7189),
+  accent: Color(0xFF2536C9),
+  onAccent: Color(0xFFFFFFFF),
+  danger: Color(0xFFB3261E),
+  success: Color(0xFF256B29),
+  warning: Color(0xFF8A5A00),
+  highlight: Color(0xFFFFD43B),
+  onHighlight: Color(0xFF0F1020),
 );
 
 extension PaletteContext on BuildContext {

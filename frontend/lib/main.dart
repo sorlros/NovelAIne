@@ -58,11 +58,11 @@ class MyApp extends ConsumerWidget {
     // One theme for both modes, unless the reader follows the device.
     final picked = choice == followDevice
         ? null
-        : AppThemeId.values.byName(choice).palette;
+        : AppThemeId.values.byName(choice);
     return MaterialApp(
       title: 'NovelAIne',
-      theme: AppTheme.of(picked ?? AppThemeId.wongoji.palette),
-      darkTheme: AppTheme.of(picked ?? AppThemeId.simya.palette),
+      theme: AppTheme.of(picked ?? AppThemeId.wongoji),
+      darkTheme: AppTheme.of(picked ?? AppThemeId.simya),
       themeMode: ThemeMode.system,
       // AppLocalizations.localizationsDelegates still lists flutter_localizations' delegates.
       localizationsDelegates: const [

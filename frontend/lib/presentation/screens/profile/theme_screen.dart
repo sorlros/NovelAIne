@@ -96,7 +96,7 @@ class _ThemeOption extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                _Preview(palette: theme.palette),
+                _Preview(theme: theme),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -150,13 +150,15 @@ class _ThemeOption extends StatelessWidget {
   }
 }
 
-/// A small picture of a theme: its page, two lines of text and its accent.
+/// A small picture of a theme: its page, two lines of text and its main button, in the theme's shapes.
 class _Preview extends StatelessWidget {
-  final AppPalette palette;
-  const _Preview({required this.palette});
+  final AppThemeId theme;
+  const _Preview({required this.theme});
 
   @override
   Widget build(BuildContext context) {
+    final palette = theme.palette;
+    final style = theme.style;
     Widget bar(Color color, double widthFactor) => FractionallySizedBox(
       widthFactor: widthFactor,
       child: Container(
@@ -174,8 +176,11 @@ class _Preview extends StatelessWidget {
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: palette.ground,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: palette.line),
+          borderRadius: BorderRadius.circular(style.radius),
+          border: Border.all(
+            color: style.edge(palette),
+            width: style.borderWidth,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -188,8 +193,11 @@ class _Preview extends StatelessWidget {
               width: 34,
               height: 12,
               decoration: BoxDecoration(
-                color: palette.accent,
-                borderRadius: BorderRadius.circular(6),
+                color: style.primary(palette),
+                borderRadius: BorderRadius.circular(style.radiusSmall),
+                border: style.isRoute
+                    ? Border.all(color: palette.text, width: 1.5)
+                    : null,
               ),
             ),
           ],

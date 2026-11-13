@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/theme/app_palette.dart';
+import 'package:frontend/core/theme/app_style.dart';
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/presentation/providers/theme_provider.dart';
 import 'package:frontend/presentation/screens/profile/theme_screen.dart';
@@ -24,10 +25,10 @@ class _App extends ConsumerWidget {
     final choice = ref.watch(themeChoiceProvider);
     final picked = choice == followDevice
         ? null
-        : AppThemeId.values.byName(choice).palette;
+        : AppThemeId.values.byName(choice);
     return MaterialApp(
-      theme: AppTheme.of(picked ?? AppThemeId.wongoji.palette),
-      darkTheme: AppTheme.of(picked ?? AppThemeId.simya.palette),
+      theme: AppTheme.of(picked ?? AppThemeId.wongoji),
+      darkTheme: AppTheme.of(picked ?? AppThemeId.simya),
       home: const ThemeScreen(),
     );
   }
@@ -47,13 +48,28 @@ void main() {
           expect(contrast(p.faint, background), greaterThanOrEqualTo(3));
         }
         expect(contrast(p.onAccent, p.accent), greaterThanOrEqualTo(4.5));
+        expect(contrast(p.onHighlight, p.highlight), greaterThanOrEqualTo(4.5));
+        final style = theme.style;
+        expect(
+          contrast(style.onPrimary(p), style.primary(p)),
+          greaterThanOrEqualTo(4.5),
+        );
+        for (final selected in [false, true]) {
+          final fill = style.control(p, selected: selected).color!;
+          final under = Color.alphaBlend(fill, p.surface);
+          expect(
+            contrast(style.onControl(p, selected: selected), under),
+            greaterThanOrEqualTo(4.5),
+          );
+        }
       });
 
       testWidgets('${theme.name}: the Material theme carries the palette', (
         tester,
       ) async {
-        final data = AppTheme.of(p);
+        final data = AppTheme.of(theme);
         expect(data.extension<AppPalette>(), p);
+        expect(data.extension<AppStyle>(), theme.style);
         expect(data.brightness, p.brightness);
         expect(data.scaffoldBackgroundColor, p.ground);
         expect(data.colorScheme.primary, p.accent);
@@ -100,8 +116,8 @@ void main() {
     addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
     await tester.pumpWidget(const ProviderScope(child: _App()));
 
-    // The switch sits under the five themes, below the test screen's fold.
-    await tester.ensureVisible(find.byType(Switch));
+    // The switch sits under the themes, below the test screen's fold, in a list built as it scrolls.
+    await tester.scrollUntilVisible(find.byType(Switch), 200);
     await tester.pumpAndSettle();
     await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();

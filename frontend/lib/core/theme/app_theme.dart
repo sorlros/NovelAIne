@@ -11,9 +11,24 @@ class AppTheme {
     'sans-serif',
   ];
 
-  /// The Material theme of [palette]. Widgets that set no colour of their own (dialogs, snack bars,
-  /// progress indicators, text buttons) follow it; screens read the palette itself.
-  static ThemeData of(AppPalette palette) {
+  /// The Material theme of [theme]. Widgets that set no colour or shape of their own (buttons, dialogs,
+  /// inputs, snack bars) follow it; screens read the palette and the style themselves.
+  static ThemeData of(AppThemeId theme) {
+    final palette = theme.palette;
+    final style = theme.style;
+    RoundedRectangleBorder shape(
+      double radius, [
+      BorderSide side = BorderSide.none,
+    ]) => RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(radius),
+      side: side,
+    );
+    final inputEdge = style.isNight
+        ? BorderSide.none
+        : BorderSide(
+            color: style.isRoute ? palette.text : palette.faint,
+            width: style.borderWidth,
+          );
     final textTheme = TextTheme(
       displayLarge: GoogleFonts.lato(
         fontSize: 32,
@@ -67,7 +82,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: palette.brightness,
-      extensions: [palette],
+      extensions: [palette, style],
       scaffoldBackgroundColor: palette.ground,
       primaryColor: palette.accent,
       cardColor: palette.surface,
@@ -93,17 +108,29 @@ class AppTheme {
 
       cardTheme: CardThemeData(
         color: palette.surface,
-        elevation: 4,
+        elevation: style.isNight ? 4 : 0,
         shadowColor: const Color(0x40000000), // Soft shadow
         margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20), // Rounded corners
+        shape: shape(
+          style.radiusLarge,
+          style.isNight
+              ? BorderSide.none
+              : BorderSide(
+                  color: style.edge(palette),
+                  width: style.borderWidth,
+                ),
         ),
       ),
 
       dialogTheme: DialogThemeData(
         backgroundColor: palette.surface,
         surfaceTintColor: Colors.transparent,
+        shape: shape(
+          style.radiusLarge,
+          style.isRoute
+              ? BorderSide(color: palette.text, width: 2)
+              : BorderSide.none,
+        ),
         titleTextStyle: TextStyle(
           color: palette.text,
           fontSize: 20,
@@ -119,6 +146,11 @@ class AppTheme {
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: palette.surface,
         surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(style.radiusLarge),
+          ),
+        ),
       ),
 
       snackBarTheme: SnackBarThemeData(
@@ -135,7 +167,7 @@ class AppTheme {
 
       // Input Decoration Theme (TextFields)
       inputDecorationTheme: InputDecorationTheme(
-        filled: true,
+        filled: style.isNight,
         fillColor: palette.raised,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 20,
@@ -143,16 +175,19 @@ class AppTheme {
         ),
         hintStyle: TextStyle(color: palette.faint),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30), // Pill shape
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(style.radiusSmall),
+          borderSide: inputEdge,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(style.radiusSmall),
+          borderSide: inputEdge,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide(color: palette.accent, width: 1.5),
+          borderRadius: BorderRadius.circular(style.radiusSmall),
+          borderSide: BorderSide(
+            color: palette.accent,
+            width: style.isRoute ? 2 : 1.5,
+          ),
         ),
       ),
 
@@ -165,15 +200,13 @@ class AppTheme {
       // Button Themes
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: palette.accent,
-          foregroundColor: palette.onAccent,
+          backgroundColor: style.primary(palette),
+          foregroundColor: style.onPrimary(palette),
           disabledBackgroundColor: palette.raised,
           disabledForegroundColor: palette.faint,
-          elevation: 2,
+          elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
-          ),
+          shape: shape(style.radiusSmall + 2, style.primaryEdge(palette)),
           textStyle: GoogleFonts.lato(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -183,10 +216,11 @@ class AppTheme {
 
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: palette.accent,
-          foregroundColor: palette.onAccent,
+          backgroundColor: style.primary(palette),
+          foregroundColor: style.onPrimary(palette),
           disabledBackgroundColor: palette.raised,
           disabledForegroundColor: palette.faint,
+          shape: shape(style.radiusSmall + 2, style.primaryEdge(palette)),
         ),
       ),
 
@@ -197,13 +231,26 @@ class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: palette.text,
-          side: BorderSide(color: palette.line),
+          side: BorderSide(
+            color: style.edge(palette),
+            width: style.borderWidth,
+          ),
+          shape: shape(style.radiusSmall + 2),
         ),
       ),
 
+      chipTheme: ChipThemeData(
+        backgroundColor: palette.surface,
+        selectedColor: style.isNight
+            ? palette.accent.withValues(alpha: 0.25)
+            : style.primary(palette),
+        side: BorderSide(color: style.edge(palette), width: style.borderWidth),
+        shape: shape(style.isNight ? 999 : style.radiusSmall),
+      ),
+
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: palette.accent,
-        foregroundColor: palette.onAccent,
+        backgroundColor: style.primary(palette),
+        foregroundColor: style.onPrimary(palette),
         elevation: 4,
         shape: const CircleBorder(),
       ),
