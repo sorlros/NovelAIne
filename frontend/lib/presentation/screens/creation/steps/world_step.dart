@@ -99,7 +99,7 @@ class _WorldStepState extends State<WorldStep> {
                   children: CreationPrompts.genres.entries.map((entry) {
                     final isSelected = widget.config.genreLabel == entry.key;
                     return _CustomChoiceChip(
-                      label: entry.key,
+                      label: CreationPrompts.displayName(entry.key),
                       isSelected: isSelected,
                       onSelected: (selected) {
                         setState(() {
@@ -302,7 +302,7 @@ class _CustomDropdown extends StatelessWidget {
             return DropdownMenuItem(
               value: item,
               child: Text(
-                item,
+                CreationPrompts.displayName(item),
                 style: TextStyle(color: palette.text, fontSize: 15),
               ),
             );

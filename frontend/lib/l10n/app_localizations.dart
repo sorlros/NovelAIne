@@ -276,13 +276,13 @@ abstract class AppLocalizations {
   /// No description provided for @genreLabel.
   ///
   /// In ko, this message translates to:
-  /// **'장르 (Genre)'**
+  /// **'장르'**
   String get genreLabel;
 
   /// No description provided for @toneLabel.
   ///
   /// In ko, this message translates to:
-  /// **'분위기 (Tone)'**
+  /// **'분위기'**
   String get toneLabel;
 
   /// No description provided for @toneSelect.

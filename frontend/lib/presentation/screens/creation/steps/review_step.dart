@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/theme/app_palette.dart';
 import '../../../../core/theme/app_style.dart';
 import '../../../../data/models/creation_config.dart';
+import '../../../../data/constants/creation_prompts.dart';
 import 'package:frontend/l10n/app_localizations.dart';
 
 class ReviewStep extends StatelessWidget {
@@ -166,7 +167,8 @@ class _StoryPreviewCard extends StatelessWidget {
                   const SizedBox(height: 32),
                   _InfoRow(
                     label: "세계관",
-                    value: "${config.genreLabel} · ${config.toneLabel}",
+                    value:
+                        "${CreationPrompts.displayName(config.genreLabel ?? '')} · ${CreationPrompts.displayName(config.toneLabel ?? '')}",
                     icon: Icons.public_rounded,
                   ),
                   const SizedBox(height: 20),
