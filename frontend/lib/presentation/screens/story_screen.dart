@@ -14,6 +14,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants.dart';
 import '../../core/theme/app_palette.dart';
+import '../../core/theme/app_style.dart';
 import '../../data/services/api_service.dart';
 import '../../data/services/reading_guide_store.dart';
 import '../../data/repositories/story_repository.dart';
@@ -28,6 +29,7 @@ import '../widgets/custom_loading_indicator.dart';
 import '../widgets/custom_toast.dart';
 import '../widgets/play_choices_panel.dart';
 import '../widgets/reading_guide.dart';
+import '../widgets/scene_progress.dart';
 import '../widgets/writing_effect.dart';
 
 // 화면 전용 상태 관리
@@ -355,6 +357,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     if (!mounted || _isSkeleton) return;
 
     final palette = context.palette;
+    final style = context.appStyle;
     final type = widget.initialStory?.narrativeType ?? 'hero';
     final bool isEnsemble = type == 'ensemble';
 
@@ -368,11 +371,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             width: MediaQuery.of(context).size.width * 0.85,
             constraints: const BoxConstraints(maxWidth: 500),
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: palette.surface,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: palette.line),
-            ),
+            decoration: style.card(palette),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -387,10 +386,12 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                     const SizedBox(width: 12),
                     Text(
                       isEnsemble ? "군상극 가이드" : "주인공 모드 가이드",
-                      style: TextStyle(
-                        color: palette.text,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                      style: style.title(
+                        TextStyle(
+                          color: palette.text,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -420,7 +421,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: palette.raised,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(style.radius),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -443,11 +444,12 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   child: ElevatedButton(
                     onPressed: () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: palette.accent,
-                      foregroundColor: palette.onAccent,
+                      backgroundColor: style.primary(palette),
+                      foregroundColor: style.onPrimary(palette),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(style.radiusSmall),
+                        side: style.primaryEdge(palette),
                       ),
                     ),
                     child: const Text(
@@ -590,7 +592,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
       ),
       GuideStep(
         target: _guideEngineKey,
-        text: "장면을 쓰는 AI 엔진을 바꿔요. 바꿔도 이야기는 그대로 이어져요.",
+        text: "장면을 쓰는 엔진을 바꿔요. 바꿔도 이야기는 그대로 이어져요.",
       ),
       GuideStep(target: _guideFontKey, text: "본문 서체를 바꿔요."),
       GuideStep(
@@ -1395,6 +1397,11 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                                     busy: isSending,
                                     loadFailed: _playLoadFailed,
                                     remainingTurns: _freeTurnsLeft(),
+                                    turnLimit:
+                                        ref
+                                            .watch(currentPlanProvider)
+                                            .limits['turn'] ??
+                                        10,
                                     onChoose: _choose,
                                     onWrite: _write,
                                     onUndo: _undo,
@@ -1459,6 +1466,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     List<String> importantNames,
   ) {
     final palette = context.palette;
+    final style = context.appStyle;
     return Container(
       width: _sidePanelWidth,
       decoration: BoxDecoration(
@@ -1476,10 +1484,12 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
               children: [
                 Text(
                   "인물 정보",
-                  style: GoogleFonts.notoSerif(
-                    color: palette.text,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                  style: style.title(
+                    GoogleFonts.notoSerif(
+                      color: palette.text,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1538,7 +1548,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                         ? Icon(Icons.star, color: palette.accent, size: 16)
                         : null,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(style.radius),
                     ),
                     tileColor: palette.surface,
                   ),
@@ -1553,7 +1563,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "AI 어시스턴트",
+                  "글 쓰는 엔진",
                   style: TextStyle(
                     color: palette.text,
                     fontSize: 14,
@@ -1568,7 +1578,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                       children: [
                         _buildModelToggleOption(
                           ref,
-                          "DeepSeek V4.1 Flash",
+                          "기본 엔진",
                           "빠른 전개",
                           AppConstants.defaultLlmModel,
                           currentModel == AppConstants.defaultLlmModel,
@@ -1576,7 +1586,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                         const SizedBox(height: 12),
                         _buildModelToggleOption(
                           ref,
-                          "Claude Sonnet 5.5",
+                          "고급 엔진",
                           "치밀한 묘사",
                           AppConstants.proLlmModel,
                           currentModel == AppConstants.proLlmModel,
@@ -1677,22 +1687,36 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     final bool isMobile = MediaQuery.of(context).size.width < 600;
     final viewMode = ref.watch(viewModeProvider);
     final palette = context.palette;
+    final style = context.appStyle;
+    // The expanded bar is an accent band on the route style, a dimmed scene picture at night.
+    final onBand = style.isRoute && !isScrolled;
+    final overPicture =
+        style.isNight &&
+        !isScrolled &&
+        ref.watch(currentBackdropProvider) != null;
+    final Color iconColor = onBand
+        ? palette.onAccent
+        : overPicture
+        ? Colors.white
+        : palette.text;
 
     return SliverAppBar(
-      expandedHeight: isMobile ? 140.0 : 180.0,
+      expandedHeight: isMobile ? 164.0 : 200.0,
       floating: false,
       pinned: true,
-      backgroundColor: isScrolled
-          ? (viewMode == StoryViewMode.manuscript
-                ? palette.surface.withValues(alpha: 0.9)
-                : palette.ground)
-          : Colors.transparent,
+      // Opaque: the scenes scroll in their own list, so innerBoxIsScrolled stays false and a clear bar
+      // would let the text show through the collapsed toolbar.
+      backgroundColor: onBand
+          ? palette.accent
+          : isScrolled && viewMode == StoryViewMode.manuscript
+          ? palette.surface
+          : palette.ground,
       elevation: 0,
       centerTitle: true,
       leading: IconButton(
         icon: Icon(
           Icons.arrow_back_ios_new_rounded,
-          color: palette.text,
+          color: iconColor,
           size: 18,
         ),
         onPressed: () => Navigator.pop(context),
@@ -1704,7 +1728,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             viewMode == StoryViewMode.manuscript
                 ? Icons.visibility_outlined
                 : Icons.edit_note_rounded,
-            color: palette.text,
+            color: iconColor,
             size: 20,
           ),
           onPressed: () {
@@ -1719,19 +1743,15 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         ),
         IconButton(
           key: _guideEngineKey,
-          icon: Icon(Icons.psychology_rounded, color: palette.text, size: 20),
+          icon: Icon(Icons.psychology_rounded, color: iconColor, size: 20),
           onPressed: () => _showModelSettings(context),
-          tooltip: "AI 엔진 변경",
+          tooltip: "글 쓰는 엔진",
         ),
         IconButton(
           key: _guideFontKey,
-          icon: Icon(Icons.text_fields_rounded, color: palette.text, size: 20),
+          icon: Icon(Icons.text_fields_rounded, color: iconColor, size: 20),
           onPressed: () => _showFontSettings(context),
           tooltip: "서체 설정",
-        ),
-        IconButton(
-          icon: Icon(Icons.history_edu_rounded, color: palette.text, size: 20),
-          onPressed: () {},
         ),
         const SizedBox(width: 4),
       ],
@@ -1741,20 +1761,25 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         title: isScrolled
             ? Text(
                 widget.initialStory?.title ?? "Saga",
-                style: GoogleFonts.notoSerif(
-                  color: palette.text,
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ).copyWith(fontFamilyFallback: _fontFallbacks),
+                style: style
+                    .title(
+                      GoogleFonts.notoSerif(
+                        color: palette.text,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                    .copyWith(fontFamilyFallback: _fontFallbacks),
               )
             : null,
-        background: _buildAppBarContent(),
+        background: _buildAppBarContent(onBand: onBand),
       ),
     );
   }
 
   void _showFontSettings(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1765,10 +1790,13 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             decoration: BoxDecoration(
               color: palette.surface,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(30),
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(style.radiusLarge),
               ),
-              border: Border.all(color: palette.line),
+              border: Border.all(
+                color: style.edge(palette),
+                width: style.borderWidth,
+              ),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1776,10 +1804,12 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
               children: [
                 Text(
                   "서체 설정",
-                  style: TextStyle(
-                    color: palette.text,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                  style: style.title(
+                    TextStyle(
+                      color: palette.text,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -1798,20 +1828,18 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                           horizontal: 16,
                           vertical: 10,
                         ),
-                        decoration: BoxDecoration(
-                          color: isSelected ? palette.accent : palette.raised,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isSelected
-                                ? Colors.transparent
-                                : palette.line,
-                          ),
+                        decoration: style.control(
+                          palette,
+                          selected: isSelected,
                         ),
                         child: Text(
                           font,
                           style: GoogleFonts.getFont(
                             font,
-                            color: isSelected ? palette.onAccent : palette.text,
+                            color: style.onControl(
+                              palette,
+                              selected: isSelected,
+                            ),
                             fontSize: 14,
                           ),
                         ),
@@ -1830,6 +1858,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
 
   void _showModelSettings(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1840,32 +1869,37 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             decoration: BoxDecoration(
               color: palette.surface,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(30),
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(style.radiusLarge),
               ),
-              border: Border.all(color: palette.line),
+              border: Border.all(
+                color: style.edge(palette),
+                width: style.borderWidth,
+              ),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "AI 스토리 엔진 전환",
-                  style: TextStyle(
-                    color: palette.text,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                  "글 쓰는 엔진",
+                  style: style.title(
+                    TextStyle(
+                      color: palette.text,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  "중요한 장면에서는 더 정교한 Pro 엔진을 사용해 보세요.",
+                  "중요한 장면에서는 더 정교한 고급 엔진을 써 보세요.",
                   style: TextStyle(color: palette.muted, fontSize: 13),
                 ),
                 const SizedBox(height: 24),
                 _buildModelToggleOption(
                   ref,
-                  "DeepSeek V4.1 Flash",
+                  "기본 엔진",
                   "빠르고 가벼운 대화와 전개",
                   AppConstants.defaultLlmModel,
                   currentModel == AppConstants.defaultLlmModel,
@@ -1874,7 +1908,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                 const SizedBox(height: 12),
                 _buildModelToggleOption(
                   ref,
-                  "Claude Sonnet 5.5",
+                  "고급 엔진",
                   "치밀한 묘사와 깊이 있는 서사",
                   AppConstants.proLlmModel,
                   currentModel == AppConstants.proLlmModel,
@@ -1898,6 +1932,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     bool closesSheet = false,
   }) {
     final palette = context.palette;
+    final style = context.appStyle;
     final locked = ref.watch(currentPlanProvider).locks(modelId);
     return GestureDetector(
       onTap: () async {
@@ -1918,7 +1953,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           if (mounted) {
             // Only the bottom sheet closes; the side panel's copy must not close the story.
             if (closesSheet) Navigator.pop(context);
-            CustomToast.show(context, "$title 엔진으로 전환되었습니다.");
+            CustomToast.show(context, "$title으로 바꿨습니다.");
           }
         } catch (e) {
           if (mounted) {
@@ -1932,21 +1967,14 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
       },
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? palette.accent.withValues(alpha: 0.15)
-              : palette.raised,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? palette.accent : palette.line,
-            width: 1.5,
-          ),
-        ),
+        decoration: style.control(palette, selected: isSelected),
         child: Row(
           children: [
             Icon(
               locked ? Icons.lock : Icons.auto_awesome,
-              color: isSelected ? palette.accent : palette.faint,
+              color: isSelected
+                  ? style.onControl(palette, selected: true)
+                  : palette.faint,
               size: 20,
             ),
             const SizedBox(width: 16),
@@ -1957,7 +1985,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   Text(
                     title,
                     style: TextStyle(
-                      color: isSelected ? palette.text : palette.muted,
+                      color: isSelected
+                          ? style.onControl(palette, selected: true)
+                          : palette.muted,
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
                     ),
@@ -1965,7 +1995,12 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   const SizedBox(height: 2),
                   Text(
                     locked ? "유료" : sub,
-                    style: TextStyle(color: palette.faint, fontSize: 12),
+                    style: TextStyle(
+                      color: isSelected && !style.isNight
+                          ? style.onControl(palette, selected: true)
+                          : palette.faint,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -1973,7 +2008,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             if (isSelected)
               Icon(
                 Icons.check_circle,
-                color: palette.accent,
+                color: style.isNight
+                    ? palette.accent
+                    : style.onControl(palette, selected: true),
                 size: 20,
               ).animate().scale(duration: 200.ms),
           ],
@@ -1982,10 +2019,37 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     );
   }
 
-  Widget _buildAppBarContent() {
+  Widget _buildAppBarContent({required bool onBand}) {
     final palette = context.palette;
+    final style = context.appStyle;
     final bool isMobile = MediaQuery.of(context).size.width < 600;
-    return Container(
+    final backdropUrl = ref.watch(currentBackdropProvider);
+    final messages = ref.watch(messageProvider);
+    final bool overPicture = style.isNight && backdropUrl != null;
+
+    // Scenes are the AI messages counted from 1; those with a picture light the progress strip.
+    var scenes = 0;
+    final pictured = <int>{};
+    for (final m in messages) {
+      if (m['role'] == 'user') continue;
+      scenes++;
+      final image = m['imageUrl'];
+      if (image != null && image.toString().isNotEmpty) pictured.add(scenes);
+    }
+    final current = _isSkeleton ? (_play?.beatSeq ?? 1) : scenes;
+
+    final Color genreColor = onBand
+        ? palette.onAccent
+        : overPicture
+        ? Colors.white
+        : palette.accent;
+    final Color titleColor = onBand
+        ? palette.onAccent
+        : overPicture
+        ? Colors.white
+        : palette.text;
+
+    final content = Container(
       padding: EdgeInsets.only(top: isMobile ? 40 : 60),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1993,7 +2057,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           Text(
             widget.initialStory?.genre.toUpperCase() ?? "STORY",
             style: GoogleFonts.lato(
-              color: palette.accent,
+              color: genreColor,
               fontSize: isMobile ? 10 : 11,
               fontWeight: FontWeight.w900,
               letterSpacing: isMobile ? 3 : 5,
@@ -2006,21 +2070,43 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                 Text(
                       widget.initialStory?.title ?? "Untitled",
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.notoSerif(
-                        color: palette.text,
-                        fontSize: isMobile ? 24 : 30,
-                        fontWeight: FontWeight.bold,
-                        height: 1.2,
+                      style: style.title(
+                        GoogleFonts.notoSerif(
+                          color: titleColor,
+                          fontSize: isMobile ? 24 : 30,
+                          fontWeight: style.isPaper
+                              ? FontWeight.w900
+                              : FontWeight.bold,
+                          height: 1.2,
+                        ),
                       ),
                     )
                     .animate()
                     .fadeIn(delay: 500.ms)
                     .scale(begin: const Offset(0.95, 0.95)),
           ),
-          const SizedBox(height: 16),
-          Container(width: 40, height: 1, color: palette.line),
+          const SizedBox(height: 14),
+          SceneProgress(
+            current: current < 1 ? 1 : current,
+            pictured: pictured,
+            onBand: onBand,
+          ),
         ],
       ),
+    );
+    if (!overPicture) return content;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        CachedNetworkImage(
+          imageUrl: backdropUrl,
+          fit: BoxFit.cover,
+          errorWidget: (context, url, error) => const SizedBox.shrink(),
+        ),
+        // Darkens the picture so the white title stays readable.
+        Container(color: Colors.black.withValues(alpha: 0.6)),
+        content,
+      ],
     );
   }
 
@@ -2033,6 +2119,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   Widget _buildFloatingControls(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 600;
     final palette = context.palette;
+    final style = context.appStyle;
     final isSending =
         _isSendingMessage || ref.watch(streamingMessageIdProvider) != null;
     final bgColor = palette.ground;
@@ -2065,8 +2152,13 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: palette.raised,
-                borderRadius: BorderRadius.circular(35),
-                border: Border.all(color: palette.line),
+                borderRadius: BorderRadius.circular(
+                  style.isNight ? 35 : style.radius,
+                ),
+                border: Border.all(
+                  color: style.edge(palette),
+                  width: style.borderWidth,
+                ),
               ),
               child: Row(
                 children: [
@@ -2084,8 +2176,11 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                           color: palette.faint,
                           fontSize: 14,
                         ),
-                        filled: false, // the bar around the field is the fill
+                        // The bar around the field is its fill and outline: none of the theme's.
+                        filled: false,
                         border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
                       ),
                       onSubmitted: (_) {
                         if (!isSending) _sendMessage();
@@ -2179,53 +2274,47 @@ class _RefinedNarrativeCard extends ConsumerWidget {
     if (isUser) {
       if (viewMode == StoryViewMode.focus) return const SizedBox.shrink();
 
+      final style = context.appStyle;
+      final label = Container(
+        padding: style.isRoute
+            ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2)
+            : EdgeInsets.zero,
+        decoration: style.isRoute
+            ? BoxDecoration(
+                color: palette.text,
+                borderRadius: BorderRadius.circular(style.radiusSmall),
+              )
+            : null,
+        child: Text(
+          "지난 선택",
+          style: GoogleFonts.lato(
+            color: style.isRoute ? palette.highlight : palette.accent,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1,
+          ),
+        ),
+      );
       return RepaintBoundary(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  "당신의 행동",
-                  style: GoogleFonts.lato(
-                    color: palette.accent,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1,
-                  ),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(padding: const EdgeInsets.only(top: 3), child: label),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  msg['content'],
+                  style: getBaseStyle(
+                    fontSize: 15,
+                    height: 1.5,
+                  ).copyWith(color: palette.muted),
                 ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: palette.accent.withValues(alpha: 0.1),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(20),
-                      bottomLeft: Radius.circular(20),
-                      bottomRight: Radius.circular(20),
-                    ),
-                    border: Border.all(
-                      color: palette.accent.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Text(
-                    msg['content'],
-                    style: getBaseStyle(
-                      fontSize: 16,
-                      fontStyle: FontStyle.italic,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ).animate().fadeIn().slideX(begin: 0.05),
+        ).animate().fadeIn(),
       );
     }
 
@@ -2241,7 +2330,9 @@ class _RefinedNarrativeCard extends ConsumerWidget {
               Padding(
                     padding: const EdgeInsets.only(bottom: 24),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(
+                        context.appStyle.radiusLarge,
+                      ),
                       child: CachedNetworkImage(
                         imageUrl: msg['imageUrl'],
                         fit: BoxFit.cover,
@@ -2331,7 +2422,11 @@ class _RefinedNarrativeCard extends ConsumerWidget {
                     foregroundColor: palette.warning,
                     side: BorderSide(color: palette.warning),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: BorderRadius.circular(
+                        context.appStyle.isNight
+                            ? 999
+                            : context.appStyle.radiusSmall,
+                      ),
                     ),
                   ),
                 ),
@@ -2386,7 +2481,11 @@ class _BgmControlButton extends StatelessWidget {
       style: OutlinedButton.styleFrom(
         foregroundColor: isActive ? palette.accent : palette.muted,
         side: BorderSide(color: isActive ? palette.accent : palette.line),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(
+            context.appStyle.isNight ? 999 : context.appStyle.radiusSmall,
+          ),
+        ),
       ),
       icon: isLoading
           ? const SizedBox(

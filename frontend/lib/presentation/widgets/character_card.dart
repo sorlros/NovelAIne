@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../core/theme/app_palette.dart';
+import '../../core/theme/app_style.dart';
 
 class CharacterCard extends StatelessWidget {
   final String name;
@@ -25,6 +26,9 @@ class CharacterCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
+    final night = style.isNight;
+    final avatarRadius = BorderRadius.circular(style.radiusSmall);
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -37,7 +41,7 @@ class CharacterCard extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 // Glow effect for important characters
-                if (isImportant || isProtagonist)
+                if (night && (isImportant || isProtagonist))
                   Container(
                         width: 64,
                         height: 64,
@@ -67,16 +71,23 @@ class CharacterCard extends StatelessWidget {
                   width: 60,
                   height: 60,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
+                    shape: night ? BoxShape.circle : BoxShape.rectangle,
+                    borderRadius: night ? null : avatarRadius,
                     border: Border.all(
-                      color: isProtagonist
+                      color: style.isRoute
+                          ? palette.text
+                          : isProtagonist
                           ? palette.accent.withValues(alpha: 0.8)
                           : (isImportant ? palette.accent : palette.line),
                       width: 2,
                     ),
+                    boxShadow: style.shadow(palette, offset: 3),
                     color: palette.surface,
                   ),
-                  child: ClipOval(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(
+                      night ? 30 : style.radiusSmall,
+                    ),
                     child: imageUrl != null
                         ? CachedNetworkImage(
                             imageUrl: imageUrl!,

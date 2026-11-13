@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/theme/app_palette.dart';
+import '../../core/theme/app_style.dart';
 
 /// One stop of the guide: the widget under [target] is lit and [text] explains it.
 class GuideStep {
@@ -97,6 +98,7 @@ class _ReadingGuideState extends State<ReadingGuide>
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
     final target = _hole;
     if (_index < 0 || target == null) {
       // Block taps while the first target is being found.
@@ -126,7 +128,9 @@ class _ReadingGuideState extends State<ReadingGuide>
                 behavior: HitTestBehavior.opaque,
                 onTap:
                     () {}, // the dimmed screen is not usable during the guide
-                child: CustomPaint(painter: _DimPainter(hole, palette.accent)),
+                child: CustomPaint(
+                  painter: _DimPainter(hole, palette.accent, style.radius),
+                ),
               ),
             ),
             Positioned(
@@ -134,57 +138,59 @@ class _ReadingGuideState extends State<ReadingGuide>
               width: (size.width - 32).clamp(0.0, cardWidth),
               top: below ? hole.bottom + 12 : null,
               bottom: over ? 24 : (below ? null : size.height - hole.top + 12),
-              child: Material(
-                color: palette.surface,
-                borderRadius: BorderRadius.circular(14),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 16, 10, 8),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.steps[_index].text,
-                        style: TextStyle(
-                          color: palette.text,
-                          fontSize: 14,
-                          height: 1.5,
+              child: Container(
+                decoration: style.card(palette),
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 16, 10, 8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.steps[_index].text,
+                          style: TextStyle(
+                            color: palette.text,
+                            fontSize: 14,
+                            height: 1.5,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Text(
-                            '${_index + 1} / ${widget.steps.length}',
-                            style: TextStyle(
-                              color: palette.faint,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const Spacer(),
-                          if (!last)
-                            TextButton(
-                              onPressed: widget.onDone,
-                              child: Text(
-                                '건너뛰기',
-                                style: TextStyle(color: palette.muted),
-                              ),
-                            ),
-                          TextButton(
-                            onPressed: last
-                                ? widget.onDone
-                                : () => _goTo(_index + 1),
-                            child: Text(
-                              last ? '시작하기' : '다음',
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Text(
+                              '${_index + 1} / ${widget.steps.length}',
                               style: TextStyle(
-                                color: palette.accent,
-                                fontWeight: FontWeight.bold,
+                                color: palette.faint,
+                                fontSize: 12,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                            const Spacer(),
+                            if (!last)
+                              TextButton(
+                                onPressed: widget.onDone,
+                                child: Text(
+                                  '건너뛰기',
+                                  style: TextStyle(color: palette.muted),
+                                ),
+                              ),
+                            TextButton(
+                              onPressed: last
+                                  ? widget.onDone
+                                  : () => _goTo(_index + 1),
+                              child: Text(
+                                last ? '시작하기' : '다음',
+                                style: TextStyle(
+                                  color: palette.accent,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -199,20 +205,21 @@ class _ReadingGuideState extends State<ReadingGuide>
 class _DimPainter extends CustomPainter {
   final Rect hole;
   final Color accent;
+  final double radius;
 
-  _DimPainter(this.hole, this.accent);
+  _DimPainter(this.hole, this.accent, this.radius);
 
   @override
   void paint(Canvas canvas, Size size) {
     final dim = Path()..addRect(Offset.zero & size);
     final lit = Path()
-      ..addRRect(RRect.fromRectAndRadius(hole, const Radius.circular(12)));
+      ..addRRect(RRect.fromRectAndRadius(hole, Radius.circular(radius)));
     canvas.drawPath(
       Path.combine(PathOperation.difference, dim, lit),
       Paint()..color = Colors.black.withValues(alpha: 0.75),
     );
     canvas.drawRRect(
-      RRect.fromRectAndRadius(hole, const Radius.circular(12)),
+      RRect.fromRectAndRadius(hole, Radius.circular(radius)),
       Paint()
         ..color = accent
         ..style = PaintingStyle.stroke
@@ -222,5 +229,5 @@ class _DimPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DimPainter old) =>
-      old.hole != hole || old.accent != accent;
+      old.hole != hole || old.accent != accent || old.radius != radius;
 }

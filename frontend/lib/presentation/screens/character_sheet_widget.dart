@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme/app_palette.dart';
+import '../../core/theme/app_style.dart';
 import '../../data/services/api_service.dart';
 import '../providers/content_provider.dart';
 import '../widgets/custom_toast.dart';
@@ -74,6 +75,7 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final style = context.appStyle;
     final String name = widget.character['name'] ?? 'Unknown Character';
     final String? imageUrl = widget.character['image_url'];
     final String description =
@@ -88,8 +90,13 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
         height: MediaQuery.of(context).size.height * 0.85,
         decoration: BoxDecoration(
           color: palette.surface.withValues(alpha: 0.9),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
-          border: Border.all(color: palette.line, width: 1),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(style.radiusLarge),
+          ),
+          border: Border.all(
+            color: style.edge(palette),
+            width: style.borderWidth,
+          ),
         ),
         child: Column(
           children: [
@@ -188,10 +195,12 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
                           const SizedBox(height: 24),
                           Text(
                             name,
-                            style: GoogleFonts.notoSerif(
-                              color: palette.text,
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
+                            style: style.title(
+                              GoogleFonts.notoSerif(
+                                color: palette.text,
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -204,7 +213,9 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
                               ),
                               decoration: BoxDecoration(
                                 color: palette.accent.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: BorderRadius.circular(
+                                  style.isNight ? 20 : style.radiusSmall,
+                                ),
                                 border: Border.all(
                                   color: palette.accent.withValues(alpha: 0.4),
                                 ),
@@ -294,6 +305,7 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
 
   Widget _buildSectionHeader(BuildContext context, String title) {
     final palette = context.palette;
+    final style = context.appStyle;
     return Row(
       children: [
         Container(
@@ -307,10 +319,12 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
         const SizedBox(width: 12),
         Text(
           title,
-          style: GoogleFonts.notoSerif(
-            color: palette.text,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+          style: style.title(
+            GoogleFonts.notoSerif(
+              color: palette.text,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ],
@@ -318,12 +332,16 @@ class _CharacterSheetWidgetState extends ConsumerState<CharacterSheetWidget> {
   }
 
   Widget _buildTraitChip(AppPalette palette, String label) {
+    final style = context.appStyle;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: palette.raised,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: palette.line),
+        borderRadius: BorderRadius.circular(style.radiusSmall),
+        border: Border.all(
+          color: style.edge(palette),
+          width: style.borderWidth,
+        ),
       ),
       child: Text(
         label,

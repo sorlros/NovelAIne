@@ -80,6 +80,7 @@ void main() {
             busy: false,
             loadFailed: false,
             remainingTurns: remaining,
+            turnLimit: 20,
             onChoose: (_) {},
             onWrite: (_) {},
             onUndo: () {},
@@ -90,7 +91,7 @@ void main() {
     );
 
     await pump(12);
-    expect(find.text('오늘 남은 장면 12'), findsOneWidget);
+    expect(find.text('오늘 남은 장면 12 / 20'), findsOneWidget);
     await pump(null);
     expect(find.textContaining('오늘 남은 장면'), findsNothing);
   });
