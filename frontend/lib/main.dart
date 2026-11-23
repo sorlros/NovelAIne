@@ -3,11 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:frontend/l10n/app_localizations.dart';
 import 'core/constants.dart';
+import 'core/theme/app_palette.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/screens/auth/auth_screen.dart';
 import 'data/local/app_database.dart';
 import 'data/repositories/story_repository.dart';
 import 'data/services/api_service.dart';
+import 'data/services/reading_prefs_store.dart';
+import 'data/services/theme_store.dart';
+import 'presentation/providers/reading_prefs_provider.dart';
+import 'presentation/providers/theme_provider.dart';
 
 void main() async {
   // 1. Flutter 바인딩 초기화
@@ -31,25 +36,40 @@ void main() async {
     ]);
   });
 
+  // Read before the first frame, so the app does not open in another theme and then switch.
+  final savedTheme = await ThemeStore().read();
+  final savedReading = await ReadingPrefsStore().read();
+
   runApp(
     ProviderScope(
       overrides: [
         // 앱 전역에서 미리 예열된 인스턴스를 사용하도록 강제 설정
         storyRepositoryProvider.overrideWithValue(repository),
+        themeChoiceProvider.overrideWith((ref) => ThemeChoice(savedTheme)),
+        readingPrefsProvider.overrideWith(
+          (ref) => ReadingPrefsNotifier(savedReading),
+        ),
       ],
       child: const MyApp(),
     ),
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final choice = ref.watch(themeChoiceProvider);
+    // One theme for both modes, unless the reader follows the device.
+    final picked = choice == followDevice
+        ? null
+        : AppThemeId.values.byName(choice);
     return MaterialApp(
       title: 'NovelAIne',
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.of(picked ?? AppThemeId.wongoji),
+      darkTheme: AppTheme.of(picked ?? AppThemeId.simya),
+      themeMode: ThemeMode.system,
       // AppLocalizations.localizationsDelegates still lists flutter_localizations' delegates.
       localizationsDelegates: const [
         AppLocalizations.delegate,

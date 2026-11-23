@@ -3,6 +3,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/theme/app_palette.dart';
+import '../../../core/theme/app_style.dart';
 import '../../../../data/services/api_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/content_provider.dart';
@@ -66,7 +68,10 @@ class _CharacterBuilderScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("이미지 선택 오류: $e"), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text("이미지 선택 오류: $e"),
+            backgroundColor: context.palette.danger,
+          ),
         );
       }
     }
@@ -78,9 +83,9 @@ class _CharacterBuilderScreenState
     // We should allow saving even without traits, but let's encourage at least one
     if (_traits.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("최소 1개의 성격(키워드)을 추가해주세요."),
-          backgroundColor: Colors.amber,
+        SnackBar(
+          content: const Text("최소 1개의 성격(키워드)을 추가해주세요."),
+          backgroundColor: context.palette.warning,
         ),
       );
       return;
@@ -119,16 +124,19 @@ class _CharacterBuilderScreenState
       if (mounted) {
         Navigator.pop(context); // Go back to profile tabs
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("캐릭터가 성공적으로 생성되었습니다!"),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text("캐릭터가 성공적으로 생성되었습니다!"),
+            backgroundColor: context.palette.success,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("생성 실패: $e"), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text("생성 실패: $e"),
+            backgroundColor: context.palette.danger,
+          ),
         );
       }
     } finally {
@@ -137,18 +145,22 @@ class _CharacterBuilderScreenState
   }
 
   Widget _buildSectionTitle(String title, IconData icon) {
+    final palette = context.palette;
+    final style = context.appStyle;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xFF7C3AED), size: 20),
+          Icon(icon, color: palette.accent, size: 20),
           const SizedBox(width: 8),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+            style: style.title(
+              TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: palette.text,
+              ),
             ),
           ),
         ],
@@ -163,27 +175,35 @@ class _CharacterBuilderScreenState
     int maxLines = 1,
     bool isRequired = false,
   }) {
+    final palette = context.palette;
+    final style = context.appStyle;
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: palette.text),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        hintStyle: const TextStyle(color: Colors.white30),
+        hintStyle: TextStyle(color: palette.faint),
         filled: true,
-        fillColor: const Color(0xFF1E1E1E),
+        fillColor: palette.surface,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Colors.white10),
+          borderRadius: BorderRadius.circular(style.radius),
+          borderSide: BorderSide(
+            color: style.edge(palette),
+            width: style.borderWidth,
+          ),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Colors.white10),
+          borderRadius: BorderRadius.circular(style.radius),
+          borderSide: BorderSide(
+            color: style.edge(palette),
+            width: style.borderWidth,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF7C3AED), width: 2),
+          borderRadius: BorderRadius.circular(style.radius),
+          borderSide: BorderSide(color: palette.accent, width: 2),
         ),
       ),
       validator: isRequired
@@ -195,11 +215,13 @@ class _CharacterBuilderScreenState
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: palette.ground,
       appBar: AppBar(
         title: const Text("새 페르소나 설계"),
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: palette.ground,
         elevation: 0,
         actions: [
           _isLoading
@@ -215,11 +237,11 @@ class _CharacterBuilderScreenState
                 )
               : TextButton.icon(
                   onPressed: _saveCharacter,
-                  icon: const Icon(Icons.check, color: Color(0xFF7C3AED)),
-                  label: const Text(
+                  icon: Icon(Icons.check, color: palette.accent),
+                  label: Text(
                     "저장",
                     style: TextStyle(
-                      color: Color(0xFF7C3AED),
+                      color: palette.accent,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -239,10 +261,10 @@ class _CharacterBuilderScreenState
                   width: 120,
                   height: 120,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E1E1E),
+                    color: palette.surface,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: const Color(0xFF7C3AED).withValues(alpha: 0.5),
+                      color: palette.accent.withValues(alpha: 0.5),
                       width: 2,
                     ),
                     image: _selectedImageBytes != null
@@ -258,16 +280,14 @@ class _CharacterBuilderScreenState
                           children: [
                             Icon(
                               Icons.add_a_photo_outlined,
-                              color: const Color(
-                                0xFF7C3AED,
-                              ).withValues(alpha: 0.8),
+                              color: palette.accent.withValues(alpha: 0.8),
                               size: 32,
                             ),
                             const SizedBox(height: 8),
-                            const Text(
+                            Text(
                               "사진 추가",
                               style: TextStyle(
-                                color: Colors.white54,
+                                color: palette.muted,
                                 fontSize: 12,
                               ),
                             ),
@@ -301,18 +321,14 @@ class _CharacterBuilderScreenState
               "성격 및 특징",
               Icons.psychology_outlined,
             ).animate().fadeIn().slideX(delay: 100.ms),
-            const Text(
+            Text(
               "엔터(↵)를 눌러 키워드를 추가하세요.",
-              style: TextStyle(color: Colors.white54, fontSize: 13),
+              style: TextStyle(color: palette.muted, fontSize: 13),
             ).animate().fadeIn().slideX(delay: 100.ms),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white10),
-              ),
+              decoration: style.card(palette),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -324,12 +340,21 @@ class _CharacterBuilderScreenState
                         label: Text(trait),
                         deleteIcon: const Icon(Icons.close, size: 16),
                         onDeleted: () => _removeTrait(trait),
-                        backgroundColor: const Color(
-                          0xFF7C3AED,
-                        ).withValues(alpha: 0.2),
-                        labelStyle: const TextStyle(color: Colors.white),
+                        backgroundColor: style
+                            .control(palette, selected: true)
+                            .color,
+                        labelStyle: TextStyle(
+                          color: style.onControl(palette, selected: true),
+                        ),
+                        deleteIconColor: style.onControl(
+                          palette,
+                          selected: true,
+                        ),
                         side: BorderSide(
-                          color: const Color(0xFF7C3AED).withValues(alpha: 0.5),
+                          color: style.isNight
+                              ? palette.accent.withValues(alpha: 0.5)
+                              : style.edge(palette),
+                          width: style.borderWidth,
                         ),
                       );
                     }).toList(),
@@ -337,11 +362,15 @@ class _CharacterBuilderScreenState
                   if (_traits.isNotEmpty) const SizedBox(height: 12),
                   TextField(
                     controller: _traitInputController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
+                    style: TextStyle(color: palette.text),
+                    decoration: InputDecoration(
                       hintText: "새 키워드 입력...",
-                      hintStyle: TextStyle(color: Colors.white30),
+                      hintStyle: TextStyle(color: palette.faint),
+                      // The box around the field is its fill and outline: none of the theme's.
+                      filled: false,
                       border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
                       isDense: true,
                     ),
                     onSubmitted: _addTrait,

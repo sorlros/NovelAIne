@@ -139,7 +139,7 @@ void main() {
     ) async {
       final events = await pumpPanel(tester, play(callbacks: ['약속을 지켰다']));
       expect(find.text('문을 열 것인가?'), findsOneWidget);
-      expect(find.text('기억됩니다'), findsOneWidget);
+      expect(find.text('이야기에 남음'), findsOneWidget);
       expect(find.text('당신의 선택: 약속을 지켰다'), findsOneWidget);
 
       await tester.tap(find.text('돌아선다'));

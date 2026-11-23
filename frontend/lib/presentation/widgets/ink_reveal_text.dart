@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/theme/app_palette.dart';
+
 class InkRevealText extends StatefulWidget {
   final String text;
   final TextStyle style;
@@ -61,7 +63,7 @@ class _InkRevealTextState extends State<InkRevealText>
               Shadow(
                 color:
                     widget.style.color?.withValues(alpha: 0.3) ??
-                    Colors.white30,
+                    context.palette.faint,
                 blurRadius: 2,
               ),
             ],

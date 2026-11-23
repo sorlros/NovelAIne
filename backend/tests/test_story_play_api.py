@@ -45,7 +45,8 @@ class PlayApiTest(unittest.IsolatedAsyncioTestCase):
     async def test_get_returns_where_the_reader_is(self):
         response = await play_api.get_play(self.story_id, BackgroundTasks(), authorization=AUTH)
         self.assertEqual(set(response.data), {"beat_seq", "question", "choices", "preparing", "finished",
-                                              "present_characters", "callbacks", "media_pending"})
+                                              "present_characters", "callbacks", "media_pending", "path"})
+        self.assertEqual(response.data["path"], [{"seq": 1, "label": "", "lasting": False}])
         self.assertEqual(set(response.data["choices"][0]), {"id", "label", "lasting"})
 
     async def test_post_streams_the_scene_and_saves_the_turn(self):

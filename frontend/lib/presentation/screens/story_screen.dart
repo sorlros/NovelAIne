@@ -13,6 +13,8 @@ import 'package:shimmer/shimmer.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants.dart';
+import '../../core/theme/app_palette.dart';
+import '../../core/theme/app_style.dart';
 import '../../data/services/api_service.dart';
 import '../../data/services/reading_guide_store.dart';
 import '../../data/repositories/story_repository.dart';
@@ -22,11 +24,14 @@ import '../../data/models/play_models.dart';
 import '../../data/models/story_model.dart';
 import '../providers/content_provider.dart';
 import '../providers/plan_provider.dart';
+import '../providers/reading_prefs_provider.dart';
+import 'profile/theme_screen.dart';
 import '../widgets/character_card.dart';
 import '../widgets/custom_loading_indicator.dart';
 import '../widgets/custom_toast.dart';
 import '../widgets/play_choices_panel.dart';
 import '../widgets/reading_guide.dart';
+import '../widgets/scene_progress.dart';
 import '../widgets/writing_effect.dart';
 
 // 화면 전용 상태 관리
@@ -59,10 +64,6 @@ final importantCharacterNamesProvider = StateProvider.autoDispose<List<String>>(
 final characterPersistenceProvider =
     StateProvider.autoDispose<Map<String, int>>((ref) => {});
 
-// 폰트 상태 관리 추가
-final selectedFontProvider = StateProvider.autoDispose<String>(
-  (ref) => 'Noto Serif KR',
-);
 // 현재 이야기의 AI 모델 상태 관리
 final currentStoryModelProvider = StateProvider.autoDispose<String>(
   (ref) => AppConstants.defaultLlmModel,
@@ -120,16 +121,6 @@ double? itemTopOffset(ScrollPosition position, String id) {
   if (found == null) return null;
   return RenderAbstractViewport.of(found).getOffsetToReveal(found, 0).offset;
 }
-
-final List<String> availableFonts = [
-  'Noto Serif KR',
-  'EB Garamond',
-  'JetBrains Mono',
-  'Gowun Batang',
-  'Nanum Myeongjo',
-  'Song Myung',
-  'Gowun Dodum',
-];
 
 /// Width of the character panel shown left of the story on wide screens.
 const double _sidePanelWidth = 300;
@@ -223,7 +214,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   }
 
   void _preCacheFonts() {
-    for (var font in availableFonts) {
+    for (var font in readingFonts) {
       GoogleFonts.getFont(font);
     }
   }
@@ -353,6 +344,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     // The tips are about typing free text; skeleton stories offer choices.
     if (!mounted || _isSkeleton) return;
 
+    final palette = context.palette;
+    final style = context.appStyle;
     final type = widget.initialStory?.narrativeType ?? 'hero';
     final bool isEnsemble = type == 'ensemble';
 
@@ -366,11 +359,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             width: MediaQuery.of(context).size.width * 0.85,
             constraints: const BoxConstraints(maxWidth: 500),
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A1A24),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white10),
-            ),
+            decoration: style.card(palette),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -379,16 +368,18 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   children: [
                     Icon(
                       isEnsemble ? Icons.groups_rounded : Icons.person_rounded,
-                      color: const Color(0xFF7C3AED),
+                      color: palette.accent,
                       size: 28,
                     ),
                     const SizedBox(width: 12),
                     Text(
                       isEnsemble ? "군상극 가이드" : "주인공 모드 가이드",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                      style: style.title(
+                        TextStyle(
+                          color: palette.text,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -398,17 +389,17 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   isEnsemble
                       ? "이 서사에는 고정된 주인공이 없습니다. 당신은 세계의 운명을 결정하는 지휘자입니다."
                       : "당신은 이 이야기의 주인공입니다. 당신의 선택이 운명을 결정합니다.",
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: palette.text,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   "💡 이런 식으로 입력해 보세요:",
                   style: TextStyle(
-                    color: Colors.white54,
+                    color: palette.muted,
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                   ),
@@ -417,8 +408,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(16),
+                    color: palette.raised,
+                    borderRadius: BorderRadius.circular(style.radius),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -441,11 +432,12 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   child: ElevatedButton(
                     onPressed: () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF7C3AED),
-                      foregroundColor: Colors.white,
+                      backgroundColor: style.primary(palette),
+                      foregroundColor: style.onPrimary(palette),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(style.radiusSmall),
+                        side: style.primaryEdge(palette),
                       ),
                     ),
                     child: const Text(
@@ -588,9 +580,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
       ),
       GuideStep(
         target: _guideEngineKey,
-        text: "장면을 쓰는 AI 엔진을 바꿔요. 바꿔도 이야기는 그대로 이어져요.",
+        text: "장면을 쓰는 엔진을 바꿔요. 바꿔도 이야기는 그대로 이어져요.",
       ),
-      GuideStep(target: _guideFontKey, text: "본문 서체를 바꿔요."),
+      GuideStep(target: _guideFontKey, text: "글자 크기와 서체, 줄 간격, 화면 테마를 바꿔요."),
       GuideStep(
         target: _guideChoicesKey,
         // The panel is the last item of a lazily built list: going to the end builds it, and building the
@@ -1281,6 +1273,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final messages = ref.watch(messageProvider);
     final isUIReady = ref.watch(isUIReadyProvider);
     // Keeps the auto-disposed flag alive: while no scene card is built it would reset, and every card
@@ -1309,9 +1302,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     }).toList();
 
     return Scaffold(
-      backgroundColor: viewMode == StoryViewMode.manuscript
-          ? const Color(0xFF16161D)
-          : const Color(0xFF000000),
+      backgroundColor: palette.ground,
       resizeToAvoidBottomInset: true,
       body: Stack(
         fit: StackFit.expand,
@@ -1323,17 +1314,6 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             curve: Curves.easeIn,
             child: Row(
               children: [
-                // [데스크탑 전용] 사이드 패널
-                if (!isMobile && viewMode == StoryViewMode.manuscript)
-                  KeyedSubtree(
-                    key: _guideCharactersKey,
-                    child: _buildDesktopSidePanel(
-                      context,
-                      visibleCharacters,
-                      importantNames,
-                    ),
-                  ),
-
                 Expanded(
                   child: NestedScrollView(
                     headerSliverBuilder: (context, innerBoxIsScrolled) => [
@@ -1394,6 +1374,11 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                                     busy: isSending,
                                     loadFailed: _playLoadFailed,
                                     remainingTurns: _freeTurnsLeft(),
+                                    turnLimit:
+                                        ref
+                                            .watch(currentPlanProvider)
+                                            .limits['turn'] ??
+                                        10,
                                     onChoose: _choose,
                                     onWrite: _write,
                                     onUndo: _undo,
@@ -1430,6 +1415,16 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                     ),
                   ),
                 ),
+                // [데스크탑 전용] 오른쪽 패널
+                if (!isMobile && viewMode == StoryViewMode.manuscript)
+                  KeyedSubtree(
+                    key: _guideCharactersKey,
+                    child: _buildDesktopSidePanel(
+                      context,
+                      visibleCharacters,
+                      importantNames,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1457,145 +1452,224 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     List<Map<String, dynamic>> visibleCharacters,
     List<String> importantNames,
   ) {
+    final palette = context.palette;
+    final style = context.appStyle;
+    final prefs = ref.watch(readingPrefsProvider);
+    final lastingSteps = _isSkeleton
+        ? (_play?.path.where((step) => step.lasting).toList() ??
+              const <PlayStep>[])
+        : const <PlayStep>[];
+
+    Widget section(String title, Widget child, {bool first = false}) {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+        decoration: BoxDecoration(
+          border: style.isPaper && !first
+              ? Border(top: BorderSide(color: palette.text, width: 2))
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: style.title(
+                TextStyle(
+                  color: palette.text,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
+      );
+    }
+
+    Widget avatar(Map<String, dynamic> char) {
+      final image = char['image_url'];
+      final shape = style.isNight ? BoxShape.circle : BoxShape.rectangle;
+      return Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          shape: shape,
+          borderRadius: style.isNight
+              ? null
+              : BorderRadius.circular(style.radiusSmall),
+          color: palette.line,
+          image: image != null
+              ? DecorationImage(
+                  image: CachedNetworkImageProvider(image),
+                  fit: BoxFit.cover,
+                )
+              : null,
+        ),
+        child: image == null ? Icon(Icons.person, color: palette.faint) : null,
+      );
+    }
+
+    Widget sizeButton(String text, int delta) {
+      final next = prefs.sizeStep + delta;
+      final enabled = next >= 0 && next < ReadingPrefs.sizes.length;
+      return Expanded(
+        child: GestureDetector(
+          onTap: enabled
+              ? () {
+                  HapticFeedback.selectionClick();
+                  ref
+                      .read(readingPrefsProvider.notifier)
+                      .set(prefs.copyWith(sizeStep: next));
+                }
+              : null,
+          child: Opacity(
+            opacity: enabled ? 1 : 0.4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              alignment: Alignment.center,
+              decoration: style.control(palette, selected: false),
+              child: Text(
+                text,
+                style: TextStyle(
+                  color: style.onControl(palette, selected: false),
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final decoration = switch (style.kind) {
+      StyleKind.night => BoxDecoration(
+        color: palette.surface,
+        border: Border(left: BorderSide(color: palette.line, width: 1)),
+      ),
+      StyleKind.paper => BoxDecoration(
+        border: Border(left: BorderSide(color: palette.line, width: 1)),
+      ),
+      StyleKind.route => BoxDecoration(
+        color: palette.surface,
+        border: Border(left: BorderSide(color: palette.text, width: 2)),
+      ),
+    };
+
     return Container(
       width: _sidePanelWidth,
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D0D12).withValues(alpha: 0.6),
-        border: const Border(
-          right: BorderSide(color: Colors.white10, width: 1),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      decoration: decoration,
+      child: ListView(
+        padding: const EdgeInsets.only(top: 80, bottom: 100),
         children: [
-          const SizedBox(height: 80),
-          Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          section(
+            "이 장면의 인물",
+            Column(
               children: [
-                Text(
-                  "인물 정보",
-                  style: GoogleFonts.notoSerif(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                if (visibleCharacters.isEmpty)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      "아직 없습니다.",
+                      style: TextStyle(color: palette.muted, fontSize: 12),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "현재 장면에 등장하거나 중요한 인물들입니다.",
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: visibleCharacters.length,
-              itemBuilder: (context, index) {
-                final char = visibleCharacters[index];
-                final isProtagonist = char['role_in_story'] == 'protagonist';
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      showModalBottomSheet(
-                        context: context,
-                        backgroundColor: Colors.transparent,
-                        isScrollControlled: true,
-                        builder: (context) => CharacterSheetWidget(
-                          character: char,
-                          isProtagonist: isProtagonist,
+                for (final char in visibleCharacters)
+                  Builder(
+                    builder: (context) {
+                      final isProtagonist =
+                          char['role_in_story'] == 'protagonist';
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          showModalBottomSheet(
+                            context: context,
+                            backgroundColor: Colors.transparent,
+                            isScrollControlled: true,
+                            builder: (context) => CharacterSheetWidget(
+                              character: char,
+                              isProtagonist: isProtagonist,
+                            ),
+                          );
+                        },
+                        leading: avatar(char),
+                        title: Text(
+                          char['name'],
+                          style: TextStyle(
+                            color: palette.text,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
+                        subtitle: Text(
+                          isProtagonist ? "주인공" : "조연",
+                          style: TextStyle(color: palette.muted, fontSize: 11),
+                        ),
+                        trailing: isProtagonist
+                            ? Icon(Icons.star, color: palette.accent, size: 16)
+                            : null,
                       );
                     },
-                    leading: CircleAvatar(
-                      radius: 20,
-                      backgroundImage: char['image_url'] != null
-                          ? CachedNetworkImageProvider(char['image_url'])
-                          : null,
-                      backgroundColor: Colors.white10,
-                      child: char['image_url'] == null
-                          ? const Icon(Icons.person, color: Colors.white24)
-                          : null,
-                    ),
-                    title: Text(
-                      char['name'],
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    subtitle: Text(
-                      isProtagonist ? "주인공" : "조연",
-                      style: TextStyle(color: Colors.white54, fontSize: 11),
-                    ),
-                    trailing: isProtagonist
-                        ? const Icon(
-                            Icons.star,
-                            color: Color(0xFF7C3AED),
-                            size: 16,
-                          )
-                        : null,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    tileColor: Colors.white.withValues(alpha: 0.03),
                   ),
-                );
-              },
+              ],
             ),
+            first: true,
           ),
-          const Divider(color: Colors.white10, height: 1),
-          Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "AI 어시스턴트",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Consumer(
-                  builder: (context, ref, _) {
-                    final currentModel = ref.watch(currentStoryModelProvider);
-                    return Column(
+          if (_isSkeleton)
+            section(
+              "이야기에 남은 선택",
+              lastingSteps.isEmpty
+                  ? Text(
+                      "아직 없습니다.",
+                      style: TextStyle(color: palette.muted, fontSize: 12),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildModelToggleOption(
-                          ref,
-                          "DeepSeek V4.1 Flash",
-                          "빠른 전개",
-                          AppConstants.defaultLlmModel,
-                          currentModel == AppConstants.defaultLlmModel,
-                        ),
-                        const SizedBox(height: 12),
-                        _buildModelToggleOption(
-                          ref,
-                          "Claude Sonnet 5.5",
-                          "치밀한 묘사",
-                          AppConstants.proLlmModel,
-                          currentModel == AppConstants.proLlmModel,
-                        ),
+                        for (final step in lastingSteps)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "장면 ${step.seq}",
+                                  style: TextStyle(
+                                    color: palette.accent,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  step.label,
+                                  style: TextStyle(
+                                    color: palette.text,
+                                    fontSize: 13,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                       ],
-                    );
-                  },
-                ),
+                    ),
+            ),
+          section(
+            "보기",
+            Row(
+              children: [
+                sizeButton("글자 작게", -1),
+                const SizedBox(width: 8),
+                sizeButton("글자 크게", 1),
               ],
             ),
           ),
-          const SizedBox(height: 100),
         ],
       ),
-    ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.05, end: 0);
+    ).animate().fadeIn(duration: 400.ms).slideX(begin: 0.05, end: 0);
   }
 
   Widget _buildIntegratedCharacterSection(
@@ -1604,6 +1678,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     List<String> importantNames,
   ) {
     if (visibleCharacters.isEmpty) return const SizedBox(height: 20);
+    final palette = context.palette;
     final bool isMobile = MediaQuery.of(context).size.width < 600;
 
     return Column(
@@ -1613,16 +1688,16 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           padding: const EdgeInsets.only(left: 4, bottom: 12),
           child: Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.people_outline_rounded,
-                color: Color(0xFF7C3AED),
+                color: palette.accent,
                 size: 16,
               ),
               const SizedBox(width: 8),
               Text(
                 "현재 현장의 인물들",
                 style: GoogleFonts.lato(
-                  color: Colors.white.withValues(alpha: 0.4),
+                  color: palette.faint,
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.2,
@@ -1665,43 +1740,55 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             top: isMobile ? 12 : 16,
             bottom: isMobile ? 12 : 24,
           ),
-          child: const Divider(
-            color: Colors.white10,
-            height: 1,
-            thickness: 0.5,
-          ),
+          child: Divider(color: palette.line, height: 1, thickness: 0.5),
         ),
       ],
     );
   }
 
   Widget _buildFullScreenLoading() => Container(
-    color: const Color(0xFF0D0D12),
+    color: context.palette.ground,
     child: const StoryCreationLoadingWidget(),
   );
 
   Widget _buildSliverAppBar(BuildContext context, bool isScrolled) {
     final bool isMobile = MediaQuery.of(context).size.width < 600;
     final viewMode = ref.watch(viewModeProvider);
+    final palette = context.palette;
+    final style = context.appStyle;
+    // The expanded bar is an accent band on the route style, a dimmed scene picture at night.
+    final onBand = style.isRoute && !isScrolled;
+    final overPicture =
+        style.isNight &&
+        !isScrolled &&
+        ref.watch(currentBackdropProvider) != null;
+    final Color iconColor = onBand
+        ? palette.onAccent
+        : overPicture
+        ? Colors.white
+        : palette.text;
 
     return SliverAppBar(
-      expandedHeight: isMobile ? 140.0 : 180.0,
+      expandedHeight: isMobile ? 164.0 : 200.0,
       floating: false,
       pinned: true,
-      backgroundColor: isScrolled
-          ? (viewMode == StoryViewMode.manuscript
-                ? const Color(0xFF0D0D12).withValues(alpha: 0.9)
-                : Colors.black)
-          : Colors.transparent,
+      // Opaque: the scenes scroll in their own list, so innerBoxIsScrolled stays false and a clear bar
+      // would let the text show through the collapsed toolbar.
+      backgroundColor: onBand
+          ? palette.accent
+          : isScrolled && viewMode == StoryViewMode.manuscript
+          ? palette.surface
+          : palette.ground,
       elevation: 0,
       centerTitle: true,
       leading: IconButton(
-        icon: const Icon(
+        icon: Icon(
           Icons.arrow_back_ios_new_rounded,
-          color: Colors.white,
+          color: iconColor,
           size: 18,
         ),
         onPressed: () => Navigator.pop(context),
+        tooltip: '뒤로',
       ),
       actions: [
         IconButton(
@@ -1710,7 +1797,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             viewMode == StoryViewMode.manuscript
                 ? Icons.visibility_outlined
                 : Icons.edit_note_rounded,
-            color: Colors.white,
+            color: iconColor,
             size: 20,
           ),
           onPressed: () {
@@ -1725,31 +1812,23 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         ),
         IconButton(
           key: _guideEngineKey,
-          icon: const Icon(
-            Icons.psychology_rounded,
-            color: Colors.white,
-            size: 20,
-          ),
+          icon: Icon(Icons.psychology_rounded, color: iconColor, size: 20),
           onPressed: () => _showModelSettings(context),
-          tooltip: "AI 엔진 변경",
+          tooltip: "글 쓰는 엔진",
         ),
         IconButton(
           key: _guideFontKey,
-          icon: const Icon(
-            Icons.text_fields_rounded,
-            color: Colors.white,
-            size: 20,
+          icon: Text(
+            "가",
+            style: GoogleFonts.notoSerif(
+              color: iconColor,
+              fontSize: 19,
+              fontWeight: FontWeight.w700,
+              height: 1,
+            ),
           ),
-          onPressed: () => _showFontSettings(context),
-          tooltip: "서체 설정",
-        ),
-        IconButton(
-          icon: const Icon(
-            Icons.history_edu_rounded,
-            color: Colors.white,
-            size: 20,
-          ),
-          onPressed: () {},
+          onPressed: () => _showViewSettings(context),
+          tooltip: "보기 설정",
         ),
         const SizedBox(width: 4),
       ],
@@ -1759,87 +1838,195 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
         title: isScrolled
             ? Text(
                 widget.initialStory?.title ?? "Saga",
-                style: GoogleFonts.notoSerif(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ).copyWith(fontFamilyFallback: _fontFallbacks),
+                style: style
+                    .title(
+                      GoogleFonts.notoSerif(
+                        color: palette.text,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                    .copyWith(fontFamilyFallback: _fontFallbacks),
               )
             : null,
-        background: _buildAppBarContent(),
+        background: _buildAppBarContent(onBand: onBand),
       ),
     );
   }
 
-  void _showFontSettings(BuildContext context) {
+  void _showViewSettings(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Consumer(
+      isScrollControlled: true,
+      builder: (sheetContext) => Consumer(
         builder: (context, ref, _) {
-          final currentFont = ref.watch(selectedFontProvider);
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A1A24),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(30),
+          final prefs = ref.watch(readingPrefsProvider);
+          void change(ReadingPrefs next) {
+            HapticFeedback.selectionClick();
+            ref.read(readingPrefsProvider.notifier).set(next);
+          }
+
+          Widget label(String text) => Padding(
+            padding: const EdgeInsets.only(top: 22, bottom: 10),
+            child: Text(
+              text,
+              style: TextStyle(
+                color: palette.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
               ),
-              border: Border.all(color: Colors.white10),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+          );
+
+          Widget segments(
+            List<String> labels,
+            int selected,
+            ValueChanged<int> onPick,
+          ) {
+            return Row(
               children: [
-                const Text(
-                  "서체 설정",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: availableFonts.map((font) {
-                    final isSelected = currentFont == font;
-                    return GestureDetector(
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        ref.read(selectedFontProvider.notifier).state = font;
-                      },
+                for (var i = 0; i < labels.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => onPick(i),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? const Color(0xFF7C3AED)
-                              : Colors.white.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isSelected
-                                ? Colors.transparent
-                                : Colors.white10,
-                          ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        alignment: Alignment.center,
+                        decoration: style.control(
+                          palette,
+                          selected: i == selected,
                         ),
                         child: Text(
-                          font,
-                          style: GoogleFonts.getFont(
-                            font,
-                            color: Colors.white,
-                            fontSize: 14,
+                          labels[i],
+                          style: TextStyle(
+                            color: style.onControl(
+                              palette,
+                              selected: i == selected,
+                            ),
+                            fontSize: 13,
                           ),
                         ),
                       ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 20),
+                    ),
+                  ),
+                ],
               ],
+            );
+          }
+
+          return SafeArea(
+            top: false,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+              decoration: BoxDecoration(
+                color: palette.surface,
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(style.radiusLarge),
+                ),
+                border: Border.all(
+                  color: style.edge(palette),
+                  width: style.borderWidth,
+                ),
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "보기 설정",
+                      style: style.title(
+                        TextStyle(
+                          color: palette.text,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    label("서체"),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: readingFonts.map((font) {
+                        final isSelected = prefs.font == font;
+                        return GestureDetector(
+                          onTap: () => change(prefs.copyWith(font: font)),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            decoration: style.control(
+                              palette,
+                              selected: isSelected,
+                            ),
+                            child: Text(
+                              font,
+                              style: GoogleFonts.getFont(
+                                font,
+                                color: style.onControl(
+                                  palette,
+                                  selected: isSelected,
+                                ),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    label("글자 크기"),
+                    segments(
+                      ReadingPrefs.sizeLabels,
+                      prefs.sizeStep,
+                      (i) => change(prefs.copyWith(sizeStep: i)),
+                    ),
+                    label("줄 간격"),
+                    segments(
+                      ReadingPrefs.spacingLabels,
+                      prefs.spacingStep,
+                      (i) => change(prefs.copyWith(spacingStep: i)),
+                    ),
+                    const SizedBox(height: 18),
+                    Divider(color: palette.line, height: 1),
+                    InkWell(
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        Navigator.of(this.context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ThemeScreen(),
+                          ),
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                "화면 테마",
+                                style: TextStyle(
+                                  color: palette.text,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              color: palette.muted,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           );
         },
@@ -1848,6 +2035,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
   }
 
   void _showModelSettings(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1857,36 +2046,38 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A24),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(30),
+              color: palette.surface,
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(style.radiusLarge),
               ),
-              border: Border.all(color: Colors.white10),
+              border: Border.all(
+                color: style.edge(palette),
+                width: style.borderWidth,
+              ),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "AI 스토리 엔진 전환",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                Text(
+                  "글 쓰는 엔진",
+                  style: style.title(
+                    TextStyle(
+                      color: palette.text,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  "중요한 장면에서는 더 정교한 Pro 엔진을 사용해 보세요.",
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    fontSize: 13,
-                  ),
+                  "중요한 장면에서는 더 정교한 고급 엔진을 써 보세요.",
+                  style: TextStyle(color: palette.muted, fontSize: 13),
                 ),
                 const SizedBox(height: 24),
                 _buildModelToggleOption(
                   ref,
-                  "DeepSeek V4.1 Flash",
+                  "기본 엔진",
                   "빠르고 가벼운 대화와 전개",
                   AppConstants.defaultLlmModel,
                   currentModel == AppConstants.defaultLlmModel,
@@ -1895,7 +2086,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                 const SizedBox(height: 12),
                 _buildModelToggleOption(
                   ref,
-                  "Claude Sonnet 5.5",
+                  "고급 엔진",
                   "치밀한 묘사와 깊이 있는 서사",
                   AppConstants.proLlmModel,
                   currentModel == AppConstants.proLlmModel,
@@ -1918,6 +2109,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     bool isSelected, {
     bool closesSheet = false,
   }) {
+    final palette = context.palette;
+    final style = context.appStyle;
     final locked = ref.watch(currentPlanProvider).locks(modelId);
     return GestureDetector(
       onTap: () async {
@@ -1938,7 +2131,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           if (mounted) {
             // Only the bottom sheet closes; the side panel's copy must not close the story.
             if (closesSheet) Navigator.pop(context);
-            CustomToast.show(context, "$title 엔진으로 전환되었습니다.");
+            CustomToast.show(context, "$title으로 바꿨습니다.");
           }
         } catch (e) {
           if (mounted) {
@@ -1952,21 +2145,14 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
       },
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xFF7C3AED).withValues(alpha: 0.15)
-              : Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? const Color(0xFF7C3AED) : Colors.white10,
-            width: 1.5,
-          ),
-        ),
+        decoration: style.control(palette, selected: isSelected),
         child: Row(
           children: [
             Icon(
               locked ? Icons.lock : Icons.auto_awesome,
-              color: isSelected ? const Color(0xFF7C3AED) : Colors.white24,
+              color: isSelected
+                  ? style.onControl(palette, selected: true)
+                  : palette.faint,
               size: 20,
             ),
             const SizedBox(width: 16),
@@ -1977,7 +2163,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   Text(
                     title,
                     style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.white70,
+                      color: isSelected
+                          ? style.onControl(palette, selected: true)
+                          : palette.muted,
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
                     ),
@@ -1986,7 +2174,9 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                   Text(
                     locked ? "유료" : sub,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.4),
+                      color: isSelected && !style.isNight
+                          ? style.onControl(palette, selected: true)
+                          : palette.faint,
                       fontSize: 12,
                     ),
                   ),
@@ -1994,9 +2184,11 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
               ),
             ),
             if (isSelected)
-              const Icon(
+              Icon(
                 Icons.check_circle,
-                color: Color(0xFF7C3AED),
+                color: style.isNight
+                    ? palette.accent
+                    : style.onControl(palette, selected: true),
                 size: 20,
               ).animate().scale(duration: 200.ms),
           ],
@@ -2005,9 +2197,37 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
     );
   }
 
-  Widget _buildAppBarContent() {
+  Widget _buildAppBarContent({required bool onBand}) {
+    final palette = context.palette;
+    final style = context.appStyle;
     final bool isMobile = MediaQuery.of(context).size.width < 600;
-    return Container(
+    final backdropUrl = ref.watch(currentBackdropProvider);
+    final messages = ref.watch(messageProvider);
+    final bool overPicture = style.isNight && backdropUrl != null;
+
+    // Scenes are the AI messages counted from 1; those with a picture light the progress strip.
+    var scenes = 0;
+    final pictured = <int>{};
+    for (final m in messages) {
+      if (m['role'] == 'user') continue;
+      scenes++;
+      final image = m['imageUrl'];
+      if (image != null && image.toString().isNotEmpty) pictured.add(scenes);
+    }
+    final current = _isSkeleton ? (_play?.beatSeq ?? 1) : scenes;
+
+    final Color genreColor = onBand
+        ? palette.onAccent
+        : overPicture
+        ? Colors.white
+        : palette.accent;
+    final Color titleColor = onBand
+        ? palette.onAccent
+        : overPicture
+        ? Colors.white
+        : palette.text;
+
+    final content = Container(
       padding: EdgeInsets.only(top: isMobile ? 40 : 60),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -2015,7 +2235,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
           Text(
             widget.initialStory?.genre.toUpperCase() ?? "STORY",
             style: GoogleFonts.lato(
-              color: const Color(0xFF7C3AED),
+              color: genreColor,
               fontSize: isMobile ? 10 : 11,
               fontWeight: FontWeight.w900,
               letterSpacing: isMobile ? 3 : 5,
@@ -2028,42 +2248,60 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                 Text(
                       widget.initialStory?.title ?? "Untitled",
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.notoSerif(
-                        color: Colors.white,
-                        fontSize: isMobile ? 24 : 30,
-                        fontWeight: FontWeight.bold,
-                        height: 1.2,
+                      style: style.title(
+                        GoogleFonts.notoSerif(
+                          color: titleColor,
+                          fontSize: isMobile ? 24 : 30,
+                          fontWeight: style.isPaper
+                              ? FontWeight.w900
+                              : FontWeight.bold,
+                          height: 1.2,
+                        ),
                       ),
                     )
                     .animate()
                     .fadeIn(delay: 500.ms)
                     .scale(begin: const Offset(0.95, 0.95)),
           ),
-          const SizedBox(height: 16),
-          Container(width: 40, height: 1, color: Colors.white24),
+          const SizedBox(height: 14),
+          SceneProgress(
+            current: current < 1 ? 1 : current,
+            pictured: pictured,
+            lasting: _play?.lastingSeqs ?? const {},
+            onBand: onBand,
+          ),
         ],
       ),
+    );
+    if (!overPicture) return content;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        CachedNetworkImage(
+          imageUrl: backdropUrl,
+          fit: BoxFit.cover,
+          errorWidget: (context, url, error) => const SizedBox.shrink(),
+        ),
+        // Darkens the picture so the white title stays readable.
+        Container(color: Colors.black.withValues(alpha: 0.6)),
+        content,
+      ],
     );
   }
 
   Widget _buildBackdrop(String? url, StoryViewMode mode) {
     if (mode == StoryViewMode.focus) return const SizedBox.shrink();
 
-    final bgColor = mode == StoryViewMode.manuscript
-        ? const Color(0xFF16161D)
-        : const Color(0xFF000000);
-
-    return Positioned.fill(child: Container(color: bgColor));
+    return Positioned.fill(child: Container(color: context.palette.ground));
   }
 
   Widget _buildFloatingControls(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 600;
-    final viewMode = ref.watch(viewModeProvider);
+    final palette = context.palette;
+    final style = context.appStyle;
     final isSending =
         _isSendingMessage || ref.watch(streamingMessageIdProvider) != null;
-    final bgColor = viewMode == StoryViewMode.manuscript
-        ? const Color(0xFF16161D)
-        : const Color(0xFF000000);
+    final bgColor = palette.ground;
     return Positioned(
       bottom: 0,
       left: 0,
@@ -2092,9 +2330,14 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(35),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                color: palette.raised,
+                borderRadius: BorderRadius.circular(
+                  style.isNight ? 35 : style.radius,
+                ),
+                border: Border.all(
+                  color: style.edge(palette),
+                  width: style.borderWidth,
+                ),
               ),
               child: Row(
                 children: [
@@ -2103,16 +2346,20 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                     child: TextField(
                       controller: _controller,
                       style: GoogleFonts.lato(
-                        color: Colors.white,
+                        color: palette.text,
                         fontSize: 15,
                       ),
                       decoration: InputDecoration(
                         hintText: isSending ? "응답 생성 중..." : "어떻게 행동할까요?",
                         hintStyle: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.3),
+                          color: palette.faint,
                           fontSize: 14,
                         ),
+                        // The bar around the field is its fill and outline: none of the theme's.
+                        filled: false,
                         border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
                       ),
                       onSubmitted: (_) {
                         if (!isSending) _sendMessage();
@@ -2125,22 +2372,20 @@ class _StoryScreenState extends ConsumerState<StoryScreen> {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: isSending
-                            ? Colors.white24
-                            : const Color(0xFF7C3AED),
+                        color: isSending ? palette.line : palette.accent,
                         shape: BoxShape.circle,
                       ),
                       child: isSending
-                          ? const Padding(
-                              padding: EdgeInsets.all(12),
+                          ? Padding(
+                              padding: const EdgeInsets.all(12),
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: palette.text,
                               ),
                             )
-                          : const Icon(
+                          : Icon(
                               Icons.auto_fix_high_rounded,
-                              color: Colors.white,
+                              color: palette.onAccent,
                               size: 20,
                             ),
                     ),
@@ -2177,7 +2422,8 @@ class _RefinedNarrativeCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedFont = ref.watch(selectedFontProvider);
+    final palette = context.palette;
+    final prefs = ref.watch(readingPrefsProvider);
     final isInitialLoadDone = ref.watch(isInitialLoadDoneProvider);
     final streamingMessageId = ref.watch(streamingMessageIdProvider);
     final viewMode = ref.watch(viewModeProvider);
@@ -2192,13 +2438,13 @@ class _RefinedNarrativeCard extends ConsumerWidget {
     TextStyle getBaseStyle({
       double fontSize = 19,
       FontStyle fontStyle = FontStyle.normal,
-      double height = 2.0,
+      double? height,
     }) {
       return GoogleFonts.getFont(
-        selectedFont,
-        color: Colors.white.withValues(alpha: 0.92),
-        fontSize: isMobile ? fontSize - 2 : fontSize,
-        height: height,
+        prefs.font,
+        color: palette.text,
+        fontSize: (isMobile ? fontSize - 2 : fontSize) * prefs.scale,
+        height: height ?? prefs.lineHeight,
         fontStyle: fontStyle,
         letterSpacing: 0.4,
       ).copyWith(fontFamilyFallback: _fontFallbacks);
@@ -2207,53 +2453,47 @@ class _RefinedNarrativeCard extends ConsumerWidget {
     if (isUser) {
       if (viewMode == StoryViewMode.focus) return const SizedBox.shrink();
 
+      final style = context.appStyle;
+      final label = Container(
+        padding: style.isRoute
+            ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2)
+            : EdgeInsets.zero,
+        decoration: style.isRoute
+            ? BoxDecoration(
+                color: palette.text,
+                borderRadius: BorderRadius.circular(style.radiusSmall),
+              )
+            : null,
+        child: Text(
+          "지난 선택",
+          style: GoogleFonts.lato(
+            color: style.isRoute ? palette.highlight : palette.accent,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1,
+          ),
+        ),
+      );
       return RepaintBoundary(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  "당신의 행동",
-                  style: GoogleFonts.lato(
-                    color: const Color(0xFF7C3AED),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1,
-                  ),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(padding: const EdgeInsets.only(top: 3), child: label),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  msg['content'],
+                  style: getBaseStyle(
+                    fontSize: 15,
+                    height: 1.5,
+                  ).copyWith(color: palette.muted),
                 ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(20),
-                      bottomLeft: Radius.circular(20),
-                      bottomRight: Radius.circular(20),
-                    ),
-                    border: Border.all(
-                      color: const Color(0xFF7C3AED).withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Text(
-                    msg['content'],
-                    style: getBaseStyle(
-                      fontSize: 16,
-                      fontStyle: FontStyle.italic,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ).animate().fadeIn().slideX(begin: 0.05),
+        ).animate().fadeIn(),
       );
     }
 
@@ -2269,14 +2509,16 @@ class _RefinedNarrativeCard extends ConsumerWidget {
               Padding(
                     padding: const EdgeInsets.only(bottom: 24),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(
+                        context.appStyle.radiusLarge,
+                      ),
                       child: CachedNetworkImage(
                         imageUrl: msg['imageUrl'],
                         fit: BoxFit.cover,
                         memCacheWidth: 800,
                         placeholder: (context, url) => Container(
                           height: 200,
-                          color: Colors.white.withValues(alpha: 0.05),
+                          color: palette.surface,
                           child: const Center(
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
@@ -2292,8 +2534,8 @@ class _RefinedNarrativeCard extends ConsumerWidget {
 
             if (isPlaceholder)
               Shimmer.fromColors(
-                baseColor: Colors.white10,
-                highlightColor: Colors.white24,
+                baseColor: palette.raised,
+                highlightColor: palette.line,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -2301,7 +2543,7 @@ class _RefinedNarrativeCard extends ConsumerWidget {
                       width: double.infinity,
                       height: 20,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: palette.text,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -2310,7 +2552,7 @@ class _RefinedNarrativeCard extends ConsumerWidget {
                       width: double.infinity,
                       height: 20,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: palette.text,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -2319,7 +2561,7 @@ class _RefinedNarrativeCard extends ConsumerWidget {
                       width: 200,
                       height: 20,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: palette.text,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -2335,18 +2577,18 @@ class _RefinedNarrativeCard extends ConsumerWidget {
                 data: msg['content'],
                 style: getBaseStyle(),
                 strongStyle: getBaseStyle().copyWith(
-                  color: const Color(0xFF7C3AED),
+                  color: palette.accent,
                   fontWeight: FontWeight.bold,
                 ),
                 quoteDecoration: BoxDecoration(
-                  border: const Border(
-                    left: BorderSide(color: Color(0xFF7C3AED), width: 4),
+                  border: Border(
+                    left: BorderSide(color: palette.accent, width: 4),
                   ),
-                  color: Colors.white.withValues(alpha: 0.03),
+                  color: palette.surface,
                 ),
                 quoteStyle: getBaseStyle(
                   fontStyle: FontStyle.italic,
-                ).copyWith(color: Colors.white.withValues(alpha: 0.7)),
+                ).copyWith(color: palette.muted),
               ),
             if (hasStreamFailed)
               Padding(
@@ -2356,10 +2598,14 @@ class _RefinedNarrativeCard extends ConsumerWidget {
                   icon: const Icon(Icons.refresh_rounded, size: 18),
                   label: const Text('응답 복구'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFFFD166),
-                    side: const BorderSide(color: Color(0xFFFFD166)),
+                    foregroundColor: palette.warning,
+                    side: BorderSide(color: palette.warning),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(999),
+                      borderRadius: BorderRadius.circular(
+                        context.appStyle.isNight
+                            ? 999
+                            : context.appStyle.radiusSmall,
+                      ),
                     ),
                   ),
                 ),
@@ -2402,6 +2648,7 @@ class _BgmControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final label = isLoading
         ? 'BGM 생성 중'
         : hasBgm
@@ -2411,11 +2658,13 @@ class _BgmControlButton extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: isLoading ? null : onPressed,
       style: OutlinedButton.styleFrom(
-        foregroundColor: isActive ? const Color(0xFFBCA7FF) : Colors.white70,
-        side: BorderSide(
-          color: isActive ? const Color(0xFF7C3AED) : Colors.white24,
+        foregroundColor: isActive ? palette.accent : palette.muted,
+        side: BorderSide(color: isActive ? palette.accent : palette.line),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(
+            context.appStyle.isNight ? 999 : context.appStyle.radiusSmall,
+          ),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
       ),
       icon: isLoading
           ? const SizedBox(
@@ -2442,15 +2691,16 @@ class _TipItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             "• ",
             style: TextStyle(
-              color: Color(0xFF7C3AED),
+              color: palette.accent,
               fontWeight: FontWeight.bold,
               fontSize: 16,
             ),
@@ -2458,11 +2708,7 @@ class _TipItem extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-                height: 1.5,
-              ),
+              style: TextStyle(color: palette.muted, fontSize: 13, height: 1.5),
             ),
           ),
         ],

@@ -1,0 +1,40 @@
+name: Build Android APK
+
+# An installable APK for trying the app on a phone before release. Run it from the Actions tab, or push a
+# tag named apk-* on the commit to build. Signed with the runner's debug key, so it is not for the store.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'apk-*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.50.0' # same as deploy-frontend.yml
+          channel: 'stable'
+
+      - name: Build APK
+        run: |
+          cd frontend
+          flutter pub get
+          flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: novelaine-${{ github.ref_name }}-${{ github.run_number }}
+          path: frontend/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14

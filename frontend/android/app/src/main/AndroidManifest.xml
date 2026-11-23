@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The app talks to the NovelAIne API; debug and profile builds had this, release builds did not. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="frontend"
+        android:label="NovelAIne"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

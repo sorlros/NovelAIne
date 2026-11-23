@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/theme/app_palette.dart';
+import '../../core/theme/app_style.dart';
 import '../providers/auth_provider.dart';
 import '../screens/auth/auth_screen.dart';
 import 'package:frontend/l10n/app_localizations.dart';
@@ -45,19 +47,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    final style = context.appStyle;
     return ResponsiveLayout(
       currentIndex: 4,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           "내 프로필",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          style: style.title(
+            TextStyle(fontWeight: FontWeight.bold, color: palette.text),
+          ),
         ),
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: palette.ground,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: palette.text),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white70),
+            icon: Icon(Icons.logout, color: palette.muted),
             onPressed: _logout,
             tooltip: '로그아웃',
           ),
@@ -81,13 +87,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 TabBar(
                   controller: _tabController,
                   indicator: BoxDecoration(
-                    color: const Color(0xFF7C3AED), // Vibrant purple
-                    borderRadius: BorderRadius.circular(16),
+                    color: style.primary(palette),
+                    borderRadius: BorderRadius.circular(style.radius),
+                    border: style.isRoute
+                        ? Border.all(color: palette.text, width: 2)
+                        : null,
                   ),
                   indicatorSize: TabBarIndicatorSize.tab,
-                  labelColor: Colors.white,
+                  labelColor: style.onPrimary(palette),
                   labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-                  unselectedLabelColor: Colors.white54,
+                  unselectedLabelColor: palette.muted,
                   dividerColor: Colors.transparent,
                   overlayColor: WidgetStateProperty.all(Colors.transparent),
                   tabs: [
@@ -124,24 +133,18 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
+    final palette = context.palette;
+    final style = context.appStyle;
     return Container(
-      color: const Color(
-        0xFF121212,
-      ), // Match background to obscure content scrolling underneath
+      color: palette
+          .ground, // Match background to obscure content scrolling underneath
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E1E1E),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white10),
-        ),
-        child: tabBar,
-      ),
+      child: Container(decoration: style.card(palette), child: tabBar),
     );
   }
 
   @override
   bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
-    return false;
+    return true; // colours follow the theme, so the header is rebuilt with it
   }
 }
